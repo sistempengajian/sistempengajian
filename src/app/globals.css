@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 158 64% 40%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 239 84% 67%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 158 64% 95%;
+    --accent-foreground: 158 64% 20%;
+
+    --destructive: 347 77% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 158 64% 40%;
+
+    --radius: 1rem;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #ffffff;
+  color: #334155;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Custom Soft Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Elegant Micro Horizontal Scrollbar for Tab Bars on Mobile */
+.tab-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(13, 148, 136, 0.45) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-scrollbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tab-scrollbar::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.7);
+  border-radius: 9999px;
+  margin: 0 8px;
+}
+
+.tab-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(13, 148, 136, 0.45);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+.tab-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(13, 148, 136, 0.8);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe Area Utility for PWA Mobile Navigation Bar */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
+
+.pt-safe {
+  padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+}
+
+/* Glassmorphism Pastel Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-mint {
+  background: rgba(209, 250, 229, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* Non-selectable on mobile buttons */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Explicit Role-Based Pastel Gradient Backgrounds */
+.bg-role-santri {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(180deg, #A7F3D0 0%, #D1FAE5 140px, #ECFDF5 320px, #FFFFFF 620px) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+.bg-role-pengajar {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(180deg, #99F6E4 0%, #CCFBF1 140px, #F0FDFA 320px, #FFFFFF 620px) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+.bg-role-orang-tua {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(180deg, #C7D2FE 0%, #E0E7FF 140px, #EEF2FF 320px, #FFFFFF 620px) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+.bg-role-pj {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(180deg, #BAE6FD 0%, #E0F2FE 140px, #F0F9FF 320px, #FFFFFF 620px) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+.bg-role-admin {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(180deg, #E9D5FF 0%, #F3E8FF 140px, #FAF5FF 320px, #FFFFFF 620px) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+/* Styling responsif kamera pemindai QR Code HTML5 */
+#batch-reader, #student-camera-reader {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
+#batch-reader video, #student-camera-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1.5rem !important;
+}
+
+#batch-reader #qr-shaded-region, #student-camera-reader #qr-shaded-region {
+  border-radius: 0.875rem !important;
+}

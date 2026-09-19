@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="100" fill="url(#mint-grad-lg)"/>
+  <defs>
+    <linearGradient id="mint-grad-lg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10B981"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <!-- Mosque Dome & Open Book Vector -->
+  <path d="M256 100C224 140 165 180 165 230C165 280 205 320 256 320C307 320 347 280 347 230C347 180 288 140 256 100Z" fill="white" fill-opacity="0.95"/>
+  <path d="M140 384C175 358 218 358 256 380C294 358 337 358 372 384V314C337 294 294 294 256 314C218 294 175 294 140 314V384Z" fill="#D1FAE5"/>
+  <circle cx="256" cy="85" r="14" fill="#FEF3C7"/>
+  <path d="M256 50L261 68L278 72L261 78L256 94L251 78L234 72L251 68L256 50Z" fill="#F59E0B"/>
+</svg>

@@ -1,0 +1,927 @@
+// Prisma Schema for Sistem Manajemen Pengajian & Pembinaan Generasi Qur'ani
+// Blueprint Version: 2.0.0
+// Database: Supabase PostgreSQL with Supavisor Connection Pooling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==============================================================================
+// 1. ENUMS
+// ==============================================================================
+
+enum OrganizationType {
+  DAERAH
+  DESA
+  KELOMPOK
+}
+
+enum GenerationCode {
+  CABERAWIT    // 4-12 thn (PAUD - SD)
+  PRA_REMAJA   // 13-15 thn (SMP)
+  REMAJA       // 16-18 thn (SMA / SMK)
+  MANDIRI      // 19-25+ thn (Mahasiswa / Dewasa Muda)
+}
+
+enum UserRole {
+  SANTRI
+  ORANG_TUA
+  PENGAJAR
+  WALI_KELAS
+  PJ_KELOMPOK
+  PJ_DESA
+  PJ_DAERAH
+  ADMIN_MASTER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ParentRelationType {
+  AYAH
+  IBU
+  WALI
+}
+
+enum TierLevel {
+  KELOMPOK
+  DESA
+  DAERAH
+}
+
+enum MaterialUsageScope {
+  ALL_TIERS
+  DESA_AND_ABOVE
+  DAERAH_ONLY
+}
+
+enum CompletionTierLevel {
+  ANY_TIER
+  DESA_AND_ABOVE
+  DAERAH_ONLY
+}
+
+enum TaskType {
+  DAILY_HABIT
+  AUDIO_MEMORIZATION
+  WRITTEN_SUBMISSION
+  QUIZ_ONLINE
+}
+
+enum SubmissionStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED_BY_PARENT
+  GRADED
+  REVISION
+}
+
+enum ScheduleType {
+  REGULAR_ROUTINE
+  PRIVATE_REMEDIAL
+  EVENT_AKBAR
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum RollingIntervalType {
+  PER_PENGAJIAN
+  MINGGUAN
+  BULANAN
+}
+
+enum RollingTargetScope {
+  KELAS
+  GENERASI
+  WILAYAH_UMUM
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AttendanceMethod {
+  QR_SCAN_STUDENT
+  CARD_SCAN_TEACHER
+  MANUAL_TEACHER
+}
+
+enum AttendanceStatus {
+  HADIR
+  TERLAMBAT
+  SAKIT
+  IZIN
+  ALPA
+}
+
+enum AbsenceReasonType {
+  SAKIT
+  IZIN
+}
+
+enum AbsenceConfirmationStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  REJECTED
+}
+
+// ==============================================================================
+// 2. CORE MODELS (14 DOMAINS)
+// ==============================================================================
+
+// 1. Organizations (Tingkatan Wilayah: Daerah > Desa > Kelompok)
+model Organization {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String           @db.VarChar(255)
+  type      OrganizationType
+  parentId  String?          @map("parent_id") @db.Uuid
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  parent      Organization?  @relation("OrgTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Organization[] @relation("OrgTree")
+  users       User[]
+  classes     Class[]
+  materials   Material[]
+  assignments Assignment[]
+  schedules   Schedule[]
+  materialChecklistItems MaterialChecklistItem[]
+  customizations         MaterialCustomization[]
+  materialRollings       MaterialRolling[]
+  teacherRollings        TeacherRolling[]
+  rollingPengajian       RollingPengajian[]
+
+  @@index([type])
+  @@index([parentId])
+  @@map("organizations")
+}
+
+// 2. Generations (Jenjang Usia Baku)
+model Generation {
+  id          String         @id @default(uuid()) @db.Uuid
+  code        String         @unique @db.VarChar(50)
+  name        String         @db.VarChar(100)
+  minAge      Int            @map("min_age")
+  maxAge      Int            @map("max_age")
+  description String?        @db.Text
+  color       String?        @default("emerald") @db.VarChar(50)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  users     User[]
+  classes   Class[]
+  materials Material[]
+  materialRollings MaterialRolling[]
+  rollingPengajianAssignments RollingPengajianGeneration[]
+  scheduleAssignments         ScheduleGeneration[]
+
+  @@map("generations")
+}
+
+// 3. Users & User Profiles (Sync with Supabase auth.users)
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String?   @unique @db.VarChar(255)
+  username       String?   @unique @db.VarChar(100)
+  fullName       String    @map("full_name") @db.VarChar(255)
+  phoneNumber    String?   @map("phone_number") @db.VarChar(50)
+  gender         Gender    @default(MALE)
+  avatarUrl      String?   @map("avatar_url") @db.Text
+  birthPlace     String?   @map("birth_place") @db.VarChar(100)
+  birthDate      DateTime? @map("birth_date") @db.Date
+  status         String    @default("ACTIVE") @db.VarChar(50) // ACTIVE, INACTIVE, SUSPENDED
+  organizationId String?   @map("organization_id") @db.Uuid
+  generationId   String?   @map("generation_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  organization             Organization?              @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  generation               Generation?                @relation(fields: [generationId], references: [id], onDelete: SetNull)
+  roles                    UserRoleAssignment[]
+  parents                  StudentParentRelation[]    @relation("StudentParents")
+  children                 StudentParentRelation[]    @relation("ParentStudents")
+  homeroomClasses          Class[]                    @relation("HomeroomTeacher")
+  materialsCreated         Material[]                 @relation("MaterialAuthor")
+  assignmentsCreated       Assignment[]               @relation("AssignmentTeacher")
+  assignmentSubmissions    AssignmentSubmission[]     @relation("StudentSubmissions")
+  scheduleAssignments      ScheduleTeacher[]          @relation("TeacherSchedules")
+  attendanceRecords        AttendanceRecord[]         @relation("StudentAttendances")
+  markedAttendances        AttendanceRecord[]         @relation("TeacherMarkedAttendances")
+  materialProgress         MaterialChecklistProgress[] @relation("StudentProgress")
+  studentEvaluations       StudentEvaluation[]        @relation("StudentEvaluated")
+  auditLogs                AuditLog[]                 @relation("UserAuditLogs")
+  gamification             UserGamification?
+  badges                   StudentBadge[]             @relation("StudentBadges")
+  parentVerifications      AssignmentParentVerification[] @relation("ParentVerifications")
+  absenceConfirmations     AbsenceConfirmation[]     @relation("ParentAbsenceConfirmations")
+  rollingPrimaryAssignments   TeacherRollingQueueItem[] @relation("RollingPrimaryTeachers")
+  rollingSubstituteAssignments TeacherRollingQueueItem[] @relation("RollingSubstituteTeachers")
+
+  @@index([organizationId])
+  @@index([generationId])
+  @@index([phoneNumber])
+  @@map("users")
+}
+
+// User Roles Assignment (Multi-Role Support)
+model UserRoleAssignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_roles")
+}
+
+// 4. Student Parent Relations (Relasi Multi-Anak Orang Tua)
+model StudentParentRelation {
+  id               String             @id @default(uuid()) @db.Uuid
+  studentUserId    String             @map("student_user_id") @db.Uuid
+  parentUserId     String             @map("parent_user_id") @db.Uuid
+  relationshipType ParentRelationType @default(WALI) @map("relationship_type")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  student User @relation("StudentParents", fields: [studentUserId], references: [id], onDelete: Cascade)
+  parent  User @relation("ParentStudents", fields: [parentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([studentUserId, parentUserId])
+  @@index([parentUserId])
+  @@index([studentUserId])
+  @@map("student_parent_relations")
+}
+
+// 5. Classes (Kelas Berjenjang)
+model Class {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String    @db.VarChar(255)
+  tierLevel         TierLevel @default(KELOMPOK) @map("tier_level")
+  organizationId    String    @map("organization_id") @db.Uuid
+  generationId      String    @map("generation_id") @db.Uuid
+  homeroomTeacherId String?   @map("homeroom_teacher_id") @db.Uuid
+  academicYear      String    @map("academic_year") @db.VarChar(50)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  generation      Generation   @relation(fields: [generationId], references: [id], onDelete: Restrict)
+  homeroomTeacher User?        @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
+  schedules       Schedule[]
+  assignments     Assignment[]
+  rollingPengajianAssignments RollingPengajianClass[]
+  scheduleAssignments         ScheduleClass[]
+
+  @@index([organizationId])
+  @@index([generationId])
+  @@map("classes")
+}
+
+// 6. Materials (Master Materi & Kebijakan Akses Berjenjang)
+model Material {
+  id                  String             @id @default(uuid()) @db.Uuid
+  title               String             @db.VarChar(255)
+  description         String?            @db.Text
+  fileUrl             String?            @map("file_url") @db.Text
+  authorId            String?            @map("author_id") @db.Uuid
+  creatorTierLevel    TierLevel          @default(KELOMPOK) @map("creator_tier_level")
+  organizationId      String?            @map("organization_id") @db.Uuid
+  allowedUsageScope   MaterialUsageScope @default(ALL_TIERS) @map("allowed_usage_scope")
+  targetGenerationId  String             @map("target_generation_id") @db.Uuid
+  isMandatoryForTarget Boolean           @default(false) @map("is_mandatory_for_target")
+  parentForkedFromId  String?            @map("parent_forked_from_id") @db.Uuid
+  isActive            Boolean            @default(true) @map("is_active")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  author           User?                  @relation("MaterialAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  organization     Organization?          @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  targetGeneration Generation             @relation(fields: [targetGenerationId], references: [id], onDelete: Restrict)
+  forkedFrom       Material?              @relation("MaterialForks", fields: [parentForkedFromId], references: [id], onDelete: SetNull)
+  forks            Material[]             @relation("MaterialForks")
+  checklistItems   MaterialChecklistItem[]
+  assignments      Assignment[]
+  customizations   MaterialCustomization[]
+  rollingQueueItems  MaterialRollingQueueItem[]
+  scheduleMaterials  ScheduleMaterial[]
+
+  @@index([targetGenerationId])
+  @@index([organizationId])
+  @@index([parentForkedFromId])
+  @@map("materials")
+}
+
+// 7. Material Checklist Items (Sub-Capaian & Otoritas Penyelesaian 🔒)
+model MaterialChecklistItem {
+  id                  String              @id @default(uuid()) @db.Uuid
+  materialId          String              @map("material_id") @db.Uuid
+  itemTitle           String              @map("item_title") @db.VarChar(255)
+  description         String?             @db.Text
+  completionTierLevel CompletionTierLevel @default(ANY_TIER) @map("completion_tier_level")
+  pointsWeight        Int                 @default(10) @map("points_weight")
+  orderIndex          Int                 @default(0) @map("order_index")
+  organizationId      String?             @map("organization_id") @db.Uuid
+  tierLevel           TierLevel?          @map("tier_level")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  material        Material                    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  organization    Organization?               @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  studentProgress MaterialChecklistProgress[]
+
+  @@index([materialId])
+  @@index([organizationId])
+  @@map("material_checklist_items")
+}
+
+model MaterialCustomization {
+  id                String    @id @default(uuid()) @db.Uuid
+  materialId        String    @map("material_id") @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  tierLevel         TierLevel @map("tier_level")
+  customTitle       String?   @map("custom_title") @db.VarChar(255)
+  customDescription String?   @map("custom_description") @db.Text
+  customFileUrl     String?   @map("custom_file_url") @db.Text
+  excludedItemIds   String[]  @map("excluded_item_ids")
+  itemOverrides     Json?     @map("item_overrides")
+  authorId          String?   @map("author_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, organizationId])
+  @@index([materialId])
+  @@index([organizationId])
+  @@map("material_customizations")
+}
+
+// 8. Assignments (Master Tugas Pasca-Pengajian & Sinergi Ortu)
+model Assignment {
+  id                         String    @id @default(uuid()) @db.Uuid
+  title                      String    @db.VarChar(255)
+  description                String?   @db.Text
+  tierLevel                  TierLevel @default(KELOMPOK) @map("tier_level")
+  organizationId             String    @map("organization_id") @db.Uuid
+  classId                    String?   @map("class_id") @db.Uuid
+  scheduleId                 String?   @map("schedule_id") @db.Uuid
+  materialId                 String?   @map("material_id") @db.Uuid
+  teacherId                  String    @map("teacher_id") @db.Uuid
+  taskType                   TaskType  @default(DAILY_HABIT) @map("task_type")
+  requiresParentVerification Boolean   @default(false) @map("requires_parent_verification")
+  dueDate                    DateTime? @map("due_date") @db.Timestamptz(6)
+  pointsReward               Int       @default(20) @map("points_reward")
+  parentBonusPoints          Int       @default(10) @map("parent_bonus_points")
+  attachmentUrl              String?   @map("attachment_url") @db.Text
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  class        Class?                 @relation(fields: [classId], references: [id], onDelete: SetNull)
+  material     Material?              @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  teacher      User                   @relation("AssignmentTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  submissions  AssignmentSubmission[]
+
+  @@index([organizationId])
+  @@index([classId])
+  @@index([teacherId])
+  @@map("assignments")
+}
+
+// 9. Assignment Submissions & Parent Verifications
+model AssignmentSubmission {
+  id              String           @id @default(uuid()) @db.Uuid
+  assignmentId    String           @map("assignment_id") @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  submissionText  String?          @map("submission_text") @db.Text
+  mediaFileUrl    String?          @map("media_file_url") @db.Text
+  status          SubmissionStatus @default(PENDING)
+  score           Int?             // 0-100
+  teacherFeedback String?          @map("teacher_feedback") @db.Text
+  submittedAt     DateTime         @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignment         Assignment                    @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student            User                          @relation("StudentSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  parentVerification AssignmentParentVerification?
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@map("assignment_submissions")
+}
+
+model AssignmentParentVerification {
+  id                 String    @id @default(uuid()) @db.Uuid
+  submissionId       String    @unique @map("submission_id") @db.Uuid
+  parentUserId       String    @map("parent_user_id") @db.Uuid
+  isVerifiedByParent Boolean   @default(false) @map("is_verified_by_parent")
+  parentFeedback     String?   @map("parent_feedback") @db.Text
+  magicToken         String?   @unique @map("magic_token") @db.VarChar(255)
+  tokenExpiresAt     DateTime? @map("token_expires_at") @db.Timestamptz(6)
+  verifiedAt         DateTime? @map("verified_at") @db.Timestamptz(6)
+
+  submission AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  parent     User                 @relation("ParentVerifications", fields: [parentUserId], references: [id], onDelete: Cascade)
+
+  @@index([magicToken])
+  @@map("assignment_parent_verifications")
+}
+
+// 10. Schedules & Schedule Teachers (Jadwal Pengajian & Badal)
+model Schedule {
+  id                String         @id @default(uuid()) @db.Uuid
+  title             String         @db.VarChar(255)
+  scheduleType      ScheduleType   @default(REGULAR_ROUTINE) @map("schedule_type")
+  tierLevel         TierLevel      @default(KELOMPOK) @map("tier_level")
+  organizationId    String         @map("organization_id") @db.Uuid
+  classId           String?        @map("class_id") @db.Uuid
+  venuePlaceName    String         @map("venue_place_name") @db.VarChar(255)
+  venueType         String?        @map("venue_type") @db.VarChar(50) // MASJID, RUMAH, AULA
+  latitude          Float?
+  longitude         Float?
+  radiusMeter       Int?           @default(100) @map("radius_meter")
+  startTime         DateTime       @map("start_time") @db.Timestamptz(6)
+  endTime           DateTime       @map("end_time") @db.Timestamptz(6)
+  recurringRule     String?        @map("recurring_rule") @db.VarChar(255) // RRULE
+  maxStudentsQuota  Int?           @default(5) @map("max_students_quota")
+  status            ScheduleStatus @default(SCHEDULED)
+  notes             String?        @db.Text
+  requestedByUserId String?        @map("requested_by_user_id") @db.Uuid
+  requesterType     String?        @map("requester_type") @db.VarChar(50)
+  approvalStatus    ApprovalStatus? @map("approval_status")
+  approvedByPjId    String?        @map("approved_by_pj_id") @db.Uuid
+
+  // Rolling Schedule Tracking (Tahap 4)
+  rollingPengajianId       String? @map("rolling_pengajian_id") @db.Uuid
+  rollingBatchId           String? @map("rolling_batch_id") @db.Uuid // UUID batch run untuk grouping
+  rollingMaterialStepOrder Int?    @map("rolling_material_step_order")
+  rollingTeacherStepOrder  Int?    @map("rolling_teacher_step_order")
+
+  // Target Scope Baru untuk Fleksibilitas Flat / Satuan
+  targetScope        RollingTargetScope   @default(WILAYAH_UMUM) @map("target_scope")
+  targetClasses      ScheduleClass[]
+  targetGenerations  ScheduleGeneration[]
+
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  class              Class?              @relation(fields: [classId], references: [id], onDelete: SetNull)
+  rollingPengajian   RollingPengajian?   @relation(fields: [rollingPengajianId], references: [id], onDelete: SetNull)
+  teachers           ScheduleTeacher[]
+  scheduleMaterials  ScheduleMaterial[]
+  attendanceSessions AttendanceSession[]
+  studentEvaluations StudentEvaluation[]
+
+  @@index([organizationId])
+  @@index([classId])
+  @@index([startTime])
+  @@index([rollingPengajianId])
+  @@index([rollingBatchId])
+  @@map("schedules")
+}
+
+model ScheduleTeacher {
+  id           String   @id @default(uuid()) @db.Uuid
+  scheduleId   String   @map("schedule_id") @db.Uuid
+  teacherId    String   @map("teacher_id") @db.Uuid
+  isPrimary    Boolean  @default(true) @map("is_primary")
+  isSubstitute Boolean  @default(false) @map("is_substitute") // Flag Badal
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  teacher  User     @relation("TeacherSchedules", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, teacherId])
+  @@map("schedule_teachers")
+}
+
+// 11. Attendance Sessions, Records & Absence Confirmations (Smart Absensi)
+model AttendanceSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  scheduleId       String    @map("schedule_id") @db.Uuid
+  dynamicQrSecret  String    @map("dynamic_qr_secret") @db.VarChar(255)
+  qrRefreshSeconds Int       @default(15) @map("qr_refresh_seconds")
+  isActive         Boolean   @default(false) @map("is_active")
+  cutoffMinutes    Int       @default(15) @map("cutoff_minutes")
+  openedAt         DateTime? @map("opened_at") @db.Timestamptz(6)
+  closedAt         DateTime? @map("closed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule Schedule           @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  records  AttendanceRecord[]
+
+  @@index([scheduleId])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id             String           @id @default(uuid()) @db.Uuid
+  sessionId      String           @map("session_id") @db.Uuid
+  studentId      String           @map("student_id") @db.Uuid
+  checkInTime    DateTime?        @map("check_in_time") @db.Timestamptz(6)
+  method         AttendanceMethod @default(MANUAL_TEACHER)
+  status         AttendanceStatus @default(ALPA)
+  notes          String?          @db.Text
+  markedByUserId String?          @map("marked_by_user_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  session             AttendanceSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student             User                 @relation("StudentAttendances", fields: [studentId], references: [id], onDelete: Cascade)
+  markedBy            User?                @relation("TeacherMarkedAttendances", fields: [markedByUserId], references: [id], onDelete: SetNull)
+  absenceConfirmation AbsenceConfirmation?
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@index([status])
+  @@map("attendance_records")
+}
+
+model AbsenceConfirmation {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  attendanceRecordId String                    @unique @map("attendance_record_id") @db.Uuid
+  studentId          String                    @map("student_id") @db.Uuid
+  parentUserId       String                    @map("parent_user_id") @db.Uuid
+  magicToken         String                    @unique @map("magic_token") @db.VarChar(255)
+  tokenExpiresAt     DateTime                  @map("token_expires_at") @db.Timestamptz(6)
+  status             AbsenceConfirmationStatus @default(PENDING)
+  reasonType         AbsenceReasonType?        @map("reason_type")
+  parentNotes        String?                   @map("parent_notes") @db.Text
+  attachmentUrl      String?                   @map("attachment_url") @db.Text
+  confirmedAt        DateTime?                 @map("confirmed_at") @db.Timestamptz(6)
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attendanceRecord AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  parent           User             @relation("ParentAbsenceConfirmations", fields: [parentUserId], references: [id], onDelete: Cascade)
+
+  @@index([magicToken])
+  @@index([status])
+  @@map("absence_confirmations")
+}
+
+// 12. Material Checklist Progress & Student Evaluations (Penilaian Real-Time)
+model MaterialChecklistProgress {
+  id              String   @id @default(uuid()) @db.Uuid
+  checklistItemId String   @map("checklist_item_id") @db.Uuid
+  studentId       String   @map("student_id") @db.Uuid
+  scheduleId      String?  @map("schedule_id") @db.Uuid
+  score           Int?     // 0-100
+  feedbackTags    String[] @default([]) @map("feedback_tags")
+  teacherFeedback String?  @map("teacher_feedback") @db.Text
+  isCompleted     Boolean  @default(false) @map("is_completed")
+  evaluatedAt     DateTime @default(now()) @map("evaluated_at") @db.Timestamptz(6)
+
+  checklistItem MaterialChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  student       User                  @relation("StudentProgress", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([checklistItemId, studentId])
+  @@index([studentId])
+  @@map("material_checklist_progress")
+}
+
+model StudentEvaluation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  scheduleId         String   @map("schedule_id") @db.Uuid
+  studentId          String   @map("student_id") @db.Uuid
+  adabScore          Int      @map("adab_score") // 1-100
+  keaktifanScore     Int      @map("keaktifan_score") // 1-100
+  teacherPrivateNote String?  @map("teacher_private_note") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  student  User     @relation("StudentEvaluated", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId])
+  @@index([studentId])
+  @@map("student_evaluations")
+}
+
+// 13. Audit Logs (Rekam Jejak Transparansi Berjenjang)
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityName String   @map("entity_name") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(255)
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityName])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// 14. Gamification (Poin, Streak & Lencana Profesional Lucide SVG)
+model UserGamification {
+  userId            String   @id @map("user_id") @db.Uuid
+  totalPoints       Int      @default(0) @map("total_points")
+  currentStreakDays Int      @default(0) @map("current_streak_days")
+  highestStreakDays Int      @default(0) @map("highest_streak_days")
+  level             Int      @default(1)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_gamification")
+}
+
+model Badge {
+  id                  String   @id @default(uuid()) @db.Uuid
+  codeName            String   @unique @map("code_name") @db.VarChar(100)
+  name                String   @db.VarChar(255)
+  iconName            String   @map("icon_name") @db.VarChar(100) // Lucide icon name
+  category            String   @db.VarChar(100)
+  criteriaDescription String   @map("criteria_description") @db.Text
+  pointBonus          Int      @default(50) @map("point_bonus")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  studentBadges StudentBadge[]
+
+  @@map("badges")
+}
+
+model StudentBadge {
+  id         String   @id @default(uuid()) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  badgeId    String   @map("badge_id") @db.Uuid
+  unlockedAt DateTime @default(now()) @map("unlocked_at") @db.Timestamptz(6)
+
+  student User  @relation("StudentBadges", fields: [studentId], references: [id], onDelete: Cascade)
+  badge   Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, badgeId])
+  @@index([studentId])
+  @@map("student_badges")
+}
+
+// ==============================================================================
+// 15. ROLLING SCHEDULE ENGINE (TAHAP 1: ROLLING MATERI)
+// ==============================================================================
+
+model MaterialRolling {
+  id                 String              @id @default(uuid()) @db.Uuid
+  name               String              @db.VarChar(255)
+  rollingType        RollingIntervalType @default(PER_PENGAJIAN) @map("rolling_type")
+  itemsPerSession    Int                 @default(1) @map("items_per_session")
+  tierLevel          TierLevel           @default(KELOMPOK) @map("tier_level")
+  organizationId     String              @map("organization_id") @db.Uuid
+  targetGenerationId String?             @map("target_generation_id") @db.Uuid
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  targetGeneration Generation?            @relation(fields: [targetGenerationId], references: [id], onDelete: SetNull)
+  queues           MaterialRollingQueue[]
+  rollingPengajian RollingPengajian[]
+
+  @@index([organizationId])
+  @@index([targetGenerationId])
+  @@map("material_rollings")
+}
+
+model MaterialRollingQueue {
+  id        String   @id @default(uuid()) @db.Uuid
+  rollingId String   @map("rolling_id") @db.Uuid
+  stepOrder Int      @default(1) @map("step_order")
+  title     String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rolling MaterialRolling            @relation(fields: [rollingId], references: [id], onDelete: Cascade)
+  items   MaterialRollingQueueItem[]
+
+  @@unique([rollingId, stepOrder])
+  @@index([rollingId])
+  @@map("material_rolling_queues")
+}
+
+model MaterialRollingQueueItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  queueId    String   @map("queue_id") @db.Uuid
+  slotIndex  Int      @default(0) @map("slot_index")
+  materialId String   @map("material_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  queue    MaterialRollingQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  material Material             @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@unique([queueId, slotIndex])
+  @@index([queueId])
+  @@index([materialId])
+  @@map("material_rolling_queue_items")
+}
+
+// ==============================================================================
+// 16. ROLLING SCHEDULE ENGINE (TAHAP 2: ROLLING PENGAJAR)
+// ==============================================================================
+
+model TeacherRolling {
+  id                 String              @id @default(uuid()) @db.Uuid
+  name               String              @db.VarChar(255)
+  description        String?             @db.Text
+  rollingType        RollingIntervalType @default(PER_PENGAJIAN) @map("rolling_type")
+  teachersPerSession Int                 @default(1) @map("teachers_per_session")
+  tierLevel          TierLevel           @default(KELOMPOK) @map("tier_level")
+  organizationId     String              @map("organization_id") @db.Uuid
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  queues       TeacherRollingQueue[]
+  rollingPengajian RollingPengajian[]
+
+  @@index([organizationId])
+  @@map("teacher_rollings")
+}
+
+model TeacherRollingQueue {
+  id        String   @id @default(uuid()) @db.Uuid
+  rollingId String   @map("rolling_id") @db.Uuid
+  stepOrder Int      @default(1) @map("step_order")
+  title     String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rolling TeacherRolling            @relation(fields: [rollingId], references: [id], onDelete: Cascade)
+  items   TeacherRollingQueueItem[]
+
+  @@unique([rollingId, stepOrder])
+  @@index([rollingId])
+  @@map("teacher_rolling_queues")
+}
+
+model TeacherRollingQueueItem {
+  id                  String   @id @default(uuid()) @db.Uuid
+  queueId             String   @map("queue_id") @db.Uuid
+  slotIndex           Int      @default(0) @map("slot_index")
+  teacherId           String   @map("teacher_id") @db.Uuid
+  substituteTeacherId String?  @map("substitute_teacher_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  queue             TeacherRollingQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  teacher           User                @relation("RollingPrimaryTeachers", fields: [teacherId], references: [id], onDelete: Restrict)
+  substituteTeacher User?               @relation("RollingSubstituteTeachers", fields: [substituteTeacherId], references: [id], onDelete: SetNull)
+
+  @@unique([queueId, slotIndex])
+  @@index([queueId])
+  @@index([teacherId])
+  @@index([substituteTeacherId])
+  @@map("teacher_rolling_queue_items")
+}
+
+// ==============================================================================
+// 17. ROLLING SCHEDULE ENGINE (TAHAP 3: PENGAJIAN ROLLING)
+// ==============================================================================
+
+model RollingPengajian {
+  id                 String             @id @default(uuid()) @db.Uuid
+  name               String             @db.VarChar(255)
+  description        String?            @db.Text
+  targetScope        RollingTargetScope @default(WILAYAH_UMUM) @map("target_scope")
+  tierLevel          TierLevel          @default(KELOMPOK) @map("tier_level")
+  organizationId     String             @map("organization_id") @db.Uuid
+
+  // Referensi Template Rolling
+  materialRollingId  String             @map("material_rolling_id") @db.Uuid
+  teacherRollingId   String             @map("teacher_rolling_id") @db.Uuid
+
+  // Default Lokasi Pengajian
+  venuePlaceName     String             @map("venue_place_name") @db.VarChar(255)
+  venueType          String?            @default("MASJID") @map("venue_type") @db.VarChar(50) // MASJID, RUMAH, AULA, LAINNYA
+
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relasi
+  organization      Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  materialRolling   MaterialRolling              @relation(fields: [materialRollingId], references: [id], onDelete: Restrict)
+  teacherRolling    TeacherRolling               @relation(fields: [teacherRollingId], references: [id], onDelete: Restrict)
+  targetClasses     RollingPengajianClass[]
+  targetGenerations RollingPengajianGeneration[]
+  schedules         Schedule[]
+
+  @@index([organizationId])
+  @@index([materialRollingId])
+  @@index([teacherRollingId])
+  @@map("rolling_pengajian")
+}
+
+model RollingPengajianClass {
+  id                 String   @id @default(uuid()) @db.Uuid
+  rollingPengajianId String   @map("rolling_pengajian_id") @db.Uuid
+  classId            String   @map("class_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rollingPengajian RollingPengajian @relation(fields: [rollingPengajianId], references: [id], onDelete: Cascade)
+  class            Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([rollingPengajianId, classId])
+  @@index([rollingPengajianId])
+  @@index([classId])
+  @@map("rolling_pengajian_classes")
+}
+
+model RollingPengajianGeneration {
+  id                 String   @id @default(uuid()) @db.Uuid
+  rollingPengajianId String   @map("rolling_pengajian_id") @db.Uuid
+  generationId       String   @map("generation_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rollingPengajian RollingPengajian @relation(fields: [rollingPengajianId], references: [id], onDelete: Cascade)
+  generation       Generation       @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@unique([rollingPengajianId, generationId])
+  @@index([rollingPengajianId])
+  @@index([generationId])
+  @@map("rolling_pengajian_generations")
+}
+
+// ==============================================================================
+// 18. SCHEDULE MATERIAL (MATERI TERJADWAL - TAHAP 4: JADWAL ROLLING)
+// ==============================================================================
+
+// Model penghubung antara sesi Schedule dan Material yang dijadwalkan pada sesi itu.
+// Dibuat oleh engine generator rolling jadwal, bisa juga dibuat manual.
+model ScheduleMaterial {
+  id          String   @id @default(uuid()) @db.Uuid
+  scheduleId  String   @map("schedule_id") @db.Uuid
+  materialId  String   @map("material_id") @db.Uuid
+  slotIndex   Int      @default(0) @map("slot_index") // urutan materi dalam sesi (jika >1 materi per sesi)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  material Material  @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@unique([scheduleId, slotIndex])
+  @@index([scheduleId])
+  @@index([materialId])
+  @@map("schedule_materials")
+}
+
+// Model penghubung multi-kelas target untuk jadwal
+model ScheduleClass {
+  id         String   @id @default(uuid()) @db.Uuid
+  scheduleId String   @map("schedule_id") @db.Uuid
+  classId    String   @map("class_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  class    Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, classId])
+  @@index([scheduleId])
+  @@index([classId])
+  @@map("schedule_classes")
+}
+
+// Model penghubung multi-jenjang target untuk jadwal
+model ScheduleGeneration {
+  id           String   @id @default(uuid()) @db.Uuid
+  scheduleId   String   @map("schedule_id") @db.Uuid
+  generationId String   @map("generation_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  schedule   Schedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  generation Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, generationId])
+  @@index([scheduleId])
+  @@index([generationId])
+  @@map("schedule_generations")
+}
+

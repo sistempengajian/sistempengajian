@@ -1,0 +1,55 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing & scratch
+/coverage
+/scratch/
+/src/scratch/
+
+# data sensitif santri (hanya simpan template)
+data_santri_dan_orangtua.csv
+data_*.csv
+!template_data_santri_dan_orangtua.csv
+
+# next.js build
+/.next/
+/out/
+/build
+
+# misc & OS
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files (abaikan semua env kecuali template .env.example)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# vercel
+.vercel
+
+# ide / editors
+.vscode/
+.idea/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# serwist / pwa service worker outputs
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
+
+/src/generated/prisma

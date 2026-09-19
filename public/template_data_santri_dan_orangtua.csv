@@ -1,0 +1,3 @@
+id_santri,nama_lengkap_santri,username_santri,jenis_kelamin,tempat_lahir,tanggal_lahir,kelompok,jenjang_generasi,no_hp_santri,email_santri,nama_ayah,no_hp_ayah,email_ayah,nama_ibu,no_hp_ibu,email_ibu,nama_wali,no_hp_wali,hubungan_wali,alamat,catatan
+,Ahmad Zulfikar,ahmad_zulfikar,Laki-laki,Tegal,15 Januari 2010,Ujungrusi,Caberawit A,081234567890,zulfikar@example.com,Bambang Supriyanto,081298765432,bambang@example.com,Siti Rohmah,081398765432,rohmah@example.com,,,,"Jl. Melati No. 12, Tegal",Santri Baru
+,Nabila Putri,nabila_putri,Perempuan,Tegal,20 Agustus 2012,Ujungrusi,Pra-Remaja 1,081234567891,nabila@example.com,,,,,Hj. Maryam,081598765432,maryam@example.com,H. Usman (Kakek),081898765432,WALI,"Jl. Mawar No. 45, Tegal",Diasuh oleh Kakek

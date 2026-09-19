@@ -1,0 +1,27 @@
+{
+  "name": "sistem-pengajian",
+  "version": "1.0.0",
+  "entryPoints": [
+    "src/app/layout.tsx",
+    "src/app/page.tsx",
+    "src/app/sw.ts",
+    "src/app/manifest.ts"
+  ],
+  "sourceDirs": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "public/sw.js"
+  ],
+  "architecture": {
+    "framework": "Next.js 15 (App Router)",
+    "database": "Supabase PostgreSQL + RLS",
+    "styling": "Tailwind CSS (Soft Pastel Tokens)",
+    "pwa": "Serwist (@serwist/next)",
+    "whatsappGateway": "WAHA via Petapod.com REST API",
+    "mediaStorage": "Cloudinary CDN",
+    "cacheAndRateLimit": "Upstash Redis"
+  }
+}
