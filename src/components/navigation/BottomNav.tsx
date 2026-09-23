@@ -109,7 +109,7 @@ export default function BottomNav({ roleCodes = [] }: BottomNavProps) {
         centerHref: '/presensi',
         leftItems: [
           { href: '/dashboard', label: 'Home', icon: Home, isActive: pathname === '/dashboard' },
-          { href: '/kurikulum', label: 'Rapor Anak', icon: GraduationCap, isActive: pathname.startsWith('/kurikulum') },
+          { href: '/laporan', label: 'Rapor Anak', icon: GraduationCap, isActive: pathname.startsWith('/laporan') },
         ],
         rightItems: [
           { href: '/tugas', label: 'Tugas Anak', icon: CheckSquare, isActive: pathname.startsWith('/tugas') },
@@ -130,7 +130,7 @@ export default function BottomNav({ roleCodes = [] }: BottomNavProps) {
       centerHref: '/presensi',
       leftItems: [
         { href: '/dashboard', label: 'Home', icon: Home, isActive: pathname === '/dashboard' },
-        { href: '/kurikulum', label: 'Kurikulum', icon: BookOpen, isActive: pathname.startsWith('/kurikulum') },
+        { href: '/laporan', label: 'Rapor', icon: GraduationCap, isActive: pathname.startsWith('/laporan') },
       ],
       rightItems: [
         { href: '/tugas', label: 'Tugas', icon: CheckSquare, isActive: pathname.startsWith('/tugas') },

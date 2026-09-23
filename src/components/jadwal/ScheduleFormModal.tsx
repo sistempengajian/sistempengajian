@@ -461,11 +461,10 @@ export default function ScheduleFormModal({
         <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center border shadow-2xs shrink-0 ${
-                isProposalMode
-                  ? 'bg-amber-50 text-amber-700 border-amber-200/70'
-                  : 'bg-teal-50 text-teal-700 border-teal-200/60'
-              }`}
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center border shadow-2xs shrink-0 ${isProposalMode
+                ? 'bg-amber-50 text-amber-700 border-amber-200/70'
+                : 'bg-teal-50 text-teal-700 border-teal-200/60'
+                }`}
             >
               {isProposalMode ? <Send className="w-5 h-5" /> : <CalendarIcon className="w-5 h-5" />}
             </div>
@@ -546,11 +545,10 @@ export default function ScheduleFormModal({
                       <button
                         type="button"
                         onClick={() => handleTierChange(TierLevel.DAERAH)}
-                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                          tierLevel === TierLevel.DAERAH
-                            ? 'bg-purple-50 border-purple-400 text-purple-900 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${tierLevel === TierLevel.DAERAH
+                          ? 'bg-purple-50 border-purple-400 text-purple-900 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
                       >
                         Daerah
                       </button>
@@ -559,11 +557,10 @@ export default function ScheduleFormModal({
                       <button
                         type="button"
                         onClick={() => handleTierChange(TierLevel.DESA)}
-                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                          tierLevel === TierLevel.DESA
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                        }`}
+                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${tierLevel === TierLevel.DESA
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
                       >
                         Desa
                       </button>
@@ -571,11 +568,10 @@ export default function ScheduleFormModal({
                     <button
                       type="button"
                       onClick={() => handleTierChange(TierLevel.KELOMPOK)}
-                      className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                        tierLevel === TierLevel.KELOMPOK
-                          ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-2xs'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${tierLevel === TierLevel.KELOMPOK
+                        ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
                       Kelompok
                     </button>
@@ -610,11 +606,11 @@ export default function ScheduleFormModal({
                 <div className="flex items-center gap-2 text-teal-900">
                   <Building2 className="w-4 h-4 text-teal-600 shrink-0" />
                   <span className="font-semibold">
-                    Wilayah Pelaksanaan: {selectedOrgObj?.name || 'Kelompok Binaan Anda'}
+                    Wilayah {selectedOrgObj?.name || 'Kelompok Binaan Anda'}
                   </span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
-                  Tingkat Kelompok
+                  Kelompok
                 </span>
               </div>
             )}
@@ -650,11 +646,10 @@ export default function ScheduleFormModal({
               <button
                 type="button"
                 onClick={() => setTargetScope(RollingTargetScope.WILAYAH_UMUM)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
-                  targetScope === RollingTargetScope.WILAYAH_UMUM
-                    ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
-                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${targetScope === RollingTargetScope.WILAYAH_UMUM
+                  ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
               >
                 <Globe className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 <div>
@@ -668,11 +663,10 @@ export default function ScheduleFormModal({
               <button
                 type="button"
                 onClick={() => setTargetScope(RollingTargetScope.KELAS)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
-                  targetScope === RollingTargetScope.KELAS
-                    ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
-                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${targetScope === RollingTargetScope.KELAS
+                  ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
               >
                 <GraduationCap className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 <div>
@@ -686,11 +680,10 @@ export default function ScheduleFormModal({
               <button
                 type="button"
                 onClick={() => setTargetScope(RollingTargetScope.GENERASI)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
-                  targetScope === RollingTargetScope.GENERASI
-                    ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
-                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${targetScope === RollingTargetScope.GENERASI
+                  ? 'bg-teal-50/70 border-teal-500 text-teal-900 ring-1 ring-teal-400/30 shadow-2xs'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                  }`}
               >
                 <Layers className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 <div>
@@ -793,19 +786,17 @@ export default function ScheduleFormModal({
                                   <div
                                     key={cls.id}
                                     onClick={() => toggleAdditionalClass(cls.id)}
-                                    className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 select-none ${
-                                      isSelected
-                                        ? 'bg-teal-50/80 border-teal-400/80 text-teal-950 font-semibold shadow-2xs'
-                                        : 'bg-white border-slate-200/70 text-slate-700 hover:bg-slate-50'
-                                    }`}
+                                    className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 select-none ${isSelected
+                                      ? 'bg-teal-50/80 border-teal-400/80 text-teal-950 font-semibold shadow-2xs'
+                                      : 'bg-white border-slate-200/70 text-slate-700 hover:bg-slate-50'
+                                      }`}
                                   >
                                     <div className="flex items-center gap-2 min-w-0">
                                       <div
-                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                                          isSelected
-                                            ? 'bg-teal-600 border-teal-600 text-white'
-                                            : 'border-slate-300 bg-white'
-                                        }`}
+                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${isSelected
+                                          ? 'bg-teal-600 border-teal-600 text-white'
+                                          : 'border-slate-300 bg-white'
+                                          }`}
                                       >
                                         {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                       </div>
@@ -849,11 +840,10 @@ export default function ScheduleFormModal({
                         key={gen.id}
                         type="button"
                         onClick={() => setSelectedGenerationId(gen.id)}
-                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                          isSelected
-                            ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold ring-2 ring-teal-400/30 shadow-2xs'
-                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                        }`}
+                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${isSelected
+                          ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold ring-2 ring-teal-400/30 shadow-2xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                          }`}
                       >
                         <span className="text-xs">{gen.name}</span>
                         <span className="text-[10px] text-slate-400 font-normal">{gen.code}</span>
@@ -870,7 +860,7 @@ export default function ScheduleFormModal({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
                 <BookOpen className="w-4 h-4 text-teal-600" />
-                <span>3. Materi Pengajian (Opsional - Maks. 3)</span>
+                <span>3. Materi Pengajian</span>
               </div>
               <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200/80">
                 {selectedMaterialIds.length} / 3 Materi
@@ -943,9 +933,8 @@ export default function ScheduleFormModal({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
                 <User className="w-4 h-4 text-teal-600" />
-                <span>4. Tim Ustadz Pengajar &amp; Badal</span>
+                <span>4. Pengajar &amp; Badal</span>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">Bisa lebih dari 1 pengajar</span>
             </div>
 
             {/* List Pengajar Terpilih */}
@@ -961,11 +950,10 @@ export default function ScheduleFormModal({
                   return (
                     <div
                       key={tId}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
-                        isPrimary
-                          ? 'bg-teal-50/70 border-teal-300 ring-1 ring-teal-400/20'
-                          : 'bg-slate-50/60 border-slate-200'
-                      }`}
+                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${isPrimary
+                        ? 'bg-teal-50/70 border-teal-300 ring-1 ring-teal-400/20'
+                        : 'bg-slate-50/60 border-slate-200'
+                        }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-teal-700 font-bold shrink-0">
@@ -1154,18 +1142,16 @@ export default function ScheduleFormModal({
               <div className="pt-2 border-t border-slate-100">
                 <div
                   onClick={() => setIsRecurringWeekly(!isRecurringWeekly)}
-                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
-                    isRecurringWeekly
-                      ? 'bg-teal-50/60 border-teal-300 ring-1 ring-teal-400/30'
-                      : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
-                  }`}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${isRecurringWeekly
+                    ? 'bg-teal-50/60 border-teal-300 ring-1 ring-teal-400/30'
+                    : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
+                    }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-lg flex items-center justify-center border mt-0.5 transition-colors ${
-                      isRecurringWeekly
-                        ? 'bg-teal-600 border-teal-600 text-white'
-                        : 'border-slate-300 bg-white'
-                    }`}
+                    className={`w-5 h-5 rounded-lg flex items-center justify-center border mt-0.5 transition-colors ${isRecurringWeekly
+                      ? 'bg-teal-600 border-teal-600 text-white'
+                      : 'border-slate-300 bg-white'
+                      }`}
                   >
                     {isRecurringWeekly && <CheckCircle2 className="w-3.5 h-3.5" />}
                   </div>
@@ -1194,44 +1180,40 @@ export default function ScheduleFormModal({
                 <button
                   type="button"
                   onClick={() => setStatus(ScheduleStatus.SCHEDULED)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    status === ScheduleStatus.SCHEDULED
-                      ? 'bg-slate-100 border-slate-400 text-slate-900 shadow-2xs'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${status === ScheduleStatus.SCHEDULED
+                    ? 'bg-slate-100 border-slate-400 text-slate-900 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   Terjadwal
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatus(ScheduleStatus.ACTIVE)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    status === ScheduleStatus.ACTIVE
-                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${status === ScheduleStatus.ACTIVE
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   Berlangsung
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatus(ScheduleStatus.COMPLETED)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    status === ScheduleStatus.COMPLETED
-                      ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-2xs'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${status === ScheduleStatus.COMPLETED
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   Selesai
                 </button>
                 <button
                   type="button"
                   onClick={() => setStatus(ScheduleStatus.CANCELLED)}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    status === ScheduleStatus.CANCELLED
-                      ? 'bg-rose-50 border-rose-400 text-rose-800 shadow-2xs'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${status === ScheduleStatus.CANCELLED
+                    ? 'bg-rose-50 border-rose-400 text-rose-800 shadow-2xs'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   Diliburkan
                 </button>

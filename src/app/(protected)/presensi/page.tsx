@@ -25,7 +25,7 @@ import {
 import { AttendanceStatus, AttendanceMethod } from '@prisma/client';
 import { generateSessionSecret, generateQrPayload, TOTP_STEP_SECONDS } from '@/lib/totp';
 import { resolveMaterialsForSchedule } from '@/lib/curriculumVersionResolver';
-import { getParentAbsenceHistory } from '@/app/(protected)/presensi/actions';
+import { getParentAbsenceHistory, populateDefaultAbsenceForSession } from '@/app/(protected)/presensi/actions';
 
 export default async function PresensiPage({
   searchParams,
@@ -265,6 +265,24 @@ export default async function PresensiPage({
           },
         },
       });
+    }
+
+    // Pastikan seluruh santri target jadwal terdaftar di database dengan status default ALPA (Opsi B)
+    if (session) {
+      await populateDefaultAbsenceForSession(session.id);
+      const refreshedRecords = await prisma.attendanceRecord.findMany({
+        where: { sessionId: session.id },
+        include: {
+          absenceConfirmation: {
+            include: {
+              parent: {
+                select: { fullName: true },
+              },
+            },
+          },
+        },
+      });
+      session.records = refreshedRecords;
     }
 
     const isSessionActive = Boolean(session.isActive && !isScheduleCompleted);

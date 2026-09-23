@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Clock,
@@ -17,6 +17,11 @@ import {
   BookOpen,
   ArrowRight,
   ShieldCheck,
+  CircleUser,
+  GroupIcon,
+  UserRoundCog,
+  Group,
+  User2Icon,
 } from 'lucide-react';
 import { ScheduleStatus, ScheduleType, TierLevel } from '@prisma/client';
 import {
@@ -95,6 +100,11 @@ export interface ScheduleItem {
     isActive: boolean;
     openedAt?: Date | string | null;
   }[];
+  connectedStudents?: {
+    id: string;
+    fullName: string;
+  }[];
+  connectedClasses?: string[];
 }
 
 interface ScheduleCardProps {
@@ -103,6 +113,7 @@ interface ScheduleCardProps {
   canPropose?: boolean;
   currentUserId?: string | null;
   availableTeachers?: { id: string; fullName: string }[];
+  activeRole?: 'manage' | 'teacher' | 'parent' | 'student';
   onEdit: (schedule: ScheduleItem) => void;
   onDelete: (scheduleId: string) => void;
 }
@@ -113,11 +124,28 @@ export default function ScheduleCard({
   canPropose = false,
   currentUserId = null,
   availableTeachers = [],
+  activeRole,
   onEdit,
   onDelete,
 }: ScheduleCardProps) {
   const [isPending, startTransition] = useTransition();
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Tutup tooltip saat klik di luar
+  useEffect(() => {
+    if (!isTooltipOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
+        setIsTooltipOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTooltipOpen]);
 
   const start = new Date(schedule.startTime);
   const end = new Date(schedule.endTime);
@@ -133,9 +161,38 @@ export default function ScheduleCard({
     : false;
   const isUserHomeroom = !isUserTeaching && Boolean(
     currentUserId &&
-      (schedule.class?.homeroomTeacherId === currentUserId ||
-        schedule.targetClasses?.some((tc) => tc.class.homeroomTeacherId === currentUserId))
+    (schedule.class?.homeroomTeacherId === currentUserId ||
+      schedule.targetClasses?.some((tc) => tc.class.homeroomTeacherId === currentUserId))
   );
+
+  // Santri terhubung (khusus Orang Tua)
+  const connectedStudents = schedule.connectedStudents || [];
+
+  // Kelas terhubung (untuk Wali Kelas / Pengajar)
+  const connectedClasses = useMemo(() => {
+    if (schedule.connectedClasses && schedule.connectedClasses.length > 0) {
+      return schedule.connectedClasses;
+    }
+    const list: string[] = [];
+    if (schedule.class?.name && !list.includes(schedule.class.name)) {
+      list.push(schedule.class.name);
+    }
+    if (schedule.targetClasses) {
+      for (const tc of schedule.targetClasses) {
+        if (tc.class?.name && !list.includes(tc.class.name)) {
+          list.push(tc.class.name);
+        }
+      }
+    }
+    return list;
+  }, [schedule.class?.name, schedule.targetClasses, schedule.connectedClasses]);
+
+  const showStudentIndicator =
+    (activeRole === 'parent' || connectedStudents.length > 0) && connectedStudents.length > 0;
+  const showClassIndicator =
+    !showStudentIndicator &&
+    (activeRole === 'teacher' || isUserHomeroom) &&
+    connectedClasses.length > 0;
 
   // Status & hak akses proposal
   const isOwnPendingProposal =
@@ -266,6 +323,133 @@ export default function ScheduleCard({
 
   return (
     <div className="group relative p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 bg-white hover:bg-slate-50/30 hover:border-slate-300/80 transition-all duration-200 shadow-2xs hover:shadow-xs space-y-2.5">
+      {/* 0. Top Indicator: Santri Terhubung (Khusus Orang Tua) atau Kelas Terhubung (Wali Kelas) */}
+      {showStudentIndicator && (
+        <div className="flex items-center justify-between gap-2">
+          <div
+            ref={tooltipRef}
+            className="relative inline-block"
+            onMouseEnter={() => setIsTooltipOpen(true)}
+            onMouseLeave={() => setIsTooltipOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsTooltipOpen((prev) => !prev);
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50/90 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs group/chip active:scale-95"
+              title="Klik atau arahkan kursor untuk melihat daftar santri terhubung"
+            >
+              <CircleUser className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="truncate max-w-[170px] sm:max-w-[220px]">
+                {connectedStudents[0]?.fullName}
+              </span>
+              {connectedStudents.length > 1 && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-indigo-200/80 text-indigo-900 text-[10px] font-extrabold">
+                  +{connectedStudents.length - 1}
+                </span>
+              )}
+            </button>
+
+            {/* Tooltip Hover / Click Popover Daftar Santri */}
+            {isTooltipOpen && (
+              <div
+                className="absolute left-0 top-full mt-1.5 z-30 w-56 sm:w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
+                    <CircleUser className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Santri Terhubung</span>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                    {connectedStudents.length} Anak
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {connectedStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 text-slate-800 font-medium transition-colors"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-indigo-200">
+                        {student.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="truncate text-xs font-semibold">{student.fullName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showClassIndicator && !showStudentIndicator && (
+        <div className="flex items-center justify-between gap-2">
+          <div
+            ref={tooltipRef}
+            className="relative inline-block"
+            onMouseEnter={() => setIsTooltipOpen(true)}
+            onMouseLeave={() => setIsTooltipOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsTooltipOpen((prev) => !prev);
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50/90 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs group/chip active:scale-95"
+              title="Klik atau arahkan kursor untuk melihat daftar kelas terhubung"
+            >
+              <Users className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span className="truncate max-w-[170px] sm:max-w-[220px]">
+                {connectedClasses[0]}
+              </span>
+              {connectedClasses.length > 1 && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-teal-200/80 text-teal-900 text-[10px] font-extrabold">
+                  +{connectedClasses.length - 1}
+                </span>
+              )}
+            </button>
+
+            {/* Tooltip Hover / Click Popover Daftar Kelas */}
+            {isTooltipOpen && (
+              <div
+                className="absolute left-0 top-full mt-1.5 z-30 w-56 sm:w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
+                    <Users className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Kelas Terhubung</span>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60">
+                    {connectedClasses.length} Kelas
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {connectedClasses.map((clsName, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50/50 text-slate-800 font-medium transition-colors"
+                    >
+                      <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-teal-200">
+                        {idx + 1}
+                      </div>
+                      <span className="truncate text-xs font-semibold">{clsName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 1. Header Bar: Badges Status & Action Menu */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">

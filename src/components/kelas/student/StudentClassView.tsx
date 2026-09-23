@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Sparkles,
   BookOpen,
+  GraduationCap,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
@@ -100,6 +101,30 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
           </div>
         </div>
       </section>
+
+      {/* BANNER RAPOR PERKEMBANGAN BELAJAR SANTRI */}
+      <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 rounded-2xl p-4 border border-emerald-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <GraduationCap className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">
+              Laporan Perkembangan &amp; Rapor Belajar
+            </h4>
+            <p className="text-xs text-slate-600">
+              Pantau rekap kehadiran, capaian materi kurikulum, evaluasi adab, dan tugas
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/laporan"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95 shrink-0"
+        >
+          <span>Buka Rapor Saya</span>
+          <ChevronRight className="w-4 h-4" />
+        </Link>
+      </div>
 
       {/* 2. KARTU WALI KELAS PENGAMPU */}
       <section className="bg-white/85 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">

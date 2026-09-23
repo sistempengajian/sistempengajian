@@ -1915,20 +1915,23 @@ export default function ParentAttendanceMonitor({
 
             {/* Action Buttons — Sticky Footer */}
             <div className="border-t border-slate-200/80 bg-white/90 backdrop-blur-sm px-4 py-3 safe-area-inset-bottom gap-2">
-              <div className='flex justify-between item-center gap-1'>
-                {isExistingLeave && selectedConfirmationId && (
-                  < button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => handleCancelAbsenceRequest(selectedConfirmationId)}
-                    className="py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
-                    title="Batalkan dan hapus surat izin ini"
-                  >
-                    <Trash2 className="w-4 h-4 text-rose-600" />
-                    <span className="hidden sm:inline">Batalkan Surat</span>
-                  </button>
-                )}
-                <div className='flex flex-wrap justify-between gap-2'>
+              <div className='flex justify-between items-center gap-1'>
+                <div>
+                  {isExistingLeave && selectedConfirmationId && (
+                    < button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => handleCancelAbsenceRequest(selectedConfirmationId)}
+                      className="py-2 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                      title="Batalkan dan hapus surat izin ini"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-600" />
+                      <span className="hidden sm:inline">Batalkan Surat</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className='flex flex-wrap justify-end gap-2'>
                   <button
                     type="button"
                     onClick={handleCloseAbsenceModal}

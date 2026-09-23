@@ -9,14 +9,14 @@ import {
   getHomeroomTeacherClassData,
   getParentClassData,
 } from './queries';
-import ClassManagementView from '@/components/kelas/ClassManagementView';
-import StudentClassView from '@/components/kelas/student/StudentClassView';
-import HomeroomClassView from '@/components/kelas/teacher/HomeroomClassView';
-import ParentClassView from '@/components/kelas/parent/ParentClassView';
-import ClassRoleNav, {
-  ClassRoleTabItem,
-  ClassRoleType,
-} from '@/components/kelas/ClassRoleNav';
+import KelasClientWrapper from '@/components/kelas/KelasClientWrapper';
+import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
+import {
+  ClassesOverviewData,
+  StudentClassData,
+  HomeroomTeacherClassData,
+  ParentClassData,
+} from '@/components/kelas/types';
 
 export const metadata: Metadata = {
   title: 'Kelas Pengajian | Sistem Pengajian',
@@ -78,7 +78,7 @@ export default async function KelasPage({ searchParams }: PageProps) {
     (Boolean(currentUser.generationId) && Boolean(currentUser.organizationId) && !isManager && !isTeacher);
 
   // 2. Susun Tab Menu Sesuai Multi-Peran User
-  const availableRoles: ClassRoleTabItem[] = [];
+  const availableRoles: RoleTabItem[] = [];
 
   if (isManager) {
     let badge = 'PJ Wilayah';
@@ -162,7 +162,7 @@ export default async function KelasPage({ searchParams }: PageProps) {
       : ''
   ).toLowerCase();
 
-  let activeRole: ClassRoleType;
+  let activeRole: RoleTabId;
   const matchedRole = availableRoles.find(
     (r) => r.id === roleQuery || (roleQuery === 'manage' && r.id === 'manage')
   );
@@ -174,47 +174,49 @@ export default async function KelasPage({ searchParams }: PageProps) {
     activeRole = availableRoles[0].id;
   }
 
-  // 4. Fetch Data Hanya untuk Role yang Aktif
-  let viewContent = null;
+  // 4. Pre-fetch Data Paralel untuk Semua Role yang Tersedia (Zero Delay Switch)
+  const roleDataMap: {
+    manage?: ClassesOverviewData;
+    teacher?: HomeroomTeacherClassData;
+    parent?: ParentClassData;
+    student?: StudentClassData;
+  } = {};
 
-  if (activeRole === 'student') {
-    const studentData = await getStudentClassData(user.id);
-    const tabParam = typeof resolvedSearchParams.tab === 'string' ? resolvedSearchParams.tab.toLowerCase() : undefined;
-    const initialTab = tabParam === 'jadwal' || tabParam === 'tugas' || tabParam === 'teman' ? tabParam : undefined;
-    viewContent = <StudentClassView data={studentData} initialTab={initialTab} />;
-  } else if (activeRole === 'parent') {
-    const childId =
-      typeof resolvedSearchParams.childId === 'string'
-        ? resolvedSearchParams.childId
-        : undefined;
-    const parentData = await getParentClassData(user.id, childId);
-    viewContent = <ParentClassView data={parentData} />;
-  } else if (activeRole === 'teacher') {
-    const teacherData = await getHomeroomTeacherClassData(user.id);
-    const tabParam = typeof resolvedSearchParams.tab === 'string' ? resolvedSearchParams.tab.toLowerCase() : undefined;
-    const initialTab = tabParam === 'santri' || tabParam === 'jadwal' || tabParam === 'tugas' ? tabParam : undefined;
-    viewContent = <HomeroomClassView data={teacherData} initialTab={initialTab} />;
-  } else {
-    // activeRole === 'manage'
-    const data = await getClassesOverview(user.id, resolvedSearchParams);
-    viewContent = <ClassManagementView initialData={data} />;
-  }
+  const childId =
+    typeof resolvedSearchParams.childId === 'string'
+      ? resolvedSearchParams.childId
+      : undefined;
+
+  await Promise.all(
+    availableRoles.map(async (roleItem) => {
+      try {
+        if (roleItem.id === 'manage') {
+          roleDataMap.manage = await getClassesOverview(user.id, resolvedSearchParams);
+        } else if (roleItem.id === 'teacher') {
+          roleDataMap.teacher = await getHomeroomTeacherClassData(user.id);
+        } else if (roleItem.id === 'parent') {
+          roleDataMap.parent = await getParentClassData(user.id, childId);
+        } else if (roleItem.id === 'student') {
+          roleDataMap.student = await getStudentClassData(user.id);
+        }
+      } catch (err) {
+        console.error(`Error pre-fetching kelas data for role ${roleItem.id}:`, err);
+      }
+    })
+  );
+
+  const tabParam = typeof resolvedSearchParams.tab === 'string' ? resolvedSearchParams.tab.toLowerCase() : undefined;
+  const initialStudentTab = tabParam === 'jadwal' || tabParam === 'tugas' || tabParam === 'teman' ? tabParam : undefined;
+  const initialTeacherTab = tabParam === 'santri' || tabParam === 'jadwal' || tabParam === 'tugas' ? tabParam : undefined;
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Role Navigation Switcher jika memiliki > 1 peran */}
-      {availableRoles.length > 1 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-          <ClassRoleNav
-            availableRoles={availableRoles}
-            activeRole={activeRole}
-            userName={currentUser.fullName}
-          />
-        </div>
-      )}
-
-      {/* Tampilan Konten Sesuai Role yang Dipilih */}
-      {viewContent}
-    </div>
+    <KelasClientWrapper
+      initialActiveRole={activeRole}
+      availableRoles={availableRoles}
+      roleDataMap={roleDataMap}
+      initialStudentTab={initialStudentTab}
+      initialTeacherTab={initialTeacherTab}
+      userName={currentUser.fullName}
+    />
   );
 }

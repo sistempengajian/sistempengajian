@@ -122,6 +122,23 @@ export async function getMaterialsPaginated({
   if (userOrgId) allowedOrgs.push(userOrgId);
   if (parentOrgId) allowedOrgs.push(parentOrgId);
 
+  // Jika studentId diberikan (mode Orang Tua, Santri, atau Pengajar), sertakan juga organisasi santri
+  if (studentId) {
+    const studentUser = await prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        organizationId: true,
+        organization: { select: { parentId: true } },
+      },
+    });
+    if (studentUser?.organizationId && !allowedOrgs.includes(studentUser.organizationId)) {
+      allowedOrgs.push(studentUser.organizationId);
+    }
+    if (studentUser?.organization?.parentId && !allowedOrgs.includes(studentUser.organization.parentId)) {
+      allowedOrgs.push(studentUser.organization.parentId);
+    }
+  }
+
   // Susun klausul filter dengan array AND
   const andConditions: Prisma.MaterialWhereInput[] = [
     {
@@ -217,7 +234,13 @@ export async function getMaterialsPaginated({
             : {
               OR: [
                 { organizationId: null },
-                ...(allowedOrgs.length > 0 ? [{ organizationId: { in: allowedOrgs } }] : []),
+                { tierLevel: TierLevel.DAERAH },
+                ...(allowedOrgs.length > 0
+                  ? [
+                      { organizationId: { in: allowedOrgs } },
+                      { material: { organizationId: { in: allowedOrgs } } },
+                    ]
+                  : []),
               ],
             },
           include: {

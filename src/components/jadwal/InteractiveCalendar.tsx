@@ -86,6 +86,7 @@ interface InteractiveCalendarProps {
   currentUserId?: string | null;
   userTierLevel?: 'DAERAH' | 'DESA' | 'KELOMPOK' | null;
   roleCodes?: string[];
+  activeRole?: 'manage' | 'teacher' | 'parent' | 'student';
 }
 
 export default function InteractiveCalendar({
@@ -101,6 +102,7 @@ export default function InteractiveCalendar({
   currentUserId = null,
   userTierLevel,
   roleCodes = [],
+  activeRole,
 }: InteractiveCalendarProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -154,13 +156,17 @@ export default function InteractiveCalendar({
         const title = sch.title.toLowerCase();
         const venue = sch.venuePlaceName.toLowerCase();
         const cls = sch.class?.name.toLowerCase() || '';
+        const studentMatch = sch.connectedStudents?.some((s) => s.fullName.toLowerCase().includes(q));
+        const targetClassMatch = sch.targetClasses?.some((tc) => tc.class.name.toLowerCase().includes(q));
 
         if (
           !title.includes(q) &&
           !venue.includes(q) &&
           !primary.includes(q) &&
           !substitute.includes(q) &&
-          !cls.includes(q)
+          !cls.includes(q) &&
+          !studentMatch &&
+          !targetClassMatch
         ) {
           return false;
         }
@@ -599,6 +605,7 @@ export default function InteractiveCalendar({
                 canPropose={canPropose}
                 currentUserId={currentUserId}
                 availableTeachers={availableTeachers}
+                activeRole={activeRole}
                 onEdit={handleOpenEditModal}
                 onDelete={handleDeleteSchedule}
               />
@@ -685,6 +692,7 @@ export default function InteractiveCalendar({
                         canPropose={canPropose}
                         currentUserId={currentUserId}
                         availableTeachers={availableTeachers}
+                        activeRole={activeRole}
                         onEdit={handleOpenEditModal}
                         onDelete={handleDeleteSchedule}
                       />

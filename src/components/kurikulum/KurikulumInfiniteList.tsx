@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useTransition, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import MaterialCard, { MaterialData, ChecklistItemData } from './MaterialCard';
 import MaterialFormModal from './MaterialFormModal';
 import ChecklistItemModal from './ChecklistItemModal';
@@ -27,6 +28,7 @@ import {
   UserCheck,
   GraduationCap,
   Users,
+  Check,
 } from 'lucide-react';
 
 export interface GenerationMetadata {
@@ -91,9 +93,19 @@ interface GenerationCacheEntry {
   timestamp: number;
 }
 
+// Helper untuk membangun kunci cache unik per konteks santri/kelas/wilayah dan jenjang
+export function buildCacheKey(
+  studentId: string | null | undefined,
+  classId: string | null | undefined,
+  filterOrgId: string | null | undefined,
+  genCode: string
+): string {
+  return `${studentId || 'all'}_${classId || 'all'}_${filterOrgId || 'all'}_${genCode}`;
+}
+
 // Global in-memory cache antar navigasi halaman (SPA navigation dalam sesi browser aktif)
-const globalKurikulumCache: Partial<Record<string, GenerationCacheEntry>> = {};
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit masa berlaku cache sebelum revalidasi otomatis
+const globalKurikulumCache: Record<string, GenerationCacheEntry> = {};
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit masa berlaku cache
 
 export default function KurikulumInfiniteList({
   initialMaterials,
@@ -114,8 +126,9 @@ export default function KurikulumInfiniteList({
   subOrganizations = [],
   activeFilterOrgId = null,
 }: KurikulumInfiniteListProps) {
+  const initialKey = buildCacheKey(activeStudentId, activeClassId, activeFilterOrgId, currentGenCode);
   // Cek apakah ada data cache global dari kunjungan halaman sebelumnya yang masih valid
-  const cachedForCurrent = globalKurikulumCache[currentGenCode];
+  const cachedForCurrent = globalKurikulumCache[initialKey];
   const isCachedValid = Boolean(cachedForCurrent && Date.now() - cachedForCurrent.timestamp < CACHE_TTL_MS);
 
   const [activeGenCode, setActiveGenCode] = useState<string>(currentGenCode);
@@ -148,10 +161,18 @@ export default function KurikulumInfiniteList({
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isLoadingTab, setIsLoadingTab] = useState<boolean>(false);
 
-  // In-Memory Cache data materi per jenjang (menghilangkan delay server roundtrip saat ganti tab)
+  // Modal Bottom Sheet khusus Orang Tua
+  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // In-Memory Cache data materi per jenjang (menghilangkan delay server roundtrip saat ganti tab / anak)
   const cacheRef = useRef<Record<string, GenerationCacheEntry>>({
-    ...(globalKurikulumCache as Record<string, GenerationCacheEntry>),
-    [currentGenCode]: isCachedValid && cachedForCurrent ? cachedForCurrent : {
+    ...globalKurikulumCache,
+    [initialKey]: isCachedValid && cachedForCurrent ? cachedForCurrent : {
       items: initialMaterials,
       total: initialTotal,
       hasMore: initialHasMore,
@@ -159,6 +180,38 @@ export default function KurikulumInfiniteList({
       timestamp: Date.now(),
     },
   });
+
+  const setCacheEntry = useCallback((key: string, entry: GenerationCacheEntry) => {
+    cacheRef.current[key] = entry;
+    globalKurikulumCache[key] = entry;
+  }, []);
+
+  // Buffer untuk background prefetch halaman berikutnya
+  const prefetchedNextPageRef = useRef<{
+    key: string;
+    page: number;
+    items: MaterialData[];
+    total: number;
+    hasMore: boolean;
+  } | null>(null);
+  const isPrefetchingRef = useRef<boolean>(false);
+
+  // Lock scroll background saat bottom sheet terbuka & handle escape
+  useEffect(() => {
+    if (isChildModalOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setIsChildModalOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [isChildModalOpen]);
 
   // Search & Debounce state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -216,6 +269,79 @@ export default function KurikulumInfiniteList({
     };
   }, [isFilterDropdownOpen]);
 
+  // Prefetch halaman berikutnya di latar belakang (senyap & mulus)
+  const prefetchNextPage = useCallback(
+    async (
+      targetGen: string,
+      studentId: string | null,
+      classId: string | null,
+      filterOrgId: string | null,
+      nextPageNum: number
+    ) => {
+      const key = buildCacheKey(studentId, classId, filterOrgId, targetGen);
+      if (isPrefetchingRef.current) return;
+      if (
+        prefetchedNextPageRef.current?.key === key &&
+        prefetchedNextPageRef.current?.page === nextPageNum
+      ) {
+        return;
+      }
+
+      isPrefetchingRef.current = true;
+      try {
+        const res = await getMaterialsPaginated({
+          genCode: targetGen,
+          page: nextPageNum,
+          limit: 5,
+          scope: 'ALL',
+          studentId: studentId || undefined,
+          classId: classId || undefined,
+          filterOrgId: filterOrgId || undefined,
+        });
+
+        prefetchedNextPageRef.current = {
+          key,
+          page: nextPageNum,
+          items: res.items as MaterialData[],
+          total: res.total,
+          hasMore: res.hasMore,
+        };
+      } catch (err) {
+        console.warn('Background prefetch notice:', err);
+      } finally {
+        isPrefetchingRef.current = false;
+      }
+    },
+    []
+  );
+
+  // Trigger silent prefetch untuk 5 materi berikutnya saat berada di suatu halaman
+  useEffect(() => {
+    if (!debouncedSearch && scopeFilter === 'ALL' && hasMore && !isLoadingTab) {
+      const timer = setTimeout(() => {
+        prefetchNextPage(
+          activeGenCode,
+          selectedStudentId,
+          selectedClassId,
+          selectedFilterOrgId,
+          page + 1
+        );
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    activeGenCode,
+    selectedStudentId,
+    selectedClassId,
+    selectedFilterOrgId,
+    page,
+    hasMore,
+    debouncedSearch,
+    scopeFilter,
+    isLoadingTab,
+    prefetchNextPage,
+  ]);
+
   // Berpindah tab jenjang materi secara instan (0ms) dengan memori cache
   const handleSwitchGeneration = async (newGenCode: string) => {
     if (newGenCode === activeGenCode) return;
@@ -232,8 +358,9 @@ export default function KurikulumInfiniteList({
       window.history.replaceState(null, '', url.toString());
     }
 
-    // 1. Cek Caching: jika data jenjang ini sudah ada di memori dan belum kadaluarsa, tampilkan instan (0ms delay!)
-    const cached = cacheRef.current[newGenCode] || globalKurikulumCache[newGenCode];
+    // 1. Cek Caching: jika data jenjang ini sudah ada di memori, tampilkan instan (0ms delay!)
+    const key = buildCacheKey(selectedStudentId, selectedClassId, selectedFilterOrgId, newGenCode);
+    const cached = cacheRef.current[key] || globalKurikulumCache[key];
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       setMaterials(cached.items);
       setTotalCount(cached.total);
@@ -242,7 +369,7 @@ export default function KurikulumInfiniteList({
       return;
     }
 
-    // 2. Jika belum ada di cache atau sudah melewati TTL, lakukan lazy load data pertama (5 materi) via Server Action
+    // 2. Jika belum ada di cache atau sudah melewati TTL, lakukan load data pertama (5 materi) via Server Action
     setIsLoadingTab(true);
     try {
       const res = await getMaterialsPaginated({
@@ -263,8 +390,7 @@ export default function KurikulumInfiniteList({
         page: 1,
         timestamp: Date.now(),
       };
-      cacheRef.current[newGenCode] = entry;
-      globalKurikulumCache[newGenCode] = entry;
+      setCacheEntry(key, entry);
 
       setMaterials(newItems);
       setTotalCount(res.total);
@@ -297,18 +423,22 @@ export default function KurikulumInfiniteList({
       setActiveGenCode(targetGen);
     }
 
-    // Invalidate in-memory cache karena konteks kelas berubah
-    (Object.keys(globalKurikulumCache) as string[]).forEach((code) => {
-      delete globalKurikulumCache[code];
-      delete cacheRef.current[code];
-    });
-
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('classId', newClassId);
       url.searchParams.set('gen', targetGen);
       url.searchParams.delete('studentId');
       window.history.replaceState(null, '', url.toString());
+    }
+
+    const key = buildCacheKey(null, newClassId, selectedFilterOrgId, targetGen);
+    const cached = cacheRef.current[key] || globalKurikulumCache[key];
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      setMaterials(cached.items);
+      setTotalCount(cached.total);
+      setHasMore(cached.hasMore);
+      setPage(cached.page);
+      return;
     }
 
     setIsLoadingTab(true);
@@ -330,8 +460,7 @@ export default function KurikulumInfiniteList({
         page: 1,
         timestamp: Date.now(),
       };
-      cacheRef.current[targetGen] = entry;
-      globalKurikulumCache[targetGen] = entry;
+      setCacheEntry(key, entry);
 
       setMaterials(newItems);
       setTotalCount(res.total);
@@ -356,11 +485,9 @@ export default function KurikulumInfiniteList({
       setActiveGenCode(targetGen);
     }
 
-    // Invalidate in-memory cache karena konteks santri berubah
-    (Object.keys(globalKurikulumCache) as string[]).forEach((code) => {
-      delete globalKurikulumCache[code];
-      delete cacheRef.current[code];
-    });
+    // JANGAN HAPUS CACHE! Gunakan cache tersimpan agar saat kembali ke anak sebelumnya langsung instan (0 ms)
+    const key = buildCacheKey(newStudentId, selectedClassId, selectedFilterOrgId, targetGen);
+    const cached = cacheRef.current[key] || globalKurikulumCache[key];
 
     // Update URL params
     if (typeof window !== 'undefined') {
@@ -374,6 +501,16 @@ export default function KurikulumInfiniteList({
       window.history.replaceState(null, '', url.toString());
     }
 
+    // Jika data anak sudah ada di cache, gunakan langsung tanpa server roundtrip delay
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      setMaterials(cached.items);
+      setTotalCount(cached.total);
+      setHasMore(cached.hasMore);
+      setPage(cached.page);
+      return;
+    }
+
+    // Jika belum ada di cache, muat 5 materi pertama dan simpan ke cache
     setIsLoadingTab(true);
     try {
       const res = await getMaterialsPaginated({
@@ -394,8 +531,7 @@ export default function KurikulumInfiniteList({
         page: 1,
         timestamp: Date.now(),
       };
-      cacheRef.current[targetGen] = entry;
-      globalKurikulumCache[targetGen] = entry;
+      setCacheEntry(key, entry);
 
       setMaterials(newItems);
       setTotalCount(res.total);
@@ -415,12 +551,6 @@ export default function KurikulumInfiniteList({
     setDebouncedSearch('');
     setScopeFilter('ALL');
 
-    // Invalidate in-memory cache
-    (Object.keys(globalKurikulumCache) as string[]).forEach((code) => {
-      delete globalKurikulumCache[code];
-      delete cacheRef.current[code];
-    });
-
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       if (newOrgId) {
@@ -429,6 +559,16 @@ export default function KurikulumInfiniteList({
         url.searchParams.delete('filterOrgId');
       }
       window.history.replaceState(null, '', url.toString());
+    }
+
+    const key = buildCacheKey(selectedStudentId, selectedClassId, newOrgId, activeGenCode);
+    const cached = cacheRef.current[key] || globalKurikulumCache[key];
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      setMaterials(cached.items);
+      setTotalCount(cached.total);
+      setHasMore(cached.hasMore);
+      setPage(cached.page);
+      return;
     }
 
     setIsLoadingTab(true);
@@ -449,8 +589,7 @@ export default function KurikulumInfiniteList({
         page: 1,
         timestamp: Date.now(),
       };
-      cacheRef.current[activeGenCode] = entry;
-      globalKurikulumCache[activeGenCode] = entry;
+      setCacheEntry(key, entry);
 
       setMaterials(newItems);
       setTotalCount(res.total);
@@ -463,13 +602,13 @@ export default function KurikulumInfiniteList({
     }
   };
 
-  // Debounce (300ms) untuk pencarian materi
+  // Debounce (400ms) untuk pencarian materi ke server secara aman
   useEffect(() => {
     setIsSearching(true);
     const handler = setTimeout(() => {
       setDebouncedSearch(searchQuery);
       setIsSearching(false);
-    }, 300);
+    }, 400);
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
@@ -479,9 +618,11 @@ export default function KurikulumInfiniteList({
     let isCancelled = false;
 
     const performSearch = async () => {
+      const key = buildCacheKey(selectedStudentId, selectedClassId, selectedFilterOrgId, activeGenCode);
+
       // Jika kembali ke kondisi bersih tanpa search & filter 'ALL', pulihkan dari cache jika ada
       if (debouncedSearch === '' && scopeFilter === 'ALL') {
-        const cached = cacheRef.current[activeGenCode];
+        const cached = cacheRef.current[key] || globalKurikulumCache[key];
         if (cached && materials !== cached.items) {
           setMaterials(cached.items);
           setTotalCount(cached.total);
@@ -529,13 +670,59 @@ export default function KurikulumInfiniteList({
     };
   }, [debouncedSearch, activeGenCode, scopeFilter, selectedStudentId, selectedClassId, selectedFilterOrgId]);
 
-  // Fungsi memuat batch data selanjutnya (Infinite Scroll / Lazy Loading)
+  // Fungsi memuat batch data selanjutnya (Infinite Scroll / Lazy Loading didukung Prefetching)
   const loadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore || isLoadingTab) return;
 
-    setIsLoadingMore(true);
     const nextPage = page + 1;
+    const currentKey = buildCacheKey(selectedStudentId, selectedClassId, selectedFilterOrgId, activeGenCode);
 
+    // 1. Cek Prefetch Buffer: jika data halaman berikutnya sudah di-prefetch di background (0 ms instant!)
+    if (
+      !debouncedSearch &&
+      scopeFilter === 'ALL' &&
+      prefetchedNextPageRef.current &&
+      prefetchedNextPageRef.current.key === currentKey &&
+      prefetchedNextPageRef.current.page === nextPage
+    ) {
+      const prefetched = prefetchedNextPageRef.current;
+      prefetchedNextPageRef.current = null;
+
+      setMaterials((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newItems = prefetched.items.filter((m) => !existingIds.has(m.id));
+        const updated = [...prev, ...newItems];
+
+        setCacheEntry(currentKey, {
+          items: updated,
+          total: prefetched.total,
+          hasMore: prefetched.hasMore,
+          page: nextPage,
+          timestamp: Date.now(),
+        });
+
+        return updated;
+      });
+
+      setHasMore(prefetched.hasMore);
+      setPage(nextPage);
+      setTotalCount(prefetched.total);
+
+      // Lakukan prefetch untuk halaman berikutnya lagi di background
+      if (prefetched.hasMore) {
+        prefetchNextPage(
+          activeGenCode,
+          selectedStudentId,
+          selectedClassId,
+          selectedFilterOrgId,
+          nextPage + 1
+        );
+      }
+      return;
+    }
+
+    // 2. Jika belum ada di buffer prefetch, ambil langsung dari server
+    setIsLoadingMore(true);
     try {
       const res = await getMaterialsPaginated({
         genCode: activeGenCode,
@@ -549,22 +736,18 @@ export default function KurikulumInfiniteList({
       });
 
       setMaterials((prev) => {
-        // Hindari duplikasi ID
         const existingIds = new Set(prev.map((m) => m.id));
         const newItems = (res.items as MaterialData[]).filter((m) => !existingIds.has(m.id));
         const updated = [...prev, ...newItems];
 
-        // Update cache jika tidak sedang search atau filter kustom
         if (!debouncedSearch && scopeFilter === 'ALL') {
-          const entry: GenerationCacheEntry = {
+          setCacheEntry(currentKey, {
             items: updated,
             total: res.total,
             hasMore: res.hasMore,
             page: nextPage,
             timestamp: Date.now(),
-          };
-          cacheRef.current[activeGenCode] = entry;
-          globalKurikulumCache[activeGenCode] = entry;
+          });
         }
 
         return updated;
@@ -573,12 +756,36 @@ export default function KurikulumInfiniteList({
       setHasMore(res.hasMore);
       setPage(nextPage);
       setTotalCount(res.total);
+
+      // Prefetch halaman berikutnya di background
+      if (!debouncedSearch && scopeFilter === 'ALL' && res.hasMore) {
+        prefetchNextPage(
+          activeGenCode,
+          selectedStudentId,
+          selectedClassId,
+          selectedFilterOrgId,
+          nextPage + 1
+        );
+      }
     } catch (err) {
       console.error('Failed to load more materials:', err);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, isLoadingTab, page, activeGenCode, debouncedSearch, scopeFilter, selectedStudentId, selectedClassId, selectedFilterOrgId]);
+  }, [
+    isLoadingMore,
+    hasMore,
+    isLoadingTab,
+    page,
+    activeGenCode,
+    debouncedSearch,
+    scopeFilter,
+    selectedStudentId,
+    selectedClassId,
+    selectedFilterOrgId,
+    prefetchNextPage,
+    setCacheEntry,
+  ]);
 
   // IntersectionObserver untuk mendeteksi scroll mencapai sentinel bawah
   useEffect(() => {
@@ -688,50 +895,41 @@ export default function KurikulumInfiniteList({
   };
 
   const selectedGen = generations.find((g) => g.code === activeGenCode) || generations[0];
+  const activeChild = availableStudents.find((c) => c.id === selectedStudentId) || availableStudents[0];
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* Selektor Anak Khusus Orang Tua */}
+      {/* Selektor & Trigger Modal Bawah Ganti Data Anak Khusus Orang Tua */}
       {userRoleCategory === 'ORANG_TUA' && availableStudents.length > 0 && (
-        <div className="bg-white/80 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-teal-200/70 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/60 shadow-2xs shrink-0">
-              <UserCheck className="w-4 h-4" />
+        <div className="bg-white/90 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-teal-200/80 shadow-2xs flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-200/70 text-teal-700 font-extrabold flex items-center justify-center shrink-0 text-sm shadow-2xs">
+              {activeChild?.fullName ? activeChild.fullName.slice(0, 2).toUpperCase() : 'AN'}
             </div>
-            <div>
-              <h3 className="text-xs font-bold text-slate-900">Tinjau Capaian Anak</h3>
-              <p className="text-[11px] text-slate-500">Pilih anak untuk melihat nilai evaluasi dan pesan catatan ustadz</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {activeChild?.fullName}
+                </p>
+                {activeChild?.generationName && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200/60">
+                    {activeChild.generationName}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {availableStudents.map((child) => {
-              const isSelected = child.id === selectedStudentId;
-              return (
-                <button
-                  key={child.id}
-                  type="button"
-                  onClick={() => handleSwitchStudent(child.id, child.generationCode)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-teal-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
-                  }`}
-                >
-                  <span>{child.fullName}</span>
-                  {child.generationName && (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
-                        isSelected ? 'bg-teal-700/70 text-teal-100' : 'bg-slate-200/80 text-slate-600'
-                      }`}
-                    >
-                      {child.generationName}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {availableStudents.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setIsChildModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 p-2 min-[481px]:px-3.5 min-[481px]:py-2 rounded-xl bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-700 text-xs font-bold transition-all border border-teal-200/70 shrink-0 cursor-pointer shadow-2xs"
+            >
+              <span className="max-[480px]:hidden">Ganti Anak</span>
+              <ChevronDown className="w-3.5 h-3.5 text-teal-600" />
+            </button>
+          )}
         </div>
       )}
 
@@ -775,18 +973,16 @@ export default function KurikulumInfiniteList({
                       key={cls.id}
                       type="button"
                       onClick={() => handleSwitchClass(cls.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white shadow-indigo-200 ring-2 ring-indigo-500/30'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50/50 hover:border-indigo-200'
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isSelected
+                        ? 'bg-indigo-600 text-white shadow-indigo-200 ring-2 ring-indigo-500/30'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50/50 hover:border-indigo-200'
+                        }`}
                     >
                       <Users className="w-3.5 h-3.5" />
                       <span>{cls.name}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${
-                          isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
                       >
                         {cls.students.length} Santri
                       </span>
@@ -907,11 +1103,10 @@ export default function KurikulumInfiniteList({
               key={gen.id}
               type="button"
               onClick={() => handleSwitchGeneration(gen.code)}
-              className={`flex-1 min-w-[140px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 text-center cursor-pointer ${
-                isActive
-                  ? 'bg-white text-teal-800 shadow-xs border border-teal-200/70 ring-1 ring-teal-500/10'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
+              className={`flex-1 min-w-[140px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 text-center cursor-pointer ${isActive
+                ? 'bg-white text-teal-800 shadow-xs border border-teal-200/70 ring-1 ring-teal-500/10'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
             >
               <span>{gen.name}</span>
             </button>
@@ -1024,12 +1219,12 @@ export default function KurikulumInfiniteList({
               type="button"
               onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${scopeFilter === 'ALL'
-                  ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  : scopeFilter === 'DAERAH'
-                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100/70'
-                    : scopeFilter === 'DESA'
-                      ? 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100/70'
-                      : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100/70'
+                ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                : scopeFilter === 'DAERAH'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100/70'
+                  : scopeFilter === 'DESA'
+                    ? 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100/70'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100/70'
                 }`}
               title="Filter tingkatan materi"
             >
@@ -1055,26 +1250,26 @@ export default function KurikulumInfiniteList({
               />
             </button>
 
-          {/* Menu Dropdown 1 Tombol Switch */}
-          {isFilterDropdownOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-0.5">
-                Filter Tingkatan
-              </div>
-              {[
-                { key: 'ALL' as const, label: 'Semua Tingkatan' },
-                { key: 'DAERAH' as const, label: 'Tingkat Daerah', dotColor: 'bg-blue-500' },
-                { key: 'DESA' as const, label: 'Tingkat Desa', dotColor: 'bg-purple-500' },
-                { key: 'KELOMPOK' as const, label: 'Tingkat Kelompok', dotColor: 'bg-emerald-500' },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => {
-                    setScopeFilter(opt.key);
-                    setIsFilterDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors cursor-pointer ${scopeFilter === opt.key
+            {/* Menu Dropdown 1 Tombol Switch */}
+            {isFilterDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-0.5">
+                  Filter Tingkatan
+                </div>
+                {[
+                  { key: 'ALL' as const, label: 'Semua Tingkatan' },
+                  { key: 'DAERAH' as const, label: 'Tingkat Daerah', dotColor: 'bg-blue-500' },
+                  { key: 'DESA' as const, label: 'Tingkat Desa', dotColor: 'bg-purple-500' },
+                  { key: 'KELOMPOK' as const, label: 'Tingkat Kelompok', dotColor: 'bg-emerald-500' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setScopeFilter(opt.key);
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors cursor-pointer ${scopeFilter === opt.key
                       ? opt.key === 'DAERAH'
                         ? 'font-bold text-blue-700 bg-blue-50/70'
                         : opt.key === 'DESA'
@@ -1083,26 +1278,26 @@ export default function KurikulumInfiniteList({
                             ? 'font-bold text-emerald-700 bg-emerald-50/70'
                             : 'font-bold text-slate-900 bg-slate-100/70'
                       : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {opt.dotColor ? (
-                      <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                      }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {opt.dotColor ? (
+                        <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-slate-300" />
+                      )}
+                      <span>{opt.label}</span>
+                    </span>
+                    {scopeFilter === opt.key && (
+                      <span className="text-[11px] font-bold text-teal-600">✓</span>
                     )}
-                    <span>{opt.label}</span>
-                  </span>
-                  {scopeFilter === opt.key && (
-                    <span className="text-[11px] font-bold text-teal-600">✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Daftar Materi (Cards) */}
       <div className="space-y-3.5">
@@ -1278,6 +1473,104 @@ export default function KurikulumInfiniteList({
         onConfirm={handleConfirmDelete}
         onClose={() => setDeleteConfirm(null)}
       />
-    </div >
+
+      {/* Modal Bawah (Bottom Sheet) - Ganti Data Anak Khusus Orang Tua */}
+      {mounted && isChildModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-end sm:justify-center bg-slate-900/50 backdrop-blur-xs animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsChildModalOpen(false);
+          }}
+        >
+          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[80vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95">
+            {/* Drag Handle (Mobile) */}
+            <div className="flex-shrink-0 pt-3 pb-1 flex justify-center sm:hidden">
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
+
+            {/* Header Bottom Sheet */}
+            <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">Ganti Data Anak</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Pilih ananda untuk meninjau materi dan capaian belajar
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChildModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-base leading-none cursor-pointer transition-colors"
+                aria-label="Tutup modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Daftar Ananda */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
+              {availableStudents.map((child) => {
+                const isSelected = child.id === selectedStudentId;
+                return (
+                  <button
+                    key={child.id}
+                    type="button"
+                    onClick={() => {
+                      handleSwitchStudent(child.id, child.generationCode);
+                      setIsChildModalOpen(false);
+                    }}
+                    className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all active:scale-[0.98] cursor-pointer ${isSelected
+                      ? 'border-teal-600 bg-teal-50/70 shadow-xs ring-1 ring-teal-500/20'
+                      : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/30 hover:shadow-xs'
+                      }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center font-extrabold text-sm shrink-0 border ${isSelected
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                          : 'bg-teal-50 text-teal-700 border-teal-100'
+                          }`}
+                      >
+                        {child.fullName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 truncate">
+                        <p className="text-sm font-bold text-slate-900 truncate">
+                          {child.fullName}
+                        </p>
+                        {child.generationName && (
+                          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 mt-1">
+                            {child.generationName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                        ? 'bg-teal-600 border-teal-600'
+                        : 'border-slate-300 bg-white'
+                        }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer Bottom Sheet */}
+            <div className="flex-shrink-0 border-t border-slate-100 px-4 py-3 safe-area-inset-bottom">
+              <button
+                type="button"
+                onClick={() => setIsChildModalOpen(false)}
+                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }

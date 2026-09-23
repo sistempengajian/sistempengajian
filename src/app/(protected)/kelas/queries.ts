@@ -9,8 +9,11 @@ import {
   HomeroomTeacherClassData,
   ParentClassData,
   ParentPendingVerificationItem,
+  ParentClassScheduleItem,
   HomeroomClassItem,
   HomeroomStudentItem,
+  ParentChildItem,
+  ChildClassOverview,
 } from '@/components/kelas/types';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 
@@ -1220,80 +1223,22 @@ export async function getHomeroomTeacherClassData(
 }
 
 /**
- * Mengambil data "Kelas Ananda" khusus untuk peran ORANG_TUA
+ * Helper untuk mengambil ringkasan kelas, jadwal, tugas, dan absensi per santri/ananda
  */
-export async function getParentClassData(
-  parentUserId: string,
-  selectedStudentId?: string
-): Promise<ParentClassData> {
-  // 1. Ambil relasi ananda yang terhubung dengan orang tua ini
-  const relations = await prisma.studentParentRelation.findMany({
-    where: { parentUserId },
-    include: {
-      student: {
-        include: {
-          organization: { include: { parent: true } },
-          generation: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
+async function fetchChildClassOverview(
+  child: ParentChildItem
+): Promise<ChildClassOverview> {
+  const childOrgId = child.organization?.id;
+  const childGenId = child.generation?.id;
+  const parentOrgId = child.organization?.parentId;
 
-  const children = relations.map((r) => ({
-    id: r.student.id,
-    fullName: r.student.fullName,
-    gender: r.student.gender,
-    avatarUrl: r.student.avatarUrl,
-    relationshipType: r.relationshipType,
-    generation: r.student.generation
-      ? {
-          id: r.student.generation.id,
-          code: r.student.generation.code,
-          name: r.student.generation.name,
-          minAge: r.student.generation.minAge,
-          maxAge: r.student.generation.maxAge,
-          color: r.student.generation.color,
-        }
-      : null,
-    organization: r.student.organization
-      ? {
-          id: r.student.organization.id,
-          name: r.student.organization.name,
-          type: r.student.organization.type,
-          parentId: r.student.organization.parentId,
-        }
-      : null,
-  }));
-
-  // Tentukan ananda aktif yang dipilih
-  const activeChild =
-    children.find((c) => c.id === selectedStudentId) || children[0] || null;
-
-  if (!activeChild) {
-    return {
-      children: [],
-      selectedChildId: '',
-      selectedChildClass: null,
-      homeroomTeacher: null,
-      pendingVerifications: [],
-      schedules: [],
-      attendanceSummary: {
-        totalSessions: 0,
-        attendedCount: 0,
-        permissionCount: 0,
-        percentage: 100,
-      },
-    };
-  }
-
-  // 2. Ambil kelas ananda terpilih
+  // 1. Ambil kelas ananda terpilih
   let rawClass = null;
-  if (activeChild.organization?.id && activeChild.generation?.id) {
+  if (childOrgId && childGenId) {
     rawClass = await prisma.class.findFirst({
       where: {
-        organizationId: activeChild.organization.id,
-        generationId: activeChild.generation.id,
+        organizationId: childOrgId,
+        generationId: childGenId,
       },
       orderBy: [{ academicYear: 'desc' }, { createdAt: 'desc' }],
       include: {
@@ -1308,11 +1253,11 @@ export async function getParentClassData(
       },
     });
 
-    if (!rawClass && activeChild.organization.parentId) {
+    if (!rawClass && parentOrgId) {
       rawClass = await prisma.class.findFirst({
         where: {
-          organizationId: activeChild.organization.parentId,
-          generationId: activeChild.generation.id,
+          organizationId: parentOrgId,
+          generationId: childGenId,
         },
         orderBy: [{ academicYear: 'desc' }, { createdAt: 'desc' }],
         include: {
@@ -1329,23 +1274,112 @@ export async function getParentClassData(
     }
   }
 
-  // 3. Ambil tugas ananda yang membutuhkan verifikasi orang tua (belum diverifikasi)
-  const pendingSubmissions = await prisma.assignmentSubmission.findMany({
+  // 2. Ambil seluruh ID kelas yang relevan untuk jenjang & organisasi ananda (Kelompok & Desa)
+  const childClasses = await prisma.class.findMany({
     where: {
-      studentId: activeChild.id,
-      assignment: { requiresParentVerification: true },
+      generationId: childGenId || undefined,
       OR: [
-        { parentVerification: null },
-        { parentVerification: { isVerifiedByParent: false } },
+        { organizationId: childOrgId || undefined },
+        { organizationId: parentOrgId || undefined },
       ],
     },
-    include: {
-      assignment: true,
-      student: { select: { fullName: true } },
-    },
-    orderBy: { submittedAt: 'desc' },
-    take: 5,
+    select: { id: true },
   });
+  const childClassIds = childClasses.map((c) => c.id);
+  if (rawClass?.id && !childClassIds.includes(rawClass.id)) {
+    childClassIds.push(rawClass.id);
+  }
+
+  const childOrgIds = [childOrgId, parentOrgId].filter(Boolean) as string[];
+
+  // 3. Eksekusi query tugas, jadwal, dan absensi secara paralel
+  const [
+    pendingSubmissions,
+    rawSchedules,
+    totalSessions,
+    attendedCount,
+    permissionCount,
+  ] = await Promise.all([
+    prisma.assignmentSubmission.findMany({
+      where: {
+        studentId: child.id,
+        assignment: { requiresParentVerification: true },
+        OR: [
+          { parentVerification: null },
+          { parentVerification: { isVerifiedByParent: false } },
+        ],
+      },
+      include: {
+        assignment: true,
+        student: { select: { fullName: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+      take: 5,
+    }),
+    prisma.schedule.findMany({
+      where: {
+        status: { in: ['SCHEDULED', 'ACTIVE', 'COMPLETED'] },
+        organizationId: { in: childOrgIds },
+        OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+        AND: [
+          {
+            OR: [
+              // 1. Jadwal spesifik kelas anak
+              ...(childClassIds.length > 0
+                ? [
+                    { classId: { in: childClassIds } },
+                    // 2. Jadwal gabungan yang secara eksplisit mendaftarkan kelas anak
+                    { targetClasses: { some: { classId: { in: childClassIds } } } },
+                  ]
+                : []),
+              // 3. Jadwal yang menargetkan jenjang anak secara spesifik
+              ...(childGenId
+                ? [
+                    { targetGenerations: { some: { generationId: childGenId } } },
+                  ]
+                : []),
+              // 4. Jadwal umum wilayah tanpa pembatasan kelas/jenjang tertentu
+              {
+                classId: null,
+                targetClasses: { none: {} },
+                targetGenerations: { none: {} },
+              },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        venuePlaceName: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        scheduleType: true,
+        targetScope: true,
+        classId: true,
+        class: { select: { name: true } },
+        targetClasses: { select: { classId: true } },
+      },
+      orderBy: { startTime: 'desc' },
+      take: 8,
+    }),
+    prisma.attendanceRecord.count({
+      where: { studentId: child.id },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        studentId: child.id,
+        status: { in: ['HADIR', 'TERLAMBAT'] },
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        studentId: child.id,
+        status: { in: ['IZIN', 'SAKIT'] },
+      },
+    }),
+  ]);
 
   const pendingVerifications: ParentPendingVerificationItem[] = pendingSubmissions.map((s) => ({
     submissionId: s.id,
@@ -1359,80 +1393,7 @@ export async function getParentClassData(
     pointsReward: s.assignment.pointsReward,
   }));
 
-  // Ambil seluruh ID kelas yang relevan untuk jenjang & organisasi ananda (Kelompok & Desa)
-  const childClasses = await prisma.class.findMany({
-    where: {
-      generationId: activeChild.generation?.id || undefined,
-      OR: [
-        { organizationId: activeChild.organization?.id || undefined },
-        { organizationId: activeChild.organization?.parentId || undefined },
-      ],
-    },
-    select: { id: true },
-  });
-  const childClassIds = childClasses.map((c) => c.id);
-  if (rawClass?.id && !childClassIds.includes(rawClass.id)) {
-    childClassIds.push(rawClass.id);
-  }
-
-  const childOrgIds = [
-    activeChild.organization?.id,
-    activeChild.organization?.parentId,
-  ].filter(Boolean) as string[];
-
-  // 4. Ambil jadwal kelas ananda
-  const schedulesWhere: any = {
-    status: { in: ['SCHEDULED', 'ACTIVE', 'COMPLETED'] },
-    organizationId: { in: childOrgIds },
-    OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
-    AND: [
-      {
-        OR: [
-          // 1. Jadwal spesifik kelas anak
-          ...(childClassIds.length > 0
-            ? [
-                { classId: { in: childClassIds } },
-                // 2. Jadwal gabungan yang secara eksplisit mendaftarkan kelas anak
-                { targetClasses: { some: { classId: { in: childClassIds } } } },
-              ]
-            : []),
-          // 3. Jadwal yang menargetkan jenjang anak secara spesifik
-          ...(activeChild.generation?.id
-            ? [
-                { targetGenerations: { some: { generationId: activeChild.generation.id } } },
-              ]
-            : []),
-          // 4. Jadwal umum wilayah tanpa pembatasan kelas/jenjang tertentu
-          {
-            classId: null,
-            targetClasses: { none: {} },
-            targetGenerations: { none: {} },
-          },
-        ],
-      },
-    ],
-  };
-
-  const rawSchedules = await prisma.schedule.findMany({
-    where: schedulesWhere,
-    select: {
-      id: true,
-      title: true,
-      venuePlaceName: true,
-      startTime: true,
-      endTime: true,
-      status: true,
-      scheduleType: true,
-      targetScope: true,
-      classId: true,
-      class: { select: { name: true } },
-      targetClasses: { select: { classId: true } },
-    },
-    orderBy: { startTime: 'desc' },
-    take: 8,
-  });
-
-  const schedules = rawSchedules.map((s) => ({
+  const schedules: ParentClassScheduleItem[] = rawSchedules.map((s) => ({
     id: s.id,
     title: s.title,
     venuePlaceName: s.venuePlaceName,
@@ -1444,25 +1405,6 @@ export async function getParentClassData(
     isCombined: s.targetClasses.length > 1 || (s.targetClasses.length > 0 && Boolean(s.classId)),
     className: s.class?.name || null,
   }));
-
-  // 5. Hitung riwayat kehadiran ananda
-  const [totalSessions, attendedCount, permissionCount] = await Promise.all([
-    prisma.attendanceRecord.count({
-      where: { studentId: activeChild.id },
-    }),
-    prisma.attendanceRecord.count({
-      where: {
-        studentId: activeChild.id,
-        status: { in: ['HADIR', 'TERLAMBAT'] },
-      },
-    }),
-    prisma.attendanceRecord.count({
-      where: {
-        studentId: activeChild.id,
-        status: { in: ['IZIN', 'SAKIT'] },
-      },
-    }),
-  ]);
 
   const percentage =
     totalSessions > 0 ? Math.round((attendedCount / totalSessions) * 100) : 100;
@@ -1525,8 +1467,6 @@ export async function getParentClassData(
     : null;
 
   return {
-    children,
-    selectedChildId: activeChild.id,
     selectedChildClass,
     homeroomTeacher: selectedChildClass?.homeroomTeacher || null,
     pendingVerifications,
@@ -1537,6 +1477,102 @@ export async function getParentClassData(
       permissionCount,
       percentage,
     },
+  };
+}
+
+/**
+ * Mengambil data "Kelas Ananda" khusus untuk peran ORANG_TUA
+ */
+export async function getParentClassData(
+  parentUserId: string,
+  selectedStudentId?: string
+): Promise<ParentClassData> {
+  // 1. Ambil relasi ananda yang terhubung dengan orang tua ini
+  const relations = await prisma.studentParentRelation.findMany({
+    where: { parentUserId },
+    include: {
+      student: {
+        include: {
+          organization: { include: { parent: true } },
+          generation: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const children: ParentChildItem[] = relations.map((r) => ({
+    id: r.student.id,
+    fullName: r.student.fullName,
+    gender: r.student.gender,
+    avatarUrl: r.student.avatarUrl,
+    relationshipType: r.relationshipType,
+    generation: r.student.generation
+      ? {
+          id: r.student.generation.id,
+          code: r.student.generation.code,
+          name: r.student.generation.name,
+          minAge: r.student.generation.minAge,
+          maxAge: r.student.generation.maxAge,
+          color: r.student.generation.color,
+        }
+      : null,
+    organization: r.student.organization
+      ? {
+          id: r.student.organization.id,
+          name: r.student.organization.name,
+          type: r.student.organization.type,
+          parentId: r.student.organization.parentId,
+        }
+      : null,
+  }));
+
+  // Tentukan ananda aktif yang dipilih
+  const activeChild =
+    children.find((c) => c.id === selectedStudentId) || children[0] || null;
+
+  if (!activeChild) {
+    return {
+      children: [],
+      selectedChildId: '',
+      selectedChildClass: null,
+      homeroomTeacher: null,
+      pendingVerifications: [],
+      schedules: [],
+      attendanceSummary: {
+        totalSessions: 0,
+        attendedCount: 0,
+        permissionCount: 0,
+        percentage: 100,
+      },
+      childrenDataMap: {},
+    };
+  }
+
+  // 2. Fetch data overview untuk seluruh ananda secara paralel agar switch antar ananda instan tanpa delay
+  const childOverviews = await Promise.all(
+    children.map(async (child) => {
+      const overview = await fetchChildClassOverview(child);
+      return [child.id, overview] as const;
+    })
+  );
+  const childrenDataMap: Record<string, ChildClassOverview> = Object.fromEntries(childOverviews);
+  const activeOverview = childrenDataMap[activeChild.id];
+
+  return {
+    children,
+    selectedChildId: activeChild.id,
+    selectedChildClass: activeOverview?.selectedChildClass || null,
+    homeroomTeacher: activeOverview?.homeroomTeacher || null,
+    pendingVerifications: activeOverview?.pendingVerifications || [],
+    schedules: activeOverview?.schedules || [],
+    attendanceSummary: activeOverview?.attendanceSummary || {
+      totalSessions: 0,
+      attendedCount: 0,
+      permissionCount: 0,
+      percentage: 100,
+    },
+    childrenDataMap,
   };
 }
 

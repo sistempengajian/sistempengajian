@@ -2,9 +2,8 @@ import React from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
-import InteractiveCalendar from '@/components/jadwal/InteractiveCalendar';
-import RoleNavTabs, { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
-import { CalendarIcon, ShieldCheck, GraduationCap, Heart, Calendar } from 'lucide-react';
+import JadwalClientWrapper, { RoleConfigData } from '@/components/jadwal/JadwalClientWrapper';
+import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { UserRole } from '@prisma/client';
 
@@ -12,6 +11,169 @@ export const metadata = {
   title: 'Jadwal Pengajian | Sistem Pengajian Terstruktur',
   description: 'Kalender sesi pengajian, agenda wilayah, delegasi ustadz badal, dan peluncur presensi QR.',
 };
+
+const SCHEDULE_INCLUDE = {
+  teachers: {
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  },
+  organization: {
+    select: {
+      id: true,
+      name: true,
+      type: true,
+    },
+  },
+  class: {
+    select: {
+      id: true,
+      name: true,
+      tierLevel: true,
+      homeroomTeacherId: true,
+      generation: {
+        select: {
+          name: true,
+          code: true,
+        },
+      },
+    },
+  },
+  targetClasses: {
+    include: {
+      class: {
+        select: {
+          id: true,
+          name: true,
+          tierLevel: true,
+          homeroomTeacherId: true,
+        },
+      },
+    },
+  },
+  targetGenerations: {
+    include: {
+      generation: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          color: true,
+        },
+      },
+    },
+  },
+  scheduleMaterials: {
+    include: {
+      material: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: { slotIndex: 'asc' as const },
+  },
+  attendanceSessions: {
+    select: {
+      id: true,
+      isActive: true,
+      openedAt: true,
+    },
+  },
+};
+
+function enrichSchedules(
+  schedules: any[],
+  roleId: RoleTabId,
+  parentChildrenInfo?: {
+    id: string;
+    fullName: string;
+    generationId?: string | null;
+    organizationId?: string | null;
+    parentOrgId?: string | null;
+    classIds: string[];
+  }[]
+) {
+  return schedules.map((sch) => {
+    const connectedClasses: string[] = [];
+    if (sch.class?.name && !connectedClasses.includes(sch.class.name)) {
+      connectedClasses.push(sch.class.name);
+    }
+    if (sch.targetClasses) {
+      for (const tc of sch.targetClasses) {
+        if (tc.class?.name && !connectedClasses.includes(tc.class.name)) {
+          connectedClasses.push(tc.class.name);
+        }
+      }
+    }
+
+    let connectedStudents: { id: string; fullName: string }[] = [];
+    if (roleId === 'parent' && parentChildrenInfo && parentChildrenInfo.length > 0) {
+      const scheduleClassIds = new Set<string>();
+      if (sch.class?.id) scheduleClassIds.add(sch.class.id);
+      if (sch.targetClasses) {
+        for (const tc of sch.targetClasses) {
+          if (tc.class?.id) scheduleClassIds.add(tc.class.id);
+        }
+      }
+
+      const scheduleGenIds = new Set<string>();
+      if (sch.targetGenerations) {
+        for (const tg of sch.targetGenerations) {
+          if (tg.generation?.id) scheduleGenIds.add(tg.generation.id);
+        }
+      }
+
+      const isGeneral = scheduleClassIds.size === 0 && scheduleGenIds.size === 0;
+
+      for (const child of parentChildrenInfo) {
+        // 1. Cek kelas spesifik anak
+        const classMatched = child.classIds.some((cId) => scheduleClassIds.has(cId));
+        if (classMatched) {
+          connectedStudents.push({ id: child.id, fullName: child.fullName });
+          continue;
+        }
+
+        // 2. Cek jenjang / generasi anak
+        const genMatched = child.generationId && scheduleGenIds.has(child.generationId);
+        if (genMatched) {
+          connectedStudents.push({ id: child.id, fullName: child.fullName });
+          continue;
+        }
+
+        // 3. Cek jadwal umum wilayah ananda
+        if (
+          isGeneral &&
+          (sch.organizationId === child.organizationId || sch.organizationId === child.parentOrgId)
+        ) {
+          connectedStudents.push({ id: child.id, fullName: child.fullName });
+          continue;
+        }
+      }
+
+      // Fallback jika hanya punya 1 anak dan tampil di feed orang tua
+      if (connectedStudents.length === 0 && parentChildrenInfo.length === 1) {
+        connectedStudents.push({
+          id: parentChildrenInfo[0].id,
+          fullName: parentChildrenInfo[0].fullName,
+        });
+      }
+    }
+
+    return {
+      ...sch,
+      connectedStudents,
+      connectedClasses,
+    };
+  });
+}
 
 export default async function JadwalPage({
   searchParams,
@@ -160,98 +322,31 @@ export default async function JadwalPage({
     });
   }
 
-  // 3. Tentukan Role Tab yang Sedang Aktif
+  // 3. Tentukan Role Tab Awal
   const roleQuery = (resolvedParams.role || resolvedParams.view || '').toLowerCase();
-  let activeRole: RoleTabId;
   const matchedRole = availableRoles.find((r) => r.id === roleQuery);
-  if (matchedRole) {
-    activeRole = matchedRole.id;
-  } else {
-    activeRole = availableRoles[0].id;
-  }
+  const initialActiveRole: RoleTabId = matchedRole ? matchedRole.id : availableRoles[0].id;
 
-  // 4. Konfigurasi Filter Scoped Jadwal & Hak Kelola berdasarkan activeRole
-  let scheduleWhere: any = {};
-  let classWhere: any = {};
-  let canManage = false;
-  const canPropose = isManager || isTeacher;
-  let userTierLevel: 'DAERAH' | 'DESA' | 'KELOMPOK' | null = null;
-  let headerTitle = 'Kelola Jadwal Pengajian & Badal';
-  let headerSubtitle = 'Kalender terpadu sesi rutin mingguan, agenda wilayah, delegasi badal pengajar, dan peluncur presensi QR.';
+  // 4. Scoped Org IDs (hanya di-query 1x jika user manager)
+  const scopedOrgIds = isManager
+    ? await getScopedOrganizationIds(roleCodes, userProfile?.organizationId || null)
+    : null;
 
-  if (activeRole === 'manage') {
-    canManage = isManager;
-    if (isPjDaerah) {
-      userTierLevel = 'DAERAH';
-    } else if (isPjDesa) {
-      userTierLevel = 'DESA';
-    } else if (isPjKelompok) {
-      userTierLevel = 'KELOMPOK';
-    } else if (userProfile?.organization?.type) {
-      userTierLevel = userProfile.organization.type as 'DAERAH' | 'DESA' | 'KELOMPOK';
-    }
+  // 5. Jika user memiliki peran Orang Tua, siapkan data anak & kelasnya
+  let parentChildrenInfo: {
+    id: string;
+    fullName: string;
+    generationId?: string | null;
+    organizationId?: string | null;
+    parentOrgId?: string | null;
+    classIds: string[];
+  }[] = [];
+  let allChildClassIds: string[] = [];
+  let allChildOrgIds: string[] = [];
+  let allChildGenerationIds: string[] = [];
 
-    const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile?.organizationId || null);
-    if (scopedOrgIds !== null) {
-      scheduleWhere = {
-        organizationId: { in: scopedOrgIds },
-      };
-      classWhere = {
-        organizationId: { in: scopedOrgIds },
-      };
-    }
-    headerTitle = 'Kelola Jadwal Pengajian Wilayah';
-    headerSubtitle = `Kalender sesi pengajian, alokasi ustadz, dan delegasi badal di lingkungan ${userProfile?.organization?.name || 'wilayah binaan'}.`;
-  } else if (activeRole === 'teacher') {
-    canManage = false; // Pengajar & Wali Kelas dibatasi (hanya delegasi badal & ajukan jadwal)
-    if (userProfile?.organization?.type) {
-      userTierLevel = userProfile.organization.type as 'DAERAH' | 'DESA' | 'KELOMPOK';
-    }
-    const homeroomClassIds = (userProfile?.homeroomClasses || []).map((c) => c.id);
-    scheduleWhere = {
-      OR: [
-        {
-          teachers: { some: { teacherId: user.id } },
-          OR: [
-            { approvalStatus: 'APPROVED' },
-            { approvalStatus: null },
-          ],
-        },
-        { requestedByUserId: user.id },
-        ...(homeroomClassIds.length > 0
-          ? [
-              {
-                AND: [
-                  {
-                    OR: [
-                      { classId: { in: homeroomClassIds } },
-                      { targetClasses: { some: { classId: { in: homeroomClassIds } } } },
-                    ],
-                  },
-                  {
-                    OR: [
-                      { approvalStatus: 'APPROVED' },
-                      { approvalStatus: null },
-                    ],
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    };
-    if (userProfile?.organizationId) {
-      classWhere = {
-        organizationId: userProfile.organizationId,
-      };
-    }
-    headerTitle = 'Jadwal Mengajar & Kelas Binaan';
-    headerSubtitle = 'Kalender sesi pengajian yang Anda ampu sebagai Ustadz utama atau badal, serta sesi aktif kelas binaan Anda.';
-  } else if (activeRole === 'parent') {
-    canManage = false;
-    userTierLevel = null;
-
-    const childClassesPromises = (userProfile?.children || []).map((rel) => {
+  if (isParent && userProfile?.children && userProfile.children.length > 0) {
+    const childClassesPromises = userProfile.children.map((rel) => {
       const student = rel.student;
       return prisma.class.findMany({
         where: {
@@ -266,11 +361,20 @@ export default async function JadwalPage({
     });
 
     const childClassResults = await Promise.all(childClassesPromises);
-    const allChildClassIds = childClassResults.flat().map((c) => c.id);
+    allChildClassIds = childClassResults.flat().map((c) => c.id);
 
-    const allChildOrgIds = Array.from(
+    parentChildrenInfo = userProfile.children.map((rel, idx) => ({
+      id: rel.student.id,
+      fullName: rel.student.fullName,
+      generationId: rel.student.generationId,
+      organizationId: rel.student.organizationId,
+      parentOrgId: rel.student.organization?.parentId,
+      classIds: childClassResults[idx]?.map((c) => c.id) || [],
+    }));
+
+    allChildOrgIds = Array.from(
       new Set(
-        (userProfile?.children || [])
+        userProfile.children
           .flatMap((rel) => [
             rel.student.organizationId,
             rel.student.organization?.parentId,
@@ -279,46 +383,18 @@ export default async function JadwalPage({
       )
     );
 
-    const allChildGenerationIds = Array.from(
+    allChildGenerationIds = Array.from(
       new Set(
-        (userProfile?.children || [])
+        userProfile.children
           .map((rel) => rel.student.generationId)
           .filter(Boolean) as string[]
       )
     );
+  }
 
-    scheduleWhere = {
-      AND: [
-        { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
-        {
-          OR: [
-            ...(allChildClassIds.length > 0
-              ? [
-                  { classId: { in: allChildClassIds } },
-                  { targetClasses: { some: { classId: { in: allChildClassIds } } } },
-                ]
-              : []),
-            ...(allChildGenerationIds.length > 0
-              ? [{ targetGenerations: { some: { generationId: { in: allChildGenerationIds } } } }]
-              : []),
-            {
-              classId: null,
-              targetClasses: { none: {} },
-              targetGenerations: { none: {} },
-              organizationId: { in: allChildOrgIds },
-            },
-          ],
-        },
-      ],
-    };
-    classWhere = {};
-    headerTitle = 'Jadwal Pengajian Anak';
-    headerSubtitle = 'Pantau jadwal sesi pengajian kelas ananda dan agenda kegiatan pengajian keluarga.';
-  } else {
-    // activeRole === 'student'
-    canManage = false;
-    userTierLevel = null;
-
+  // 6. Jika user memiliki peran Santri, siapkan kelas binaannya
+  let studentClassIds: string[] = [];
+  if (isSantri) {
     const studentClasses = await prisma.class.findMany({
       where: {
         generationId: userProfile?.generationId || undefined,
@@ -329,191 +405,245 @@ export default async function JadwalPage({
       },
       select: { id: true },
     });
-    const studentClassIds = studentClasses.map((c) => c.id);
-
-    const allowedOrgIds = [
-      userProfile?.organizationId,
-      userProfile?.organization?.parentId,
-      userProfile?.organization?.parent?.parentId,
-    ].filter(Boolean) as string[];
-
-    scheduleWhere = {
-      AND: [
-        { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
-        {
-          OR: [
-            ...(studentClassIds.length > 0
-              ? [
-                  { classId: { in: studentClassIds } },
-                  { targetClasses: { some: { classId: { in: studentClassIds } } } },
-                ]
-              : []),
-            ...(userProfile?.generationId
-              ? [{ targetGenerations: { some: { generationId: userProfile.generationId } } }]
-              : []),
-            {
-              classId: null,
-              targetClasses: { none: {} },
-              targetGenerations: { none: {} },
-              organizationId: { in: allowedOrgIds },
-            },
-          ],
-        },
-      ],
-    };
-    classWhere = {};
-    headerTitle = 'Jadwal Pengajian Saya';
-    headerSubtitle = 'Jadwal sesi pengajian kelas Anda dan agenda pengajian umum di lingkungan wilayah Anda.';
+    studentClassIds = studentClasses.map((c) => c.id);
   }
 
-  // 5. Ambil data jadwal, ustadz, kelas, materi, jenjang, dan organisasi secara paralel
-  const needFormData = canManage || canPropose;
-  const [schedules, teachers, classes, materials, generations, scopedOrganizations] = await Promise.all([
-    prisma.schedule.findMany({
-      where: scheduleWhere,
-      include: {
-        teachers: {
-          include: {
-            teacher: {
-              select: {
-                id: true,
-                fullName: true,
-                avatarUrl: true,
-              },
-            },
+  // 7. Konfigurasi Filter Scoped Jadwal & Hak Kelola untuk masing-masing role
+  const roleConfigs: Record<
+    RoleTabId,
+    {
+      scheduleWhere: any;
+      canManage: boolean;
+      canPropose: boolean;
+      userTierLevel: 'DAERAH' | 'DESA' | 'KELOMPOK' | null;
+      headerTitle: string;
+      headerSubtitle: string;
+      parentChildrenInfo?: typeof parentChildrenInfo;
+    }
+  > = {
+    manage: {
+      scheduleWhere: scopedOrgIds !== null ? { organizationId: { in: scopedOrgIds } } : {},
+      canManage: isManager,
+      canPropose: isManager || isTeacher,
+      userTierLevel: isPjDaerah
+        ? 'DAERAH'
+        : isPjDesa
+        ? 'DESA'
+        : isPjKelompok
+        ? 'KELOMPOK'
+        : (userProfile?.organization?.type as any) || null,
+      headerTitle: 'Kelola Jadwal Pengajian Wilayah',
+      headerSubtitle: `Kalender sesi pengajian, alokasi ustadz, dan delegasi badal di lingkungan ${
+        userProfile?.organization?.name || 'wilayah binaan'
+      }.`,
+    },
+    teacher: {
+      scheduleWhere: {
+        OR: [
+          {
+            teachers: { some: { teacherId: user.id } },
+            OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
           },
-        },
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
-        class: {
-          select: {
-            id: true,
-            name: true,
-            tierLevel: true,
-            homeroomTeacherId: true,
-            generation: {
-              select: {
-                name: true,
-                code: true,
-              },
-            },
-          },
-        },
-        targetClasses: {
-          include: {
-            class: {
-              select: {
-                id: true,
-                name: true,
-                tierLevel: true,
-                homeroomTeacherId: true,
-              },
-            },
-          },
-        },
-        targetGenerations: {
-          include: {
-            generation: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                color: true,
-              },
-            },
-          },
-        },
-        scheduleMaterials: {
-          include: {
-            material: {
-              select: {
-                id: true,
-                title: true,
-              },
-            },
-          },
-          orderBy: { slotIndex: 'asc' },
-        },
-        attendanceSessions: {
-          select: {
-            id: true,
-            isActive: true,
-            openedAt: true,
-          },
-        },
+          { requestedByUserId: user.id },
+          ...((userProfile?.homeroomClasses || []).length > 0
+            ? [
+                {
+                  AND: [
+                    {
+                      OR: [
+                        { classId: { in: (userProfile?.homeroomClasses || []).map((c) => c.id) } },
+                        {
+                          targetClasses: {
+                            some: { classId: { in: (userProfile?.homeroomClasses || []).map((c) => c.id) } },
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+                    },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
-      orderBy: { startTime: 'asc' },
-    }),
-    needFormData
-      ? prisma.user.findMany({
-          where: {
-            roles: {
-              some: {
-                role: { in: ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'] },
+      canManage: false,
+      canPropose: isManager || isTeacher,
+      userTierLevel: (userProfile?.organization?.type as any) || null,
+      headerTitle: 'Jadwal Mengajar & Kelas Binaan',
+      headerSubtitle:
+        'Kalender sesi pengajian yang Anda ampu sebagai Ustadz utama atau badal, serta sesi aktif kelas binaan Anda.',
+    },
+    parent: {
+      scheduleWhere: {
+        AND: [
+          { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
+          {
+            OR: [
+              ...(allChildClassIds.length > 0
+                ? [
+                    { classId: { in: allChildClassIds } },
+                    { targetClasses: { some: { classId: { in: allChildClassIds } } } },
+                  ]
+                : []),
+              ...(allChildGenerationIds.length > 0
+                ? [{ targetGenerations: { some: { generationId: { in: allChildGenerationIds } } } }]
+                : []),
+              {
+                classId: null,
+                targetClasses: { none: {} },
+                targetGenerations: { none: {} },
+                organizationId: { in: allChildOrgIds },
+              },
+            ],
+          },
+        ],
+      },
+      canManage: false,
+      canPropose: false,
+      userTierLevel: null,
+      headerTitle: 'Jadwal Pengajian Anak',
+      headerSubtitle:
+        'Pantau jadwal sesi pengajian kelas ananda dan agenda kegiatan pengajian keluarga.',
+      parentChildrenInfo,
+    },
+    student: {
+      scheduleWhere: {
+        AND: [
+          { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
+          {
+            OR: [
+              ...(studentClassIds.length > 0
+                ? [
+                    { classId: { in: studentClassIds } },
+                    { targetClasses: { some: { classId: { in: studentClassIds } } } },
+                  ]
+                : []),
+              ...(userProfile?.generationId
+                ? [{ targetGenerations: { some: { generationId: userProfile.generationId } } }]
+                : []),
+              {
+                classId: null,
+                targetClasses: { none: {} },
+                targetGenerations: { none: {} },
+                organizationId: {
+                  in: [
+                    userProfile?.organizationId,
+                    userProfile?.organization?.parentId,
+                    userProfile?.organization?.parent?.parentId,
+                  ].filter(Boolean) as string[],
+                },
+              },
+            ],
+          },
+        ],
+      },
+      canManage: false,
+      canPropose: false,
+      userTierLevel: null,
+      headerTitle: 'Jadwal Pengajian Saya',
+      headerSubtitle:
+        'Jadwal sesi pengajian kelas Anda dan agenda pengajian umum di lingkungan wilayah Anda.',
+    },
+  };
+
+  // 8. Cek apakah ada role yang membutuhkan form data (untuk modal buat/edit jadwal)
+  const anyCanManage = availableRoles.some((r) => roleConfigs[r.id]?.canManage);
+  const anyCanPropose = availableRoles.some((r) => roleConfigs[r.id]?.canPropose);
+  const needFormData = anyCanManage || anyCanPropose;
+
+  // 9. Fetch schedules untuk setiap role dalam availableRoles serta data form secara paralel
+  const [scheduleResults, teachers, classes, materials, generations, scopedOrganizations] =
+    await Promise.all([
+      Promise.all(
+        availableRoles.map(async (roleItem) => {
+          const config = roleConfigs[roleItem.id];
+          const rawSchedules = await prisma.schedule.findMany({
+            where: config.scheduleWhere,
+            include: SCHEDULE_INCLUDE,
+            orderBy: { startTime: 'asc' },
+          });
+          const enriched = enrichSchedules(rawSchedules, roleItem.id, config.parentChildrenInfo);
+          return {
+            roleId: roleItem.id,
+            schedules: enriched,
+            canManage: config.canManage,
+            canPropose: config.canPropose,
+            userTierLevel: config.userTierLevel,
+            headerTitle: config.headerTitle,
+            headerSubtitle: config.headerSubtitle,
+          };
+        })
+      ),
+      needFormData
+        ? prisma.user.findMany({
+            where: {
+              roles: {
+                some: {
+                  role: { in: ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'] },
+                },
               },
             },
-          },
-          select: {
-            id: true,
-            fullName: true,
-          },
-          orderBy: { fullName: 'asc' },
-        })
-      : Promise.resolve([]),
-    needFormData
-      ? prisma.class.findMany({
-          where: classWhere,
-          select: {
-            id: true,
-            name: true,
-            tierLevel: true,
-            organizationId: true,
-            generation: {
-              select: {
-                name: true,
+            select: {
+              id: true,
+              fullName: true,
+            },
+            orderBy: { fullName: 'asc' },
+          })
+        : Promise.resolve([]),
+      needFormData
+        ? prisma.class.findMany({
+            where:
+              scopedOrgIds !== null
+                ? { organizationId: { in: scopedOrgIds } }
+                : userProfile?.organizationId
+                ? { organizationId: userProfile.organizationId }
+                : {},
+            select: {
+              id: true,
+              name: true,
+              tierLevel: true,
+              organizationId: true,
+              generation: {
+                select: {
+                  name: true,
+                },
               },
             },
-          },
-          orderBy: { name: 'asc' },
-        })
-      : Promise.resolve([]),
-    needFormData
-      ? prisma.material.findMany({
-          where: { isActive: true },
-          select: {
-            id: true,
-            title: true,
-            targetGeneration: {
-              select: {
-                id: true,
-                name: true,
+            orderBy: { name: 'asc' },
+          })
+        : Promise.resolve([]),
+      needFormData
+        ? prisma.material.findMany({
+            where: { isActive: true },
+            select: {
+              id: true,
+              title: true,
+              targetGeneration: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
-          },
-          orderBy: { title: 'asc' },
-        })
-      : Promise.resolve([]),
-    needFormData
-      ? prisma.generation.findMany({
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            color: true,
-          },
-          orderBy: { minAge: 'asc' },
-        })
-      : Promise.resolve([]),
-    needFormData
-      ? (async () => {
-          const sOrgIds = await getScopedOrganizationIds(roleCodes, userProfile?.organizationId || null);
-          return prisma.organization.findMany({
-            where: sOrgIds !== null ? { id: { in: sOrgIds } } : {},
+            orderBy: { title: 'asc' },
+          })
+        : Promise.resolve([]),
+      needFormData
+        ? prisma.generation.findMany({
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              color: true,
+            },
+            orderBy: { minAge: 'asc' },
+          })
+        : Promise.resolve([]),
+      needFormData
+        ? prisma.organization.findMany({
+            where: scopedOrgIds !== null ? { id: { in: scopedOrgIds } } : {},
             select: {
               id: true,
               name: true,
@@ -521,53 +651,36 @@ export default async function JadwalPage({
               parentId: true,
             },
             orderBy: [{ type: 'asc' }, { name: 'asc' }],
-          });
-        })()
-      : Promise.resolve([]),
-  ]);
+          })
+        : Promise.resolve([]),
+    ]);
+
+  const roleDataMap: Record<string, RoleConfigData> = {};
+  for (const res of scheduleResults) {
+    roleDataMap[res.roleId] = {
+      schedules: res.schedules,
+      canManage: res.canManage,
+      canPropose: res.canPropose,
+      userTierLevel: res.userTierLevel,
+      headerTitle: res.headerTitle,
+      headerSubtitle: res.headerSubtitle,
+    };
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fade-in pb-20 sm:pb-8">
-      {/* Tab Navigasi Multi-Role Pengguna (Hanya tampil jika user memiliki > 1 role) */}
-      <RoleNavTabs
-        title="Pilih Tampilan Jadwal Sesuai Peran"
-        description="Akun Anda memiliki beberapa akses jadwal. Pilih modul jadwal yang ingin Anda pantau atau kelola."
-        availableRoles={availableRoles}
-        activeRole={activeRole}
-      />
-
-      {/* Top Header: Clean & Modern Glassmorphic Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-slate-200/70 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/60 shadow-2xs shrink-0">
-              <CalendarIcon className="w-4 h-4" />
-            </div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              {headerTitle}
-            </h1>
-          </div>
-          <p className="text-xs text-slate-500 font-normal mt-1">
-            {headerSubtitle}
-          </p>
-        </div>
-      </div>
-
-      {/* Interactive Calendar & Agenda View Component */}
-      <InteractiveCalendar
-        schedules={schedules as any}
-        availableTeachers={teachers}
-        availableClasses={classes as any}
-        availableMaterials={materials as any}
-        availableGenerations={generations as any}
-        scopedOrganizations={scopedOrganizations as any}
-        currentUserOrgId={userProfile?.organizationId || null}
-        canManage={canManage}
-        canPropose={canPropose}
-        currentUserId={user.id}
-        userTierLevel={userTierLevel}
-        roleCodes={roleCodes}
-      />
-    </div>
+    <JadwalClientWrapper
+      initialActiveRole={initialActiveRole}
+      availableRoles={availableRoles}
+      roleDataMap={roleDataMap}
+      teachers={teachers}
+      classes={classes as any}
+      materials={materials as any}
+      generations={generations as any}
+      scopedOrganizations={scopedOrganizations as any}
+      currentUserOrgId={userProfile?.organizationId || null}
+      currentUserId={user.id}
+      roleCodes={roleCodes}
+    />
   );
 }
+

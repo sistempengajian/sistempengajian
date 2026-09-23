@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Send,
+  Sparkles,
 } from 'lucide-react';
 import { HomeroomTeacherClassData } from '../types';
 import { formatWhatsAppUrl, displayPhoneNumber } from '@/lib/whatsapp';
@@ -375,6 +376,17 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                               <span>Santri</span>
                             </a>
                           ) : null}
+                        </div>
+
+                        {/* Tombol Lihat Rapor & Perkembangan Santri */}
+                        <div className="pt-1">
+                          <Link
+                            href={`/laporan?studentId=${student.id}`}
+                            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-800 text-xs font-bold transition-all border border-teal-200/80 shadow-2xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Lihat Rapor &amp; Capaian Santri</span>
+                          </Link>
                         </div>
                       </div>
                     );

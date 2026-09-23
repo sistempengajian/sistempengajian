@@ -14,7 +14,132 @@ import crypto from 'crypto';
 import { uploadTaskImage } from '@/lib/storage/mediaUploader';
 
 /**
+ * Mengisi status awal ALPA di database untuk seluruh santri target jadwal yang belum memiliki catatan presensi
+ * Memastikan data di server sinkron dengan tampilan default Alpa sejak sesi dibuka maupun saat ditutup.
+ */
+export async function populateDefaultAbsenceForSession(sessionId: string) {
+  const session = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      schedule: {
+        include: {
+          class: true,
+          targetClasses: { include: { class: true } },
+          targetGenerations: true,
+        },
+      },
+      records: { select: { studentId: true } },
+    },
+  });
+
+  if (!session || !session.schedule) return { count: 0 };
+
+  const schedule = session.schedule;
+
+  // Kumpulkan daftar kelas target jadwal (baik kelas utama maupun multi-kelas gabungan)
+  const targetClassesMap = new Map<
+    string,
+    { id: string; name: string; organizationId: string; generationId: string }
+  >();
+
+  if (schedule.class) {
+    targetClassesMap.set(schedule.class.id, {
+      id: schedule.class.id,
+      name: schedule.class.name,
+      organizationId: schedule.class.organizationId,
+      generationId: schedule.class.generationId,
+    });
+  }
+
+  if (schedule.targetClasses && schedule.targetClasses.length > 0) {
+    for (const tc of schedule.targetClasses) {
+      if (tc.class) {
+        targetClassesMap.set(tc.class.id, {
+          id: tc.class.id,
+          name: tc.class.name,
+          organizationId: tc.class.organizationId,
+          generationId: tc.class.generationId,
+        });
+      }
+    }
+  }
+
+  const targetClassesList = Array.from(targetClassesMap.values());
+
+  // Filter santri
+  const studentWhere: any = {
+    roles: {
+      some: { role: 'SANTRI' },
+    },
+  };
+
+  if (targetClassesList.length > 0) {
+    studentWhere.OR = targetClassesList.map((c) => ({
+      organizationId: c.organizationId,
+      generationId: c.generationId,
+    }));
+  } else {
+    const orgIds: string[] = [schedule.organizationId];
+    if (schedule.tierLevel === 'DESA') {
+      const subOrgs = await prisma.organization.findMany({
+        where: { parentId: schedule.organizationId },
+        select: { id: true },
+      });
+      orgIds.push(...subOrgs.map((o) => o.id));
+    } else if (schedule.tierLevel === 'DAERAH') {
+      const desaOrgs = await prisma.organization.findMany({
+        where: { parentId: schedule.organizationId },
+        select: { id: true },
+      });
+      const desaIds = desaOrgs.map((o) => o.id);
+      orgIds.push(...desaIds);
+      if (desaIds.length > 0) {
+        const kelompokOrgs = await prisma.organization.findMany({
+          where: { parentId: { in: desaIds } },
+          select: { id: true },
+        });
+        orgIds.push(...kelompokOrgs.map((o) => o.id));
+      }
+    }
+
+    studentWhere.organizationId = { in: orgIds };
+
+    if (schedule.targetGenerations && schedule.targetGenerations.length > 0) {
+      studentWhere.generationId = {
+        in: schedule.targetGenerations.map((g) => g.generationId),
+      };
+    }
+  }
+
+  const targetStudents = await prisma.user.findMany({
+    where: studentWhere,
+    select: { id: true },
+  });
+
+  const existingStudentIds = new Set(session.records.map((r) => r.studentId));
+  const missingStudentIds = targetStudents
+    .map((s) => s.id)
+    .filter((sId) => !existingStudentIds.has(sId));
+
+  if (missingStudentIds.length > 0) {
+    await prisma.attendanceRecord.createMany({
+      data: missingStudentIds.map((sId) => ({
+        sessionId: session.id,
+        studentId: sId,
+        method: AttendanceMethod.MANUAL_TEACHER,
+        status: AttendanceStatus.ALPA,
+        notes: 'Status awal presensi sesi (Belum hadir)',
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  return { count: missingStudentIds.length };
+}
+
+/**
  * Mendapatkan atau membuka sesi presensi aktif untuk jadwal tertentu
+ * Mengisi status awal ALPA untuk seluruh santri terdaftar (Opsi B)
  */
 export async function getOrOpenSession(scheduleId: string) {
   const supabase = await createClient();
@@ -80,6 +205,23 @@ export async function getOrOpenSession(scheduleId: string) {
     });
   }
 
+  // Inisialisasi awal seluruh santri target jadwal menjadi ALPA di database jika belum memiliki record
+  await populateDefaultAbsenceForSession(session.id);
+
+  // Ambil data records terkini yang sudah lengkap terisi
+  const updatedRecords = await prisma.attendanceRecord.findMany({
+    where: { sessionId: session.id },
+    include: {
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          generation: { select: { name: true } },
+        },
+      },
+    },
+  });
+
   revalidatePath('/presensi');
   return {
     success: true,
@@ -87,7 +229,7 @@ export async function getOrOpenSession(scheduleId: string) {
     scheduleId: session.scheduleId,
     isActive: session.isActive,
     qrRefreshSeconds: session.qrRefreshSeconds,
-    records: session.records,
+    records: updatedRecords,
   };
 }
 
@@ -123,6 +265,7 @@ export async function getLiveSessionToken(sessionId: string) {
 
 /**
  * Menutup sesi presensi aktif
+ * Memastikan seluruh santri yang belum tercatat presensinya otomatis terisi ALPA di database
  */
 export async function closeAttendanceSession(sessionId: string) {
   const supabase = await createClient();
@@ -133,6 +276,9 @@ export async function closeAttendanceSession(sessionId: string) {
   if (!authUser) {
     throw new Error('Tidak terautentikasi');
   }
+
+  // Pastikan santri yang belum tercatat otomatis tersimpan sebagai ALPA di database
+  await populateDefaultAbsenceForSession(sessionId);
 
   const session = await prisma.attendanceSession.update({
     where: { id: sessionId },
@@ -570,7 +716,7 @@ export interface TargetCapaianInput {
 }
 
 /**
- * Menyimpan evaluasi menyeluruh: Skor Adab, Keaktifan, Catatan, dan Penilaian Target Capaian Materi
+ * Menyimpan evaluasi menyeluruh: Skor Adab, Keaktifan, Catatan, dan Penilaian Target Capaian Materi (Dioptimalkan)
  */
 export async function saveComprehensiveEvaluation({
   scheduleId,
@@ -596,35 +742,7 @@ export async function saveComprehensiveEvaluation({
     throw new Error('Tidak terautentikasi');
   }
 
-  // 1. Simpan atau perbarui catatan adab & keaktifan
-  const existingEval = await prisma.studentEvaluation.findFirst({
-    where: {
-      scheduleId,
-      studentId,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const evaluation = existingEval
-    ? await prisma.studentEvaluation.update({
-        where: { id: existingEval.id },
-        data: {
-          adabScore,
-          keaktifanScore,
-          teacherPrivateNote: teacherPrivateNote || null,
-        },
-      })
-    : await prisma.studentEvaluation.create({
-        data: {
-          scheduleId,
-          studentId,
-          adabScore,
-          keaktifanScore,
-          teacherPrivateNote,
-        },
-      });
-
-  // 2. Dapatkan profil & peran authUser untuk validasi hak otorisasi penguji
+  // 1. Dapatkan profil & peran authUser untuk validasi hak otorisasi penguji
   const userProfile = await prisma.user.findUnique({
     where: { id: authUser.id },
     include: { roles: true },
@@ -634,17 +752,19 @@ export async function saveComprehensiveEvaluation({
   const canCompleteDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');
   const canCompleteDesa = roleCodes.includes('PJ_DESA') || canCompleteDaerah;
 
-  // 3. Simpan atau perbarui progres checklist target capaian
-  let totalPointsGained = 0;
+  // 2. Batch fetch metadata checklist items untuk validasi hak otorisasi penguji
+  const allowedUpdates: TargetCapaianInput[] = [];
   if (targetCapaianUpdates && targetCapaianUpdates.length > 0) {
-    for (const update of targetCapaianUpdates) {
-      // Validasi hak penguji jika item ditandai tuntas (isCompleted: true)
-      if (update.isCompleted) {
-        const itemMeta = await prisma.materialChecklistItem.findUnique({
-          where: { id: update.checklistItemId },
-          select: { completionTierLevel: true, itemTitle: true },
-        });
+    const itemIds = targetCapaianUpdates.map((u) => u.checklistItemId);
+    const itemsMeta = await prisma.materialChecklistItem.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, completionTierLevel: true, itemTitle: true },
+    });
+    const itemMetaMap = new Map(itemsMeta.map((i) => [i.id, i]));
 
+    for (const update of targetCapaianUpdates) {
+      if (update.isCompleted) {
+        const itemMeta = itemMetaMap.get(update.checklistItemId);
         if (itemMeta?.completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
           console.warn(
             `Pencegahan Keamanan: User ${authUser.id} tidak memiliki hak mengesahkan capaian Daerah: ${itemMeta.itemTitle}`
@@ -659,64 +779,110 @@ export async function saveComprehensiveEvaluation({
           continue;
         }
       }
+      allowedUpdates.push(update);
+    }
+  }
 
-      const prev = await prisma.materialChecklistProgress.findUnique({
-        where: {
-          checklistItemId_studentId: {
-            checklistItemId: update.checklistItemId,
-            studentId,
-          },
-        },
-      });
+  // 3. Batch fetch progres sebelumnya untuk menghitung poin reward santri
+  let totalPointsGained = 0;
+  if (allowedUpdates.length > 0) {
+    const prevCompletedList = await prisma.materialChecklistProgress.findMany({
+      where: {
+        studentId,
+        checklistItemId: { in: allowedUpdates.map((u) => u.checklistItemId) },
+        isCompleted: true,
+      },
+      select: { checklistItemId: true },
+    });
+    const prevCompletedSet = new Set(prevCompletedList.map((p) => p.checklistItemId));
 
-      await prisma.materialChecklistProgress.upsert({
-        where: {
-          checklistItemId_studentId: {
-            checklistItemId: update.checklistItemId,
-            studentId,
-          },
-        },
-        update: {
-          scheduleId,
-          score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
-          isCompleted: update.isCompleted,
-          teacherFeedback: update.teacherFeedback || null,
-          evaluatedAt: new Date(),
-        },
-        create: {
-          checklistItemId: update.checklistItemId,
-          studentId,
-          scheduleId,
-          score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
-          isCompleted: update.isCompleted,
-          teacherFeedback: update.teacherFeedback || null,
-          evaluatedAt: new Date(),
-        },
-      });
-
-      // Jika baru ditandai tuntas, tambahkan poin reward santri
-      if (update.isCompleted && (!prev || !prev.isCompleted)) {
+    for (const update of allowedUpdates) {
+      if (update.isCompleted && !prevCompletedSet.has(update.checklistItemId)) {
         totalPointsGained += update.pointsWeight || 10;
       }
     }
-
-    if (totalPointsGained > 0) {
-      await prisma.userGamification.upsert({
-        where: { userId: studentId },
-        update: {
-          totalPoints: { increment: totalPointsGained },
-          updatedAt: new Date(),
-        },
-        create: {
-          userId: studentId,
-          totalPoints: totalPointsGained,
-          currentStreakDays: 1,
-          highestStreakDays: 1,
-          level: 1,
-        },
-      });
-    }
   }
+
+  // 4. Eksekusi seluruh persistensi dalam satu transaksi atomik berkecepatan tinggi
+  const evaluation = await prisma.$transaction(
+    async (tx) => {
+      const now = new Date();
+
+      // A. Simpan atau perbarui catatan adab & keaktifan
+      const existingEval = await tx.studentEvaluation.findFirst({
+        where: { scheduleId, studentId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const evalRecord = existingEval
+        ? await tx.studentEvaluation.update({
+            where: { id: existingEval.id },
+            data: {
+              adabScore,
+              keaktifanScore,
+              teacherPrivateNote: teacherPrivateNote || null,
+            },
+          })
+        : await tx.studentEvaluation.create({
+            data: {
+              scheduleId,
+              studentId,
+              adabScore,
+              keaktifanScore,
+              teacherPrivateNote,
+            },
+          });
+
+      // B. Batch upsert progres checklist target capaian
+      for (const update of allowedUpdates) {
+        await tx.materialChecklistProgress.upsert({
+          where: {
+            checklistItemId_studentId: {
+              checklistItemId: update.checklistItemId,
+              studentId,
+            },
+          },
+          update: {
+            scheduleId,
+            score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
+            isCompleted: update.isCompleted,
+            teacherFeedback: update.teacherFeedback || null,
+            evaluatedAt: now,
+          },
+          create: {
+            checklistItemId: update.checklistItemId,
+            studentId,
+            scheduleId,
+            score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
+            isCompleted: update.isCompleted,
+            teacherFeedback: update.teacherFeedback || null,
+            evaluatedAt: now,
+          },
+        });
+      }
+
+      // C. Poin gamifikasi santri
+      if (totalPointsGained > 0) {
+        await tx.userGamification.upsert({
+          where: { userId: studentId },
+          update: {
+            totalPoints: { increment: totalPointsGained },
+            updatedAt: now,
+          },
+          create: {
+            userId: studentId,
+            totalPoints: totalPointsGained,
+            currentStreakDays: 1,
+            highestStreakDays: 1,
+            level: 1,
+          },
+        });
+      }
+
+      return evalRecord;
+    },
+    { timeout: 10000 }
+  );
 
   revalidatePath('/presensi');
   revalidatePath('/dashboard');
@@ -727,6 +893,230 @@ export async function saveComprehensiveEvaluation({
     success: true,
     evaluation,
     pointsGained: totalPointsGained,
+  };
+}
+
+/**
+ * Menyimpan evaluasi menyeluruh secara massal untuk beberapa atau seluruh santri yang hadir (Dioptimalkan)
+ * Menerapkan Batch Pre-fetching dan Pipelined Chunked Transaction untuk performa ultra-cepat
+ */
+export async function saveBulkComprehensiveEvaluation({
+  scheduleId,
+  studentIds,
+  adabScore,
+  keaktifanScore,
+  teacherPrivateNote,
+  targetCapaianUpdates,
+}: {
+  scheduleId: string;
+  studentIds: string[];
+  adabScore: number;
+  keaktifanScore: number;
+  teacherPrivateNote?: string;
+  targetCapaianUpdates?: TargetCapaianInput[];
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  if (!authUser) {
+    throw new Error('Tidak terautentikasi');
+  }
+
+  if (!studentIds || studentIds.length === 0) {
+    throw new Error('Tidak ada santri yang dipilih untuk penilaian massal');
+  }
+
+  // 1. Dapatkan profil & peran authUser untuk validasi hak otorisasi penguji
+  const userProfile = await prisma.user.findUnique({
+    where: { id: authUser.id },
+    include: { roles: true },
+  });
+
+  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const canCompleteDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');
+  const canCompleteDesa = roleCodes.includes('PJ_DESA') || canCompleteDaerah;
+
+  // 2. Batch fetch metadata checklist items untuk validasi hak otorisasi penguji (1 Query O(1))
+  const allowedUpdates: TargetCapaianInput[] = [];
+  if (targetCapaianUpdates && targetCapaianUpdates.length > 0) {
+    const itemIds = targetCapaianUpdates.map((u) => u.checklistItemId);
+    const itemsMeta = await prisma.materialChecklistItem.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, completionTierLevel: true, itemTitle: true },
+    });
+    const itemMetaMap = new Map(itemsMeta.map((i) => [i.id, i]));
+
+    for (const update of targetCapaianUpdates) {
+      if (update.isCompleted) {
+        const itemMeta = itemMetaMap.get(update.checklistItemId);
+        if (itemMeta?.completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
+          console.warn(
+            `Pencegahan Keamanan: User ${authUser.id} tidak memiliki hak mengesahkan capaian Daerah: ${itemMeta.itemTitle}`
+          );
+          continue;
+        }
+
+        if (itemMeta?.completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa) {
+          console.warn(
+            `Pencegahan Keamanan: User ${authUser.id} tidak memiliki hak mengesahkan capaian Desa: ${itemMeta.itemTitle}`
+          );
+          continue;
+        }
+      }
+      allowedUpdates.push(update);
+    }
+  }
+
+  // 3. Pre-fetch seluruh evaluasi santri yang sudah ada pada sesi jadwal ini (1 Query O(1))
+  const existingEvals = await prisma.studentEvaluation.findMany({
+    where: {
+      scheduleId,
+      studentId: { in: studentIds },
+    },
+    select: { id: true, studentId: true },
+  });
+  const existingEvalMap = new Map(existingEvals.map((e) => [e.studentId, e.id]));
+
+  // 4. Pre-fetch status checklist tuntas sebelumnya untuk seluruh santri target (1 Query O(1))
+  const prevCompletedList =
+    allowedUpdates.length > 0
+      ? await prisma.materialChecklistProgress.findMany({
+          where: {
+            studentId: { in: studentIds },
+            checklistItemId: { in: allowedUpdates.map((u) => u.checklistItemId) },
+            isCompleted: true,
+          },
+          select: { studentId: true, checklistItemId: true },
+        })
+      : [];
+
+  const prevCompletedSet = new Set(
+    prevCompletedList.map((p) => `${p.studentId}_${p.checklistItemId}`)
+  );
+
+  // 5. Hitung poin reward gamifikasi per santri di memori (In-memory calculation)
+  const pointsPerStudentMap = new Map<string, number>();
+  let totalPointsDistributed = 0;
+
+  for (const sId of studentIds) {
+    let studentPoints = 0;
+    for (const update of allowedUpdates) {
+      if (update.isCompleted) {
+        const key = `${sId}_${update.checklistItemId}`;
+        if (!prevCompletedSet.has(key)) {
+          studentPoints += update.pointsWeight || 10;
+        }
+      }
+    }
+    if (studentPoints > 0) {
+      pointsPerStudentMap.set(sId, studentPoints);
+      totalPointsDistributed += studentPoints;
+    }
+  }
+
+  // 6. Eksekusi Batch Transaksi per Kelompok Santri (Batch Chunking: 25 santri per chunk)
+  // Menjamin transaksi tidak pernah timeout bahkan saat submit 100+ santri sekaligus
+  const CHUNK_SIZE = 25;
+  for (let i = 0; i < studentIds.length; i += CHUNK_SIZE) {
+    const chunkStudentIds = studentIds.slice(i, i + CHUNK_SIZE);
+
+    await prisma.$transaction(
+      async (tx) => {
+        const now = new Date();
+
+        // A. Batch Update/Create Student Evaluation
+        for (const sId of chunkStudentIds) {
+          const existingEvalId = existingEvalMap.get(sId);
+          if (existingEvalId) {
+            await tx.studentEvaluation.update({
+              where: { id: existingEvalId },
+              data: {
+                adabScore,
+                keaktifanScore,
+                teacherPrivateNote: teacherPrivateNote || null,
+              },
+            });
+          } else {
+            await tx.studentEvaluation.create({
+              data: {
+                scheduleId,
+                studentId: sId,
+                adabScore,
+                keaktifanScore,
+                teacherPrivateNote,
+              },
+            });
+          }
+        }
+
+        // B. Batch Upsert Material Checklist Progress
+        if (allowedUpdates.length > 0) {
+          for (const sId of chunkStudentIds) {
+            for (const update of allowedUpdates) {
+              await tx.materialChecklistProgress.upsert({
+                where: {
+                  checklistItemId_studentId: {
+                    checklistItemId: update.checklistItemId,
+                    studentId: sId,
+                  },
+                },
+                update: {
+                  scheduleId,
+                  score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
+                  isCompleted: update.isCompleted,
+                  teacherFeedback: update.teacherFeedback || null,
+                  evaluatedAt: now,
+                },
+                create: {
+                  checklistItemId: update.checklistItemId,
+                  studentId: sId,
+                  scheduleId,
+                  score: update.isCompleted ? (typeof update.score === 'number' ? update.score : 85) : null,
+                  isCompleted: update.isCompleted,
+                  teacherFeedback: update.teacherFeedback || null,
+                  evaluatedAt: now,
+                },
+              });
+            }
+          }
+        }
+
+        // C. Batch Update Gamifikasi Santri
+        for (const sId of chunkStudentIds) {
+          const points = pointsPerStudentMap.get(sId);
+          if (points && points > 0) {
+            await tx.userGamification.upsert({
+              where: { userId: sId },
+              update: {
+                totalPoints: { increment: points },
+                updatedAt: now,
+              },
+              create: {
+                userId: sId,
+                totalPoints: points,
+                currentStreakDays: 1,
+                highestStreakDays: 1,
+                level: 1,
+              },
+            });
+          }
+        }
+      },
+      { timeout: 15000 }
+    );
+  }
+
+  revalidatePath('/presensi');
+  revalidatePath('/dashboard');
+  revalidatePath('/kurikulum');
+  revalidatePath(`/jadwal/${scheduleId}`);
+
+  return {
+    success: true,
+    count: studentIds.length,
+    totalPointsDistributed,
   };
 }
 

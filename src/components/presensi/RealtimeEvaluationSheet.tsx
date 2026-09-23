@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Award,
   Star,
@@ -24,8 +25,15 @@ import {
   Loader2,
   FileText,
   ExternalLink,
+  Users,
+  CheckCheck,
+  List,
 } from 'lucide-react';
-import { saveComprehensiveEvaluation, TargetCapaianInput } from '@/app/(protected)/presensi/actions';
+import {
+  saveComprehensiveEvaluation,
+  saveBulkComprehensiveEvaluation,
+  TargetCapaianInput,
+} from '@/app/(protected)/presensi/actions';
 import CircularProgressBar from '@/components/kurikulum/CircularProgressBar';
 
 export interface StudentItem {
@@ -161,6 +169,76 @@ export default function RealtimeEvaluationSheet({
   const [teacherNote, setTeacherNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // State Mode Penilaian Massal
+  const [isBulkMode, setIsBulkMode] = useState<boolean>(false);
+  const [bulkSelectedStudentIds, setBulkSelectedStudentIds] = useState<string[]>([]);
+  const [isBulkDropdownOpen, setIsBulkDropdownOpen] = useState<boolean>(false);
+  const [isBulkStudentModalOpen, setIsBulkStudentModalOpen] = useState<boolean>(false);
+  const [modalSelectedStudentIds, setModalSelectedStudentIds] = useState<string[]>([]);
+  const [modalStudentSearch, setModalStudentSearch] = useState<string>('');
+  const [mounted, setMounted] = useState<boolean>(false);
+  const bulkDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Click outside untuk dropdown menu mode massal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        bulkDropdownRef.current &&
+        !bulkDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsBulkDropdownOpen(false);
+      }
+    };
+
+    if (isBulkDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isBulkDropdownOpen]);
+
+  // Lock scroll & ESC key untuk modal pilih beberapa santri
+  useEffect(() => {
+    if (isBulkStudentModalOpen) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setIsBulkStudentModalOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isBulkStudentModalOpen]);
+
+  // Filter santri di dalam modal pencarian
+  const modalFilteredStudents = useMemo(() => {
+    const query = modalStudentSearch.trim().toLowerCase();
+    if (!query) return students;
+    return students.filter(
+      (s) =>
+        s.fullName.toLowerCase().includes(query) ||
+        (s.generationName && s.generationName.toLowerCase().includes(query)) ||
+        (s.className && s.className.toLowerCase().includes(query))
+    );
+  }, [students, modalStudentSearch]);
+
+  const handleRemoveStudentFromBulk = (id: string) => {
+    setBulkSelectedStudentIds((prev) => {
+      const next = prev.filter((sId) => sId !== id);
+      if (next.length === 0) {
+        setIsBulkMode(false);
+      }
+      return next;
+    });
+  };
 
   const hasScheduledMaterials = useMemo(
     () => materials.some((m) => m.isScheduled),
@@ -1107,6 +1185,75 @@ export default function RealtimeEvaluationSheet({
 
   const handleSaveEvaluation = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Mode Penilaian Massal: Simpan ke seluruh santri terpilih sekaligus
+    if (isBulkMode) {
+      if (bulkSelectedStudentIds.length === 0) {
+        alert('Silakan pilih minimal 1 santri untuk penilaian massal.');
+        return;
+      }
+
+      try {
+        setIsSubmitting(true);
+        const fullNote = selectedTags.length > 0
+          ? `[Tags: ${selectedTags.join(', ')}] ${teacherNote}`
+          : teacherNote;
+
+        // Siapkan payload target capaian updates untuk penilaian massal
+        const targetCapaianUpdates: TargetCapaianInput[] = Object.entries(targetProgressMap)
+          .filter(([, data]) => data.isCompleted || (data.teacherFeedback && data.teacherFeedback.trim() !== ''))
+          .map(([checklistItemId, data]) => ({
+            checklistItemId,
+            score: data.isCompleted ? data.score : null,
+            isCompleted: data.isCompleted,
+            teacherFeedback: data.teacherFeedback || undefined,
+            pointsWeight: data.pointsWeight,
+          }));
+
+        const res = await saveBulkComprehensiveEvaluation({
+          scheduleId,
+          studentIds: bulkSelectedStudentIds,
+          adabScore,
+          keaktifanScore,
+          teacherPrivateNote: fullNote || undefined,
+          targetCapaianUpdates,
+        });
+
+        // Sinkronkan state progres lokal allStudentProgress untuk seluruh santri terpilih
+        if (targetCapaianUpdates.length > 0) {
+          const newEntries: StudentProgressData[] = [];
+          for (const sId of bulkSelectedStudentIds) {
+            for (const upd of targetCapaianUpdates) {
+              newEntries.push({
+                studentId: sId,
+                checklistItemId: upd.checklistItemId,
+                isCompleted: upd.isCompleted,
+                score: upd.score ?? null,
+                teacherFeedback: upd.teacherFeedback ?? null,
+                evaluatedAt: new Date().toISOString(),
+              });
+            }
+          }
+          mergeProgress(newEntries);
+        }
+
+        const pointsText = res.totalPointsDistributed > 0 ? ` (Total +${res.totalPointsDistributed} Poin Terdistribusi)` : '';
+        setSuccessMessage(
+          `Penilaian massal berhasil disimpan untuk ${res.count} santri hadir!${pointsText}`
+        );
+        setTeacherNote('');
+        setSelectedTags([]);
+
+        setTimeout(() => setSuccessMessage(null), 6000);
+      } catch (err) {
+        console.error('Failed to save bulk evaluation:', err);
+        alert('Gagal menyimpan evaluasi massal santri.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     if (!selectedStudentId) return;
 
     try {
@@ -1156,20 +1303,22 @@ export default function RealtimeEvaluationSheet({
   };
 
   return (
-    <div className="bg-white/75 backdrop-blur-md rounded-3xl border border-slate-200/60 shadow-xs p-4 sm:p-6 space-y-5">
+    <div
+      className={`rounded-3xl border shadow-xs p-4 sm:p-6 space-y-5 transition-all duration-300 ${isBulkMode
+        ? 'bg-teal-50/50 border-teal-300/80 ring-2 ring-teal-500/20'
+        : 'bg-white/75 backdrop-blur-md border-slate-200/60'
+        }`}
+    >
       {/* 1. Header Info Jurnal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
             <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/60 shadow-2xs">
               <Award className="w-4 h-4" />
             </div>
             <span>Jurnal &amp; Penilaian Target Capaian</span>
           </h3>
-
         </div>
-
-
       </div>
 
       {students.length === 0 ? (
@@ -1194,248 +1343,479 @@ export default function RealtimeEvaluationSheet({
             </button>
           )}
         </div>
+
       ) : (
         <form onSubmit={handleSaveEvaluation} className="space-y-5">
-          {/* 2. Pilih Santri Hadir + Ringkasan Capaian */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
-            <div className="space-y-1.5 pt-1">
+          {/* 2. Pilih Santri Hadir / Mode Penilaian Massal */}
+          {isBulkMode ? (
 
-              <div className="flex justify-between items-center ">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Pilih Santri Hadir
-                </label>
-                {students.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-500 bg-slate-100/80 px-2.5 py-1 rounded-lg">
-                      {students.length} Santri Hadir
-                    </span>
+            <div className="p-4 rounded-2xl bg-teal-50/90 border border-teal-200/90 shadow-2xs space-y-3 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-teal-200/60">
+                <div className="flex items-center gap-2.5">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs sm:text-sm font-bold text-teal-950">
+                        Mode Penilaian Massal Aktif
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-200/80 text-teal-900 border border-teal-300/70">
+                        {bulkSelectedStudentIds.length} dari {students.length} Santri
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalSelectedStudentIds([...bulkSelectedStudentIds]);
+                      setIsBulkStudentModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-100 text-teal-800 text-[11px] font-bold border border-teal-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    <Users className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Ubah Santri</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBulkMode(false);
+                      setBulkSelectedStudentIds([]);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/80 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Keluar dari mode penilaian massal"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Keluar Mode Massal</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Daftar Chips Santri Terpilih */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-teal-900">
+                  <span>Daftar Santri yang Menerima Penilaian:</span>
+                  {bulkSelectedStudentIds.length < students.length && (
+                    <button
+                      type="button"
+                      onClick={() => setBulkSelectedStudentIds(students.map((s) => s.id))}
+                      className="text-teal-700 hover:text-teal-900 underline text-[10px] cursor-pointer"
+                    >
+                      Pilih Semua Santri Hadir ({students.length})
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {students
+                    .filter((s) => bulkSelectedStudentIds.includes(s.id))
+                    .map((s) => (
+                      <div
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-xl bg-white border border-teal-200/80 text-teal-950 text-xs shadow-2xs"
+                      >
+                        <div className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center">
+                          {s.fullName.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-semibold truncate max-w-[140px] sm:max-w-[180px]">
+                          {s.fullName}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStudentFromBulk(s.id)}
+                          className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title={`Hapus ${s.fullName} dari penilaian massal`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Ringkasan Target Ditandai */}
+              <div className="space-y-1.5 pt-1 border-t border-teal-200/60">
+                <div className="flex justify-between pt-2 items-center text-xs">
+                  <span className="font-medium text-teal-900 flex items-center gap-1.5">
+                    <span>Target Capaian</span>
+                  </span>
+                  <span className="font-bold text-teal-900 bg-teal-100 px-2 py-0.5 rounded-lg border border-teal-200">
+                    {progressStats.completedItems} Sub-Capaian Terpilih
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between items-center ">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Pilih Santri Hadir
+                  </label>
+                  {students.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100/80 px-2.5 py-1 rounded-lg">
+                        {students.length} Santri Hadir
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Custom Searchable Combobox Santri dengan Debounce */}
+              <div className="relative" ref={studentDropdownRef}>
+                {/* Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsStudentDropdownOpen((prev) => !prev)}
+                  className={`w-full px-3.5 py-2.5 rounded-xl bg-white border text-left flex items-center justify-between gap-2.5 transition-all cursor-pointer ${isStudentDropdownOpen
+                    ? 'border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-teal-500/60 shadow-2xs'
+                    }`}
+                  aria-expanded={isStudentDropdownOpen}
+                  aria-haspopup="listbox"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 font-bold text-xs flex items-center justify-center shrink-0 border border-teal-200/60">
+                      {currentStudent?.fullName
+                        ? currentStudent.fullName.charAt(0).toUpperCase()
+                        : <UserCheck className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        {currentStudent ? currentStudent.fullName : 'Pilih Santri Hadir'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                        <span>{currentStudent?.generationName || 'Santri'}</span>
+                        <span>•</span>
+                        <span className="text-teal-700 font-medium">Masuk {currentStudent?.checkInTime || 'Hadir'}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${isStudentDropdownOpen ? 'rotate-180 text-teal-600' : ''
+                        }`}
+                    />
+                  </div>
+                </button>
+
+                {/* Floating Dropdown Menu dengan Search & Debounce */}
+                {isStudentDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-40 overflow-hidden animate-fade-in divide-y divide-slate-100">
+                    {/* Search Input Bar */}
+                    <div className="p-2 bg-slate-50/70">
+                      <div className="relative flex items-center">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          placeholder="Ketik nama santri atau generasi..."
+                          className="w-full pl-8 pr-8 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                        />
+                        {studentSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setStudentSearch('')}
+                            className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Meta Bar Info Debounce */}
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1.5">
+                        <span>
+                          {isSearchingStudent ? (
+                            <span className="text-teal-600 font-medium">Menyaring nama santri...</span>
+                          ) : debouncedStudentSearch.trim() ? (
+                            <span>Hasil pencarian &quot;{debouncedStudentSearch}&quot;:</span>
+                          ) : (
+                            <span>Daftar seluruh santri hadir:</span>
+                          )}
+                        </span>
+                        <span className="font-semibold text-slate-500">
+                          {filteredStudents.length} Santri
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Scrollable Suggestions List */}
+                    <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 py-1" role="listbox">
+                      {filteredStudents.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-500 space-y-1">
+                          <UserX className="w-5 h-5 text-slate-400 mx-auto" />
+                          <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
+                          <p className="text-[11px] text-slate-400">
+                            Tidak ada santri yang cocok dengan &quot;{debouncedStudentSearch}&quot;
+                          </p>
+                        </div>
+                      ) : (
+                        filteredStudents.map((s) => {
+                          const isSelected = s.id === selectedStudentId;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedStudentId(s.id);
+                                setIsStudentDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${isSelected
+                                ? 'bg-teal-50/80 text-teal-900 border-l-4 border-teal-600'
+                                : 'hover:bg-slate-50 text-slate-700'
+                                }`}
+                              role="option"
+                              aria-selected={isSelected}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div
+                                  className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${isSelected
+                                    ? 'bg-teal-600 text-white shadow-2xs'
+                                    : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                  {s.fullName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-xs truncate ${isSelected ? 'font-bold text-teal-900' : 'font-semibold text-slate-800'}`}>
+                                    {s.fullName}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5">
+                                    <span>{s.generationName || 'Santri'}</span>
+                                    {s.className && (
+                                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[9px] border border-slate-200/80">
+                                        {s.className}
+                                      </span>
+                                    )}
+                                    <span>•</span>
+                                    <span>Masuk {s.checkInTime || 'Hadir'}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-teal-600 shrink-0 stroke-[2.5]" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Custom Searchable Combobox Santri dengan Debounce */}
-            <div className="relative" ref={studentDropdownRef}>
-              {/* Trigger Button */}
-              <button
-                type="button"
-                onClick={() => setIsStudentDropdownOpen((prev) => !prev)}
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-white border text-left flex items-center justify-between gap-2.5 transition-all cursor-pointer ${isStudentDropdownOpen
-                  ? 'border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
-                  : 'border-slate-200 hover:border-teal-500/60 shadow-2xs'
-                  }`}
-                aria-expanded={isStudentDropdownOpen}
-                aria-haspopup="listbox"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 font-bold text-xs flex items-center justify-center shrink-0 border border-teal-200/60">
-                    {currentStudent?.fullName
-                      ? currentStudent.fullName.charAt(0).toUpperCase()
-                      : <UserCheck className="w-4 h-4" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900 truncate">
-                      {currentStudent ? currentStudent.fullName : 'Pilih Santri Hadir'}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
-                      <span>{currentStudent?.generationName || 'Santri'}</span>
-                      <span>•</span>
-                      <span className="text-teal-700 font-medium">Masuk {currentStudent?.checkInTime || 'Hadir'}</span>
-                    </p>
-                  </div>
+              {/* Visual Progress Bar Capaian Santri */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-medium text-slate-600 flex items-center gap-1.5">
+                    <span> Progres Target Kurikulum:</span>
+                  </span>
+                  <span className="font-bold text-teal-800">
+                    {progressStats.completedItems} / {progressStats.totalItems} Tuntas ({progressStats.percentage}%)
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-1 shrink-0 text-slate-400">
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${isStudentDropdownOpen ? 'rotate-180 text-teal-600' : ''
-                      }`}
+                <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500 rounded-full"
+                    style={{ width: `${progressStats.percentage}%` }}
                   />
                 </div>
-              </button>
-
-              {/* Floating Dropdown Menu dengan Search & Debounce */}
-              {isStudentDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-40 overflow-hidden animate-fade-in divide-y divide-slate-100">
-                  {/* Search Input Bar */}
-                  <div className="p-2 bg-slate-50/70">
-                    <div className="relative flex items-center">
-                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
-                      <input
-                        ref={searchInputRef}
-                        type="text"
-                        value={studentSearch}
-                        onChange={(e) => setStudentSearch(e.target.value)}
-                        placeholder="Ketik nama santri atau generasi..."
-                        className="w-full pl-8 pr-8 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-colors"
-                      />
-                      {studentSearch && (
-                        <button
-                          type="button"
-                          onClick={() => setStudentSearch('')}
-                          className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Meta Bar Info Debounce */}
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1.5">
-                      <span>
-                        {isSearchingStudent ? (
-                          <span className="text-teal-600 font-medium">Menyaring nama santri...</span>
-                        ) : debouncedStudentSearch.trim() ? (
-                          <span>Hasil pencarian &quot;{debouncedStudentSearch}&quot;:</span>
-                        ) : (
-                          <span>Daftar seluruh santri hadir:</span>
-                        )}
-                      </span>
-                      <span className="font-semibold text-slate-500">
-                        {filteredStudents.length} Santri
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Scrollable Suggestions List */}
-                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 py-1" role="listbox">
-                    {filteredStudents.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500 space-y-1">
-                        <UserX className="w-5 h-5 text-slate-400 mx-auto" />
-                        <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
-                        <p className="text-[11px] text-slate-400">
-                          Tidak ada santri yang cocok dengan &quot;{debouncedStudentSearch}&quot;
-                        </p>
-                      </div>
-                    ) : (
-                      filteredStudents.map((s) => {
-                        const isSelected = s.id === selectedStudentId;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedStudentId(s.id);
-                              setIsStudentDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${isSelected
-                              ? 'bg-teal-50/80 text-teal-900 border-l-4 border-teal-600'
-                              : 'hover:bg-slate-50 text-slate-700'
-                              }`}
-                            role="option"
-                            aria-selected={isSelected}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div
-                                className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${isSelected
-                                  ? 'bg-teal-600 text-white shadow-2xs'
-                                  : 'bg-slate-100 text-slate-600'
-                                  }`}
-                              >
-                                {s.fullName.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className={`text-xs truncate ${isSelected ? 'font-bold text-teal-900' : 'font-semibold text-slate-800'}`}>
-                                  {s.fullName}
-                                </p>
-                                <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5">
-                                  <span>{s.generationName || 'Santri'}</span>
-                                  {s.className && (
-                                    <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[9px] border border-slate-200/80">
-                                      {s.className}
-                                    </span>
-                                  )}
-                                  <span>•</span>
-                                  <span>Masuk {s.checkInTime || 'Hadir'}</span>
-                                </p>
-                              </div>
-                            </div>
-
-                            {isSelected && (
-                              <Check className="w-4 h-4 text-teal-600 shrink-0 stroke-[2.5]" />
-                            )}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Visual Progress Bar Capaian Santri */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-medium text-slate-600 flex items-center gap-1.5">
-                  <span> Progres Target Kurikulum:</span>
-                </span>
-                <span className="font-bold text-teal-800">
-                  {progressStats.completedItems} / {progressStats.totalItems} Tuntas ({progressStats.percentage}%)
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500 rounded-full"
-                  style={{ width: `${progressStats.percentage}%` }}
-                />
               </div>
             </div>
-          </div>
+          )}
 
           {/* 3. Penilaian Target Capaian Materi (Kurikulum Sesi - Accordion) */}
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-200 py-3">
+            <div className="flex flex-col min-[720px]:flex-row min-[720px]:items-center justify-between gap-2 border-t border-slate-200 py-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                   Target Capaian Pembelajaran Santri
                 </h4>
               </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Toggle Filter 3 Mode: Sesuai Jadwal -> Sesuai Generasi -> Semua Materi */}
-                <button
-                  type="button"
-                  onClick={cycleFilterMode}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
-                  title="Klik untuk mengganti filter materi"
-                >
-                  <Filter className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  {materialFilterMode === 'SCHEDULED' && (
-                    <span className="text-teal-800">
-                      Jadwal({totalCount})
-                    </span>
-                  )}
-                  {materialFilterMode === 'GENERATION' && (
-                    <span className="text-emerald-800">
-                      {currentStudent?.generationName || 'Santri'} ({totalCount})
-                    </span>
-                  )}
-                  {materialFilterMode === 'ALL' && (
-                    <span className="text-slate-700">
-                      Semua({totalCount})
-                    </span>
-                  )}
-                </button>
-
-                {/* Buka / Tutup Semua Accordion */}
-                {filteredMaterials.length > 1 && (
+              <div className='flex flex-row gap-2 justify-between'>
+                <div className="flex items-center gap-2">
+                  {/* Toggle Filter 3 Mode: Sesuai Jadwal -> Sesuai Generasi -> Semua Materi */}
                   <button
                     type="button"
-                    onClick={() => {
-                      if (expandedMaterialIds.length === filteredMaterials.length) {
-                        setExpandedMaterialIds([]);
-                      } else {
-                        setExpandedMaterialIds(filteredMaterials.map((m) => m.id));
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-2 py-1 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
+                    onClick={cycleFilterMode}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
+                    title="Klik untuk mengganti filter materi"
                   >
-                    <span>
-                      {expandedMaterialIds.length === filteredMaterials.length
-                        ? 'Tutup Semua'
-                        : 'Buka Semua'}
-                    </span>
+                    <Filter className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    {materialFilterMode === 'SCHEDULED' && (
+                      <span className="text-teal-800">
+                        Jadwal({totalCount})
+                      </span>
+                    )}
+                    {materialFilterMode === 'GENERATION' && (
+                      <span className="text-emerald-800">
+                        {currentStudent?.generationName || 'Santri'} ({totalCount})
+                      </span>
+                    )}
+                    {materialFilterMode === 'ALL' && (
+                      <span className="text-slate-700">
+                        Semua({totalCount})
+                      </span>
+                    )}
                   </button>
-                )}
+
+                  {/* Buka / Tutup Semua Accordion */}
+                  {filteredMaterials.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (expandedMaterialIds.length === filteredMaterials.length) {
+                          setExpandedMaterialIds([]);
+                        } else {
+                          setExpandedMaterialIds(filteredMaterials.map((m) => m.id));
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <span>
+                        {expandedMaterialIds.length === filteredMaterials.length
+                          ? 'Tutup Semua'
+                          : 'Buka Semua'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                <div>
+                  {/* Tombol Mode Penilaian Massal (SlidersHorizontal) */}
+                  <div className="relative" ref={bulkDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkDropdownOpen((prev) => !prev)}
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 sm:px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer select-none ${isBulkMode
+                        ? 'bg-teal-600 text-white border-teal-700 ring-2 ring-teal-500/20 shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      title={
+                        isBulkMode
+                          ? `Mode Massal Aktif (${bulkSelectedStudentIds.length} santri). Klik untuk opsi.`
+                          : 'Mode Penilaian Massal (Beri nilai ke beberapa/semua santri)'
+                      }
+                    >
+                      <List className={`w-3.5 h-3.5 ${isBulkMode ? 'text-white' : 'text-teal-600'} shrink-0`} />
+                      <span className="hidden sm:inline">
+                        {isBulkMode ? `Massal (${bulkSelectedStudentIds.length})` : 'Mode Massal'}
+                      </span>
+                      {isBulkMode && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse sm:hidden" />
+                      )}
+                    </button>
+
+                    {/* Tooltip dengan 2 Pilihan */}
+                    {isBulkDropdownOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-white rounded-2xl shadow-xl border border-slate-200/90 z-50 p-2 space-y-1 animate-fade-in divide-y divide-slate-100">
+                        <div className="px-3 py-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                              <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
+                              Penilaian Massal
+                            </span>
+                            {isBulkMode && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-teal-100 text-teal-800">
+                                Aktif
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            Tentukan santri yang akan dinilai bersamaan dalam satu submit
+                          </p>
+                        </div>
+
+                        <div className="pt-1.5 space-y-1">
+                          {/* Pilihan 1: Pilih Semua */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBulkSelectedStudentIds(students.map((s) => s.id));
+                              setIsBulkMode(true);
+                              setIsBulkDropdownOpen(false);
+                            }}
+                            className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-2.5 cursor-pointer ${isBulkMode && bulkSelectedStudentIds.length === students.length && students.length > 0
+                              ? 'bg-teal-50 border border-teal-200/80 text-teal-950'
+                              : 'hover:bg-slate-50 text-slate-800'
+                              }`}
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-teal-100/80 text-teal-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+                              <CheckCheck className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-900">Pilih Semua</span>
+                                <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
+                                  {students.length} Santri
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                                Nilai sekaligus untuk semua santri yang hadir dalam 1x submit
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Pilihan 2: Pilih Beberapa */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalSelectedStudentIds(
+                                isBulkMode && bulkSelectedStudentIds.length > 0
+                                  ? [...bulkSelectedStudentIds]
+                                  : students.map((s) => s.id)
+                              );
+                              setIsBulkDropdownOpen(false);
+                              setIsBulkStudentModalOpen(true);
+                            }}
+                            className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-2.5 cursor-pointer ${isBulkMode && bulkSelectedStudentIds.length < students.length && bulkSelectedStudentIds.length > 0
+                              ? 'bg-teal-50 border border-teal-200/80 text-teal-950'
+                              : 'hover:bg-slate-50 text-slate-800'
+                              }`}
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+                              <Users className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-900">Pilih Beberapa</span>
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  Custom
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                                Pilih daftar santri yang hadir untuk dinilai bersamaan
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+
+                        {/* Tombol Matikan Mode Massal jika sedang aktif */}
+                        {isBulkMode && (
+                          <div className="pt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsBulkMode(false);
+                                setBulkSelectedStudentIds([]);
+                                setIsBulkDropdownOpen(false);
+                              }}
+                              className="w-full text-center py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              Matikan Mode Massal (Nilai Per Santri)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -1966,20 +2346,203 @@ export default function RealtimeEvaluationSheet({
           {/* 8. Tombol Simpan Komprehensif */}
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+            disabled={isSubmitting || (isBulkMode && bulkSelectedStudentIds.length === 0)}
+            className={`w-full py-3 rounded-xl text-white text-xs font-bold shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 ${isBulkMode
+              ? 'bg-teal-700 hover:bg-teal-800 shadow-teal-700/20'
+              : 'bg-teal-600 hover:bg-teal-700'
+              }`}
           >
             <Send className="w-4 h-4" />
             <span>
               {isSubmitting
-                ? 'Menyimpan Penilaian...'
-                : `Simpan Penilaian & Target Capaian`}
+                ? isBulkMode
+                  ? `Menyimpan Penilaian ${bulkSelectedStudentIds.length} Santri...`
+                  : 'Menyimpan Penilaian...'
+                : isBulkMode
+                  ? `Simpan Penilaian Massal (${bulkSelectedStudentIds.length} Santri)`
+                  : `Simpan Penilaian & Target Capaian`}
             </span>
           </button>
         </form>
-      )
-      }
-    </div >
+      )}
+
+      {/* Modal Bawah / Dialog Pilih Santri Hadir (Mode Penilaian Massal) */}
+      {mounted && isBulkStudentModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBulkStudentModalOpen(false);
+          }}
+        >
+          <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[85vh] sm:max-h-[80vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95">
+            {/* Drag handle (Mobile) */}
+            <div className="flex-shrink-0 pt-3 pb-1 flex justify-center sm:hidden">
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
+
+            {/* Header Modal */}
+            <div className="flex-shrink-0 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="min-w-0 pr-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs border border-teal-200/60">
+                    <Users className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                    Pilih Santri yang Hadir
+                  </h3>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Centang santri yang akan dinilai bersamaan dengan nilai yang sama
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkStudentModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-base leading-none cursor-pointer transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Toolbar Search & Select All */}
+            <div className="flex-shrink-0 p-3.5 bg-slate-50 border-b border-slate-100 space-y-2.5">
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                <input
+                  type="text"
+                  value={modalStudentSearch}
+                  onChange={(e) => setModalStudentSearch(e.target.value)}
+                  placeholder="Cari nama santri, generasi, kelas..."
+                  className="w-full pl-8 pr-8 py-2 rounded-xl bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
+                />
+                {modalStudentSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setModalStudentSearch('')}
+                    className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalSelectedStudentIds(students.map((s) => s.id))}
+                    className="text-[11px] font-bold text-teal-700 hover:text-teal-900 cursor-pointer"
+                  >
+                    Pilih Semua ({students.length})
+                  </button>
+                  <span className="text-slate-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setModalSelectedStudentIds([])}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
+                  >
+                    Hapus Pilihan
+                  </button>
+                </div>
+                <span className="text-[11px] font-extrabold text-teal-800 bg-teal-100/80 px-2 py-0.5 rounded-lg">
+                  {modalSelectedStudentIds.length} Dipilih
+                </span>
+              </div>
+            </div>
+
+            {/* List Santri (Scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 py-2 divide-y divide-slate-100">
+              {modalFilteredStudents.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 space-y-1">
+                  <UserX className="w-6 h-6 text-slate-400 mx-auto" />
+                  <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
+                  <p className="text-[11px] text-slate-400">
+                    Tidak ada santri yang cocok dengan kata kunci pencarian
+                  </p>
+                </div>
+              ) : (
+                modalFilteredStudents.map((s) => {
+                  const isChecked = modalSelectedStudentIds.includes(s.id);
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setModalSelectedStudentIds((prev) =>
+                          isChecked
+                            ? prev.filter((id) => id !== s.id)
+                            : [...prev, s.id]
+                        );
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors ${isChecked
+                        ? 'bg-teal-50/70 hover:bg-teal-50'
+                        : 'hover:bg-slate-50'
+                        }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors border shrink-0 ${isChecked
+                            ? 'bg-teal-600 border-teal-600 text-white shadow-2xs'
+                            : 'border-slate-300 bg-white'
+                            }`}
+                        >
+                          {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200/60">
+                          {s.fullName.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${isChecked ? 'text-teal-950' : 'text-slate-900'}`}>
+                            {s.fullName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                            <span>{s.generationName || 'Santri'}</span>
+                            {s.className && (
+                              <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[9px] border border-slate-200/80">
+                                {s.className}
+                              </span>
+                            )}
+                            <span>•</span>
+                            <span className="text-teal-700 font-medium">Masuk {s.checkInTime || 'Hadir'}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Modal Actions */}
+            <div className="flex-shrink-0 p-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end gap-2.5 rounded-b-3xl">
+              <button
+                type="button"
+                onClick={() => setIsBulkStudentModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={modalSelectedStudentIds.length === 0}
+                onClick={() => {
+                  if (modalSelectedStudentIds.length === 0) return;
+                  setBulkSelectedStudentIds([...modalSelectedStudentIds]);
+                  setIsBulkMode(true);
+                  setIsBulkStudentModalOpen(false);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Terapkan ({modalSelectedStudentIds.length} Santri)</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }
 

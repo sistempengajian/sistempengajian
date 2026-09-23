@@ -1,11 +1,9 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
-import KurikulumInfiniteList from '@/components/kurikulum/KurikulumInfiniteList';
-import { BookOpen } from 'lucide-react';
+import KurikulumClientWrapper, { KurikulumRoleConfigData } from '@/components/kurikulum/KurikulumClientWrapper';
 import { getMaterialsPaginated } from './actions';
-import { MaterialData } from '@/components/kurikulum/MaterialCard';
-import RoleNavTabs, { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
+import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 
 export default async function KurikulumPage({
   searchParams,
@@ -247,20 +245,11 @@ export default async function KurikulumPage({
 
   // 3. Tentukan Role Tab yang Sedang Aktif
   const roleQuery = (resolvedParams.role || resolvedParams.view || '').toLowerCase();
-  let activeRole: RoleTabId;
   const matchedRole = availableRoles.find((r) => r.id === roleQuery);
-  if (matchedRole) {
-    activeRole = matchedRole.id;
-  } else {
-    activeRole = availableRoles[0].id;
-  }
+  const initialActiveRole: RoleTabId = matchedRole ? matchedRole.id : availableRoles[0].id;
 
-  // 4. Konfigurasi konteks berdasarkan activeRole
-  let userRoleCategory: 'SANTRI' | 'ORANG_TUA' | 'TEACHER' | 'PJ' = 'PJ';
-  let canManage = false;
-  let activeStudentId: string | null = null;
-  let activeClassId: string | null = null;
-  let availableStudents: {
+  // 4. Siapkan data fallback santri jika pengguna adalah Pengajar tanpa kelas binaan
+  let teacherStudentsFallback: {
     id: string;
     fullName: string;
     avatarUrl?: string | null;
@@ -268,93 +257,84 @@ export default async function KurikulumPage({
     generationName?: string;
   }[] = [];
 
-  if (activeRole === 'student') {
-    userRoleCategory = 'SANTRI';
-    canManage = false;
-    activeStudentId = user?.id || null;
-    if (!resolvedParams.gen && userProfile?.generation?.code) {
-      currentGenCode = userProfile.generation.code;
-    }
-  } else if (activeRole === 'parent') {
-    userRoleCategory = 'ORANG_TUA';
-    canManage = false;
-    if (userProfile?.children) {
-      availableStudents = userProfile.children.map((rel) => ({
-        id: rel.student.id,
-        fullName: rel.student.fullName,
-        avatarUrl: rel.student.avatarUrl,
-        generationCode: rel.student.generation?.code || null,
-        generationName: rel.student.generation?.name || 'Santri',
-      }));
-      activeStudentId = resolvedParams.studentId || availableStudents[0]?.id || null;
-      if (!resolvedParams.gen && activeStudentId) {
-        const selectedChild = availableStudents.find((c) => c.id === activeStudentId);
-        if (selectedChild?.generationCode) {
-          currentGenCode = selectedChild.generationCode;
-        }
-      }
-    }
-  } else if (activeRole === 'teacher') {
-    userRoleCategory = 'TEACHER';
-    canManage = false;
-
-    if (formattedHomeroomClasses.length > 0) {
-      // Wali Kelas: dukung fleksibilitas multi-kelas
-      const targetClass =
-        (resolvedParams.classId && formattedHomeroomClasses.find((c) => c.id === resolvedParams.classId)) ||
-        formattedHomeroomClasses[0];
-
-      activeClassId = targetClass.id;
-      availableStudents = targetClass.students;
-
-      // Jika belum diset di query string, sesuaikan genCode dengan kelas binaan aktif
-      if (!resolvedParams.gen && targetClass.generationCode) {
-        currentGenCode = targetClass.generationCode;
-      }
-
-      activeStudentId = resolvedParams.studentId || null;
-    } else if (userProfile?.organizationId) {
-      // Pengajar tanpa kelas binaan (tingkat kelompok)
-      const students = await prisma.user.findMany({
-        where: {
-          roles: {
-            some: {
-              role: 'SANTRI',
-            },
-          },
-          organizationId: userProfile.organizationId,
-        },
-        select: {
-          id: true,
-          fullName: true,
-          avatarUrl: true,
-          generation: {
-            select: {
-              code: true,
-              name: true,
-            },
+  if (isTeacher && formattedHomeroomClasses.length === 0 && userProfile?.organizationId) {
+    const students = await prisma.user.findMany({
+      where: {
+        roles: {
+          some: {
+            role: 'SANTRI',
           },
         },
-        orderBy: { fullName: 'asc' },
-        take: 50,
-      });
+        organizationId: userProfile.organizationId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        avatarUrl: true,
+        generation: {
+          select: {
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+      take: 50,
+    });
 
-      availableStudents = students.map((s) => ({
-        id: s.id,
-        fullName: s.fullName,
-        avatarUrl: s.avatarUrl,
-        generationCode: s.generation?.code || null,
-        generationName: s.generation?.name || 'Santri',
-      }));
+    teacherStudentsFallback = students.map((s) => ({
+      id: s.id,
+      fullName: s.fullName,
+      avatarUrl: s.avatarUrl,
+      generationCode: s.generation?.code || null,
+      generationName: s.generation?.name || 'Santri',
+    }));
+  }
 
-      activeStudentId = resolvedParams.studentId || null;
+  // 5. Konfigurasi konteks per masing-masing role yang tersedia
+  let teacherActiveClassId: string | null = null;
+  let teacherAvailableStudents: any[] = [];
+  let teacherGenCode = currentGenCode;
+
+  if (formattedHomeroomClasses.length > 0) {
+    const targetClass =
+      (resolvedParams.classId && formattedHomeroomClasses.find((c) => c.id === resolvedParams.classId)) ||
+      formattedHomeroomClasses[0];
+
+    teacherActiveClassId = targetClass.id;
+    teacherAvailableStudents = targetClass.students;
+
+    if (!resolvedParams.gen && targetClass.generationCode) {
+      teacherGenCode = targetClass.generationCode;
     }
   } else {
-    // activeRole === 'manage'
-    userRoleCategory = 'PJ';
-    canManage = isManager;
-    activeStudentId = null;
-    availableStudents = [];
+    teacherAvailableStudents = teacherStudentsFallback;
+  }
+
+  let parentAvailableStudents: any[] = [];
+  let parentActiveStudentId: string | null = null;
+  let parentGenCode = currentGenCode;
+
+  if (userProfile?.children && userProfile.children.length > 0) {
+    parentAvailableStudents = userProfile.children.map((rel) => ({
+      id: rel.student.id,
+      fullName: rel.student.fullName,
+      avatarUrl: rel.student.avatarUrl,
+      generationCode: rel.student.generation?.code || null,
+      generationName: rel.student.generation?.name || 'Santri',
+    }));
+    parentActiveStudentId = resolvedParams.studentId || parentAvailableStudents[0]?.id || null;
+    if (!resolvedParams.gen && parentActiveStudentId) {
+      const selectedChild = parentAvailableStudents.find((c) => c.id === parentActiveStudentId);
+      if (selectedChild?.generationCode) {
+        parentGenCode = selectedChild.generationCode;
+      }
+    }
+  }
+
+  let studentGenCode = currentGenCode;
+  if (!resolvedParams.gen && userProfile?.generation?.code) {
+    studentGenCode = userProfile.generation.code;
   }
 
   // Daftar kelompok bawahan jika user PJ Desa (untuk filter drill-down per kelompok)
@@ -373,16 +353,6 @@ export default async function KurikulumPage({
     });
   }
 
-  // 5. Ambil data paginasi materi pertama (sesuai filter kelas, studentId, atau org)
-  const initialPaginatedData = await getMaterialsPaginated({
-    genCode: currentGenCode,
-    page: 1,
-    limit: 5,
-    studentId: activeStudentId || undefined,
-    classId: activeRole === 'teacher' && activeClassId ? activeClassId : undefined,
-    filterOrgId: resolvedParams.filterOrgId || undefined,
-  });
-
   // Tentukan tingkat otoritas wilayah pengguna
   let userTierLevel: 'DAERAH' | 'DESA' | 'KELOMPOK' | null = null;
   if (roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH')) {
@@ -395,75 +365,113 @@ export default async function KurikulumPage({
     userTierLevel = userProfile.organization.type as 'DAERAH' | 'DESA' | 'KELOMPOK';
   }
 
+  const roleConfigs: Record<
+    RoleTabId,
+    {
+      userRoleCategory: 'SANTRI' | 'ORANG_TUA' | 'TEACHER' | 'PJ';
+      canManage: boolean;
+      activeStudentId: string | null;
+      activeClassId: string | null;
+      availableStudents: typeof parentAvailableStudents;
+      currentGenCode: string;
+      headerTitle: string;
+      headerSubtitle: string;
+    }
+  > = {
+    student: {
+      userRoleCategory: 'SANTRI',
+      canManage: false,
+      activeStudentId: user?.id || null,
+      activeClassId: null,
+      availableStudents: [],
+      currentGenCode: studentGenCode,
+      headerTitle: 'Buku Capaian Saya',
+      headerSubtitle:
+        'Buku kendali capaian materi, capaian hafalan, dan evaluasi hasil belajar mandiri Anda.',
+    },
+    parent: {
+      userRoleCategory: 'ORANG_TUA',
+      canManage: false,
+      activeStudentId: parentActiveStudentId,
+      activeClassId: null,
+      availableStudents: parentAvailableStudents,
+      currentGenCode: parentGenCode,
+      headerTitle: 'Rapor & Capaian Ananda',
+      headerSubtitle:
+        'Pantau progres capaian materi, nilai evaluasi, dan catatan ustadz untuk anak-anak Anda di rumah.',
+    },
+    teacher: {
+      userRoleCategory: 'TEACHER',
+      canManage: false,
+      activeStudentId: resolvedParams.studentId || null,
+      activeClassId: teacherActiveClassId,
+      availableStudents: teacherAvailableStudents,
+      currentGenCode: teacherGenCode,
+      headerTitle: 'Jurnal Nilai & Capaian Santri',
+      headerSubtitle:
+        'Evaluasi progres capaian materi, checklist pencapaian santri binaan, dan monitoring target hafalan.',
+    },
+    manage: {
+      userRoleCategory: 'PJ',
+      canManage: isManager,
+      activeStudentId: null,
+      activeClassId: null,
+      availableStudents: [],
+      currentGenCode: resolvedParams.gen || 'CABERAWIT',
+      headerTitle: 'Kurikulum Berjenjang',
+      headerSubtitle:
+        'Silabus materi, capaian hafalan, dan checklist target pembelajaran santri 4 baku jenjang usia.',
+    },
+  };
+
+  // 6. Pre-fetch initial materials untuk seluruh availableRoles secara paralel
+  const roleDataResults = await Promise.all(
+    availableRoles.map(async (r) => {
+      const config = roleConfigs[r.id];
+      const initialPaginatedData = await getMaterialsPaginated({
+        genCode: config.currentGenCode,
+        page: 1,
+        limit: 5,
+        studentId: config.activeStudentId || undefined,
+        classId: r.id === 'teacher' && config.activeClassId ? config.activeClassId : undefined,
+        filterOrgId: resolvedParams.filterOrgId || undefined,
+      });
+      return {
+        id: r.id,
+        config: {
+          ...config,
+          initialPaginatedData,
+        },
+      };
+    })
+  );
+
+  const roleDataMap: Record<string, KurikulumRoleConfigData> = {};
+  for (const res of roleDataResults) {
+    roleDataMap[res.id] = res.config;
+  }
+
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fade-in">
-      {/* Top Multi-Role Switcher jika user memiliki > 1 peran */}
-      {availableRoles.length > 1 && (
-        <RoleNavTabs
-          title="Menu Kurikulum & Rapor"
-          description="Pilih sudut pandang kurikulum sesuai peran yang ingin Anda gunakan."
-          availableRoles={availableRoles}
-          activeRole={activeRole}
-          userName={userProfile?.fullName}
-        />
-      )}
-
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/60 shadow-2xs shrink-0">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <span>
-                {activeRole === 'student' && 'Buku Capaian Saya'}
-                {activeRole === 'parent' && 'Rapor & Capaian Ananda'}
-                {activeRole === 'teacher' && 'Jurnal Nilai & Capaian Santri'}
-                {activeRole === 'manage' && 'Kurikulum Berjenjang'}
-              </span>
-            </h1>
-          </div>
-          <p className="text-xs text-slate-500 font-normal mt-1">
-            {activeRole === 'student' &&
-              'Buku kendali capaian materi, capaian hafalan, dan evaluasi hasil belajar mandiri Anda.'}
-            {activeRole === 'parent' &&
-              'Pantau progres capaian materi, nilai evaluasi, dan catatan ustadz untuk anak-anak Anda di rumah.'}
-            {activeRole === 'teacher' &&
-              'Evaluasi progres capaian materi, checklist pencapaian santri binaan, dan monitoring target hafalan.'}
-            {activeRole === 'manage' &&
-              'Silabus materi, capaian hafalan, dan checklist target pembelajaran santri 4 baku jenjang usia.'}
-          </p>
-        </div>
-      </div>
-
-      {/* Kurikulum Client Container: Tabs, Focus Banner, Caching & Infinite Scroll List */}
-      <KurikulumInfiniteList
-        initialMaterials={initialPaginatedData.items as MaterialData[]}
-        initialTotal={initialPaginatedData.total}
-        initialHasMore={initialPaginatedData.hasMore}
-        currentGenCode={currentGenCode}
-        generations={generations.map((g) => ({
-          id: g.id,
-          code: g.code,
-          name: g.name,
-          minAge: g.minAge,
-          maxAge: g.maxAge,
-          description: g.description,
-        }))}
-        canManage={canManage}
-        userTierLevel={userTierLevel}
-        userOrganizationId={userProfile?.organization?.id || null}
-        userOrganizationName={userProfile?.organization?.name || ''}
-        parentOrganizationName={userProfile?.organization?.parent?.name || ''}
-        activeStudentId={activeStudentId}
-        availableStudents={availableStudents}
-        userRoleCategory={userRoleCategory}
-        homeroomClasses={formattedHomeroomClasses}
-        activeClassId={activeClassId}
-        subOrganizations={subOrganizations}
-        activeFilterOrgId={resolvedParams.filterOrgId || null}
-      />
-    </div>
+    <KurikulumClientWrapper
+      initialActiveRole={initialActiveRole}
+      availableRoles={availableRoles}
+      roleDataMap={roleDataMap}
+      generations={generations.map((g) => ({
+        id: g.id,
+        code: g.code,
+        name: g.name,
+        minAge: g.minAge,
+        maxAge: g.maxAge,
+        description: g.description,
+      }))}
+      userTierLevel={userTierLevel}
+      userOrganizationId={userProfile?.organization?.id || null}
+      userOrganizationName={userProfile?.organization?.name || ''}
+      parentOrganizationName={userProfile?.organization?.parent?.name || ''}
+      homeroomClasses={formattedHomeroomClasses}
+      subOrganizations={subOrganizations}
+      activeFilterOrgId={resolvedParams.filterOrgId || null}
+      userName={userProfile?.fullName}
+    />
   );
 }

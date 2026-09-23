@@ -535,13 +535,16 @@ export default function MaterialCard({
         </div>
 
         {activeDescription && (
-          <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+          <p
+            className={`text-xs text-slate-600 leading-relaxed whitespace-pre-line ${!isExpanded ? 'line-clamp-2 overflow-hidden text-ellipsis' : ''
+              }`}
+          >
             {activeDescription}
           </p>
         )}
 
-        {/* Link URL File / Dokumen PDF Referensi */}
-        {material.fileUrl && (
+        {/* Link URL File / Dokumen PDF Referensi (Hanya tampil saat kartu dibuka/expanded) */}
+        {isExpanded && material.fileUrl && (
           <div className="pt-0.5">
             <a
               href={material.fileUrl}
@@ -705,69 +708,6 @@ export default function MaterialCard({
                           <span className="font-semibold text-xs text-slate-900 leading-snug">
                             {item.itemTitle}
                           </span>
-
-                          {/* Badge Nilai Capaian jika sudah dinilai (Mode Individu) */}
-                          {item.studentProgress && typeof item.studentProgress.score === 'number' && (
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.studentProgress.score >= 80
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : item.studentProgress.score >= 60
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-rose-50 text-rose-700 border-rose-200'
-                                }`}
-                              title="Nilai Capaian Santri"
-                            >
-                              <Star className="w-2.5 h-2.5 fill-current" />
-                              <span>Nilai: {item.studentProgress.score}</span>
-                            </span>
-                          )}
-
-                          {/* Mini Linear Progress Bar & Badge untuk Capaian Kolektif */}
-                          {item.groupProgress && !item.studentProgress && (
-                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                              <div
-                                className="w-16 sm:w-24 h-2 bg-slate-200/90 rounded-full overflow-hidden shrink-0"
-                                title={`Ketercapaian: ${item.groupProgress.completedCount} dari ${item.groupProgress.totalStudents} santri (${item.groupProgress.percentage}%)`}
-                              >
-                                <div
-                                  className={`h-full rounded-full transition-all duration-300 ${item.groupProgress.percentage >= 80
-                                    ? 'bg-emerald-500'
-                                    : item.groupProgress.percentage >= 50
-                                      ? 'bg-teal-500'
-                                      : item.groupProgress.percentage > 0
-                                        ? 'bg-amber-500'
-                                        : 'bg-transparent'
-                                    }`}
-                                  style={{ width: `${item.groupProgress.percentage}%` }}
-                                />
-                              </div>
-
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.groupProgress.percentage >= 80
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  : item.groupProgress.percentage >= 50
-                                    ? 'bg-teal-50 text-teal-800 border-teal-200'
-                                    : item.groupProgress.percentage > 0
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-slate-100 text-slate-600 border-slate-200'
-                                  }`}
-                              >
-                                <span>
-                                  {item.groupProgress.completedCount}/{item.groupProgress.totalStudents} Santri ({item.groupProgress.percentage}%)
-                                </span>
-                              </span>
-
-                              {item.groupProgress.averageScore > 0 && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 font-semibold"
-                                  title={`Rata-rata nilai: ${item.groupProgress.averageScore}`}
-                                >
-                                  <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
-                                  <span>{item.groupProgress.averageScore}</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -804,7 +744,68 @@ export default function MaterialCard({
                       {item.description}
                     </p>
                   )}
+                  {/* Badge Nilai Capaian jika sudah dinilai (Mode Individu) */}
+                  <div className="w-full pl-7 pt-3">
+                    {item.studentProgress && typeof item.studentProgress.score === 'number' && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.studentProgress.score >= 80
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : item.studentProgress.score >= 60
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        title="Nilai Capaian Santri"
+                      >
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>Nilai: {item.studentProgress.score}</span>
+                      </span>
+                    )}
+                    {item.groupProgress && !item.studentProgress && (
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <div
+                          className="w-36 sm:w-64 h-2 bg-slate-200/90 rounded-full overflow-hidden shrink-0"
+                          title={`Ketercapaian: ${item.groupProgress.completedCount} dari ${item.groupProgress.totalStudents} santri (${item.groupProgress.percentage}%)`}
+                        >
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${item.groupProgress.percentage >= 80
+                              ? 'bg-emerald-500'
+                              : item.groupProgress.percentage >= 50
+                                ? 'bg-teal-500'
+                                : item.groupProgress.percentage > 0
+                                  ? 'bg-amber-500'
+                                  : 'bg-transparent'
+                              }`}
+                            style={{ width: `${item.groupProgress.percentage}%` }}
+                          />
+                        </div>
 
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.groupProgress.percentage >= 80
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : item.groupProgress.percentage >= 50
+                              ? 'bg-teal-50 text-teal-800 border-teal-200'
+                              : item.groupProgress.percentage > 0
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                        >
+                          <span>
+                            {item.groupProgress.completedCount}/{item.groupProgress.totalStudents} Santri ({item.groupProgress.percentage}%)
+                          </span>
+                        </span>
+
+                        {item.groupProgress.averageScore > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 font-semibold"
+                            title={`Rata-rata nilai: ${item.groupProgress.averageScore}`}
+                          >
+                            <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
+                            <span>{item.groupProgress.averageScore}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {/* Pesan Catatan Ustadz untuk capaian ini */}
                   {item.studentProgress?.teacherFeedback && (
                     <div className="w-full mt-1 p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/60 space-y-1">

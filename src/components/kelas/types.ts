@@ -290,29 +290,45 @@ export interface ParentPendingVerificationItem {
   pointsReward: number;
 }
 
-export interface ParentClassData {
-  children: ParentChildItem[];
-  selectedChildId: string;
+export interface ParentClassScheduleItem {
+  id: string;
+  title: string;
+  venuePlaceName: string;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  scheduleType?: string;
+  targetScope?: string;
+  isCombined?: boolean;
+  className?: string | null;
+}
+
+export interface ChildClassOverview {
   selectedChildClass: ClassWithRelations | null;
   homeroomTeacher: ClassTeacherInfo | null;
   pendingVerifications: ParentPendingVerificationItem[];
-  schedules: {
-    id: string;
-    title: string;
-    venuePlaceName: string;
-    startTime: Date;
-    endTime: Date;
-    status: string;
-    scheduleType?: string;
-    targetScope?: string;
-    isCombined?: boolean;
-    className?: string | null;
-  }[];
+  schedules: ParentClassScheduleItem[];
   attendanceSummary: {
     totalSessions: number;
     attendedCount: number;
     permissionCount: number;
     percentage: number;
   };
+}
+
+export interface ParentClassData {
+  children: ParentChildItem[];
+  selectedChildId: string;
+  selectedChildClass: ClassWithRelations | null;
+  homeroomTeacher: ClassTeacherInfo | null;
+  pendingVerifications: ParentPendingVerificationItem[];
+  schedules: ParentClassScheduleItem[];
+  attendanceSummary: {
+    totalSessions: number;
+    attendedCount: number;
+    permissionCount: number;
+    percentage: number;
+  };
+  childrenDataMap?: Record<string, ChildClassOverview>;
 }
 

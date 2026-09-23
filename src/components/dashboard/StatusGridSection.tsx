@@ -518,7 +518,7 @@ export default function StatusGridSection({
                     </p>
                   </div>
                   <Link
-                    href="/kurikulum"
+                    href="/laporan"
                     onClick={() => setActiveModalId(null)}
                     className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                   >

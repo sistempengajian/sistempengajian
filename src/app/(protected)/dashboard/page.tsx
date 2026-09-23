@@ -30,6 +30,7 @@ import {
   Layers,
   Landmark,
   School,
+  Presentation,
 } from 'lucide-react';
 
 import { getRoleTheme, COMMON_THEME } from '@/lib/theme';
@@ -140,10 +141,10 @@ export default async function DashboardPage() {
   const defaultRoleParam = isSantri
     ? 'role=student'
     : isOrangTua
-    ? 'role=parent'
-    : (isPengajar || isWaliKelas)
-    ? 'role=teacher'
-    : 'role=manage';
+      ? 'role=parent'
+      : (isPengajar || isWaliKelas)
+        ? 'role=teacher'
+        : 'role=manage';
 
   const defaultScheduleHref = `/jadwal?${defaultRoleParam}`;
   const defaultKurikulumHref = `/kurikulum?${defaultRoleParam}`;
@@ -342,7 +343,7 @@ export default async function DashboardPage() {
           </div>
           <div className='flex justify-start gap-3 mb-4'>
             <Link
-              href="/kurikulum?role=student"
+              href="/laporan"
               prefetch={true}
               className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 self-start sm:self-center shrink-0 cursor-pointer`}
             >
@@ -454,13 +455,13 @@ export default async function DashboardPage() {
 
                 <div className="flex items-center gap-3 shrink-0">
                   <Link
-                    href="/kurikulum?role=parent"
+                    href={`/laporan?childId=${student.id}`}
                     prefetch={true}
                     className="px-3 py-1.5 rounded-xl bg-white/0 hover:bg-slate-50 text-indigo-600 font-semibold text-xs transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer ml-1"
                   >
 
                     <div className="hidden sm:flex flex-col items-end text-right">
-                      <span className="text-[11px] font-semibold text-slate-700">Rapor Silabus</span>
+                      <span className="text-[11px] font-semibold text-slate-700">Rapor Ananda</span>
                       <span className="text-[10px] text-slate-400">80% Tercapai</span>
                     </div>
                     <ProgressCircle percentage={80} size={42} />
@@ -752,7 +753,7 @@ export default async function DashboardPage() {
             </Link>
 
             <Link
-              href="/kurikulum?role=student"
+              href="/laporan"
               prefetch={true}
               className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
             >
@@ -787,7 +788,7 @@ export default async function DashboardPage() {
             </Link>
 
             <Link
-              href="/kurikulum?role=parent"
+              href="/laporan"
               prefetch={true}
               className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
             >
@@ -879,7 +880,7 @@ export default async function DashboardPage() {
 
         {/* C. MENU UTAMA KHUSUS PENGAJAR / WALI KELAS */}
         {(isPengajar || isWaliKelas) && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3">
             <Link
               href="/kelas?role=teacher"
               prefetch={true}
@@ -892,6 +893,36 @@ export default async function DashboardPage() {
               </div>
               <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
                 Kelas Binaan
+              </span>
+            </Link>
+
+            <Link
+              href="/laporan"
+              prefetch={true}
+              className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
+            >
+              <div
+                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${theme.menuIconClass} flex items-center justify-center shadow-xs transition-all duration-200 group-hover:scale-105 shrink-0`}
+              >
+                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
+              </div>
+              <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
+                Rapor Belajar
+              </span>
+            </Link>
+
+            <Link
+              href="/analisis"
+              prefetch={true}
+              className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
+            >
+              <div
+                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${theme.menuIconClass} flex items-center justify-center shadow-xs transition-all duration-200 group-hover:scale-105 shrink-0`}
+              >
+                <Presentation className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
+              </div>
+              <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
+                Analitika &amp; Presentasi
               </span>
             </Link>
 
@@ -1002,6 +1033,21 @@ export default async function DashboardPage() {
               </div>
               <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
                 Kelola Kelas
+              </span>
+            </Link>
+
+            <Link
+              href="/analisis"
+              prefetch={true}
+              className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
+            >
+              <div
+                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${theme.menuIconClass} flex items-center justify-center shadow-xs transition-all duration-200 group-hover:scale-105 shrink-0`}
+              >
+                <Presentation className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
+              </div>
+              <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
+                Analitika Eksekutif
               </span>
             </Link>
 
@@ -1130,6 +1176,21 @@ export default async function DashboardPage() {
               </div>
               <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
                 Kelola Kelas
+              </span>
+            </Link>
+
+            <Link
+              href="/analisis"
+              prefetch={true}
+              className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
+            >
+              <div
+                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${theme.menuIconClass} flex items-center justify-center shadow-xs transition-all duration-200 group-hover:scale-105 shrink-0`}
+              >
+                <Presentation className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
+              </div>
+              <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
+                Analitika Eksekutif
               </span>
             </Link>
 
