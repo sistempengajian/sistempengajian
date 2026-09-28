@@ -400,14 +400,25 @@ export default function StatusGridSection({
                     </div>
                   </div>
 
-                  <Link
-                    href="/gamifikasi"
-                    onClick={() => setActiveModalId(null)}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-                  >
-                    <span>Buka Papan Peringkat & Misi</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Link
+                      href="/gamifikasi"
+                      onClick={() => setActiveModalId(null)}
+                      className="py-2.5 px-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1 shadow-xs text-center truncate"
+                    >
+                      <span>Misi & Trofi</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+
+                    <Link
+                      href="/leaderboard"
+                      onClick={() => setActiveModalId(null)}
+                      className="py-2.5 px-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1 shadow-xs text-center truncate"
+                    >
+                      <span>Leaderboard</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
               )}
 
@@ -490,7 +501,7 @@ export default function StatusGridSection({
                           <div>
                             <div className="font-bold text-slate-900">{child.fullName}</div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
-                              {child.generationName || 'Caberawit'} &bull; {child.relationshipType || 'Santri'}
+                              {child.generationName || 'Caberawit'} • {child.relationshipType || 'Santri'}
                             </div>
                           </div>
                           <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">

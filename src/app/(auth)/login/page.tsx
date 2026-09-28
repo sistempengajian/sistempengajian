@@ -1,19 +1,41 @@
 'use client';
 
-import React, { useState, useTransition, Suspense } from 'react';
+import React, { useState, useTransition, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { login } from '../actions';
-import { Mail, Lock, ArrowRight, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
+import { requestWhatsAppMagicLogin, getWhatsAppLoginCooldown, login } from '../actions';
+import {
+  Phone,
+  ArrowRight,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Clock,
+  Send,
+  ShieldCheck,
+} from 'lucide-react';
+import { displayPhoneNumber } from '@/lib/whatsapp/utils';
 
-const DEMO_ACCOUNTS = [
-  { role: 'Santri (Caberawit)', email: 'santri.farhan@pengajian.app', name: 'Farhan Fauzi' },
-  { role: 'Orang Tua / Wali', email: 'ayah.ahmad@gmail.com', name: 'Bapak H. Ahmad' },
-  { role: 'Pengajar (Ustadz)', email: 'pj.kelompok@pengajian.app', name: 'Ustadz Abdullah' },
-  { role: 'Wali Kelas', email: 'walikelas@pengajian.app', name: 'Ustadzah Khadijah' },
-  { role: 'PJ Kelompok', email: 'pj.kelompok@pengajian.app', name: 'PJ Kelompok Klender' },
-  { role: 'PJ Desa', email: 'pj.desa@pengajian.app', name: 'PJ Desa Duren Sawit' },
-  { role: 'PJ Daerah', email: 'pj.daerah@pengajian.app', name: 'PJ Daerah Jakarta Timur' },
-  { role: 'Admin Master', email: 'admin@pengajian.app', name: 'Admin Master Pusat' },
+interface DemoAccount {
+  role: string;
+  name: string;
+  phone: string;
+  email: string;
+}
+
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { role: 'Santri (Caberawit)', name: 'Farhan Fauzi', phone: '081299990003', email: 'santri.farhan@pengajian.app' },
+  { role: 'Orang Tua / Wali', name: 'H. Ahmad Syukron', phone: '081299990001', email: 'ayah.ahmad@gmail.com' },
+  { role: 'Pengajar (Ustadz)', name: 'Ustadz Abdullah S.Pd.I', phone: '081255556666', email: 'pj.kelompok@pengajian.app' },
+  { role: 'Wali Kelas', name: 'Ustadzah Khadijah', phone: '081277778888', email: 'walikelas@pengajian.app' },
+  { role: 'PJ Kelompok', name: 'Ustadz Abdullah (Klender)', phone: '081255556666', email: 'pj.kelompok@pengajian.app' },
+  { role: 'PJ Desa', name: 'Ustadz Ridwan (Duren Sawit)', phone: '081233334444', email: 'pj.desa@pengajian.app' },
+  { role: 'PJ Daerah', name: 'Drs. H. Mansur (Jaktim)', phone: '081211112222', email: 'pj.daerah@pengajian.app' },
+  { role: 'Admin Master', name: 'Admin Master Pusat', phone: '081100000001', email: 'admin@pengajian.app' },
 ];
 
 function LoginForm() {
@@ -21,13 +43,92 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
+  // Login Mode: 'whatsapp' (default) | 'password' (fallback)
+  const [loginMode, setLoginMode] = useState<'whatsapp' | 'password'>('whatsapp');
+
+  // WhatsApp Magic Link States
+  const [phone, setPhone] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [sentSuccessInfo, setSentSuccessInfo] = useState<{
+    phone: string;
+    userName?: string;
+  } | null>(null);
+
+  // Email / Password Fallback States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // General Status
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // Cooldown countdown timer interval
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
+  // Cek cooldown otomatis saat nomor telepon berubah (setelah 10 digit)
+  const handlePhoneBlur = async () => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length >= 9) {
+      const res = await getWhatsAppLoginCooldown(cleaned);
+      if (res.cooldownRemaining > 0) {
+        setCooldownSeconds(res.cooldownRemaining);
+      }
+    }
+  };
+
+  // Format Cooldown Label (MM:SS)
+  const formatCooldown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Submit WhatsApp Magic Link Request
+  const handleWhatsAppSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (cooldownSeconds > 0) {
+      setErrorMessage(
+        `Pengiriman masih dalam masa jeda. Silakan tunggu ${formatCooldown(cooldownSeconds)} lagi.`
+      );
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await requestWhatsAppMagicLogin(phone);
+      if (!res.success) {
+        setErrorMessage(res.error || 'Gagal mengirim link masuk WhatsApp.');
+        if (res.cooldownRemaining && res.cooldownRemaining > 0) {
+          setCooldownSeconds(res.cooldownRemaining);
+        }
+      } else {
+        setSentSuccessInfo({
+          phone: res.targetPhone || phone,
+          userName: res.userName,
+        });
+        setCooldownSeconds(res.cooldownRemaining || 300);
+      }
+    });
+  };
+
+  // Submit Password Fallback
+  const handlePasswordSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -44,125 +145,293 @@ function LoginForm() {
     });
   };
 
-  const handleSelectDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
+  // Quick Demo Account Selector
+  const handleSelectDemo = (account: DemoAccount) => {
+    setPhone(account.phone);
+    setEmail(account.email);
     setPassword('DemoPassword2026!');
     setErrorMessage(null);
+    setSentSuccessInfo(null);
+
+    // Cek apakah akun demo sedang dalam cooldown
+    getWhatsAppLoginCooldown(account.phone).then((res) => {
+      if (res.cooldownRemaining > 0) {
+        setCooldownSeconds(res.cooldownRemaining);
+      } else {
+        setCooldownSeconds(0);
+      }
+    });
   };
 
   return (
     <div>
+      {/* Header Banner */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800 tracking-tight">Selamat Datang Kembali</h2>
-        <p className="text-sm text-slate-500 mt-1">
-          Masuk ke akun Anda untuk mengakses portal pengajian &amp; pembinaan.
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold mb-2.5">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Login Aman via WhatsApp Magic Link</span>
+        </div>
+        <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          Masuk ke Portal Pengajian
+        </h2>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          {loginMode === 'whatsapp'
+            ? 'Cukup masukkan nomor WhatsApp aktif Anda untuk menerima tautan masuk instan (1x pakai).'
+            : 'Masuk menggunakan alamat email atau username terdaftar beserta kata sandi.'}
         </p>
       </div>
 
+      {/* Error Alert */}
       {errorMessage && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 flex items-start gap-2.5 text-rose-700 text-xs">
+        <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700 text-xs leading-relaxed animate-in fade-in">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{errorMessage}</span>
+          <div className="flex-1">
+            <span className="font-semibold block mb-0.5">Perhatian</span>
+            <span>{errorMessage}</span>
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Email Input */}
+      {/* Mode 1: WhatsApp Magic Link Form (Default & Recommended) */}
+      {loginMode === 'whatsapp' && (
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5" htmlFor="email">
-            Alamat Email atau Username
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Mail className="w-4 h-4" />
-            </div>
-            <input
-              id="email"
-              type="text"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="nama@pengajian.app"
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-            />
-          </div>
-        </div>
+          {/* Card Notifikasi Berhasil Terkirim */}
+          {sentSuccessInfo ? (
+            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 text-emerald-900 animate-in zoom-in-95">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm text-emerald-950 mb-1">
+                    Tautan Masuk Terkirim ke WhatsApp!
+                  </h4>
+                  <p className="text-xs text-emerald-800 leading-relaxed mb-3">
+                    Link verifikasi telah dikirim ke nomor{' '}
+                    <strong className="text-emerald-950 font-mono font-bold">
+                      {sentSuccessInfo.phone}
+                    </strong>
+                    {sentSuccessInfo.userName ? ` (${sentSuccessInfo.userName})` : ''}.
+                  </p>
 
-        {/* Password Input */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold text-slate-700" htmlFor="password">
-              Kata Sandi
-            </label>
-            <span className="text-xs text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium">
-              Lupa sandi?
-            </span>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Lock className="w-4 h-4" />
-            </div>
-            <input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full pl-10 pr-10 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
+                  <div className="p-3 rounded-xl bg-white/80 border border-emerald-200/70 text-[11px] text-emerald-900 space-y-1">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Ketentuan Penggunaan:</span>
+                    </div>
+                    <p>• Berlaku untuk <strong>1 (satu) kali masuk</strong>.</p>
+                    <p>• Tautan akan kedaluwarsa dalam <strong>15 menit</strong>.</p>
+                  </div>
+                </div>
+              </div>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isPending}
-          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-sm shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-        >
-          {isPending ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {/* Tombol Kirim Ulang dengan Cooldown Countdown */}
+              <div className="mt-4 pt-4 border-t border-emerald-200/70 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <div className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    Jeda Kirim Ulang:{' '}
+                    <strong className="font-mono text-xs text-emerald-900">
+                      {cooldownSeconds > 0 ? formatCooldown(cooldownSeconds) : 'Siap'}
+                    </strong>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e: any) => handleWhatsAppSubmit(e)}
+                  disabled={isPending || cooldownSeconds > 0}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-200 disabled:text-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin' : ''}`} />
+                  <span>
+                    {cooldownSeconds > 0
+                      ? `Tunggu ${formatCooldown(cooldownSeconds)}`
+                      : 'Kirim Ulang Link'}
+                  </span>
+                </button>
+              </div>
+            </div>
           ) : (
-            <>
-              Masuk Sekarang
-              <ArrowRight className="w-4 h-4" />
-            </>
+            <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="phone">
+                  Nomor WhatsApp Terdaftar
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <input
+                    id="phone"
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    onBlur={handlePhoneBlur}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Gunakan format nomor lokal (08...) atau internasional (628...).
+                </p>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isPending || cooldownSeconds > 0}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:from-slate-200 disabled:to-slate-300 disabled:text-slate-400 text-white font-bold text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Mengirim Link WhatsApp...</span>
+                  </>
+                ) : cooldownSeconds > 0 ? (
+                  <>
+                    <Clock className="w-4 h-4" />
+                    <span>Jeda Kirim Ulang ({formatCooldown(cooldownSeconds)})</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Kirim Link Masuk via WhatsApp</span>
+                  </>
+                )}
+              </button>
+            </form>
           )}
+        </div>
+      )}
+
+      {/* Mode 2: Password Fallback Form */}
+      {loginMode === 'password' && (
+        <form onSubmit={handlePasswordSubmit} className="space-y-4 animate-fade-in">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5" htmlFor="email">
+              Alamat Email atau Username
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail className="w-4 h-4" />
+              </div>
+              <input
+                id="email"
+                type="text"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@pengajian.app"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700" htmlFor="password">
+                Kata Sandi
+              </label>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Lock className="w-4 h-4" />
+              </div>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isPending}
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-sm shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+          >
+            {isPending ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <span>Masuk Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* Mode Switcher Toggle */}
+      <div className="mt-5 text-center">
+        <button
+          type="button"
+          onClick={() => {
+            setLoginMode(loginMode === 'whatsapp' ? 'password' : 'whatsapp');
+            setErrorMessage(null);
+          }}
+          className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold underline underline-offset-4 decoration-emerald-300 hover:decoration-emerald-600 transition-all cursor-pointer"
+        >
+          {loginMode === 'whatsapp'
+            ? 'Masuk dengan Email & Kata Sandi'
+            : '← Gunakan WhatsApp Magic Link (Tanpa Sandi)'}
         </button>
-      </form>
+      </div>
 
       {/* Demo Account Quick Selector */}
       <div className="mt-8 pt-6 border-t border-slate-200/80">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Demo Akun Peran (Klik Cepat):</span>
+        <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-700 mb-3">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Pilih Akun Demo Cepat:</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-normal">Klik untuk mengisi nomor WA</span>
         </div>
+
         <div className="grid grid-cols-2 gap-2">
-          {DEMO_ACCOUNTS.map((account) => (
-            <button
-              key={account.role}
-              type="button"
-              onClick={() => handleSelectDemo(account.email)}
-              className="text-left p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/50 hover:bg-emerald-50 hover:border-emerald-200 transition-all text-xs group"
-            >
-              <div className="font-semibold text-slate-700 group-hover:text-emerald-800 leading-tight">
-                {account.role}
-              </div>
-              <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                {account.name}
-              </div>
-            </button>
-          ))}
+          {DEMO_ACCOUNTS.map((account) => {
+            const isSelected = phone === account.phone;
+            return (
+              <button
+                key={account.role}
+                type="button"
+                onClick={() => handleSelectDemo(account)}
+                className={`text-left p-2.5 rounded-2xl border transition-all text-xs group cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/20'
+                    : 'border-slate-200/80 bg-slate-50/60 hover:bg-emerald-50/70 hover:border-emerald-200'
+                }`}
+              >
+                <div className="font-bold text-slate-800 group-hover:text-emerald-900 leading-tight">
+                  {account.role}
+                </div>
+                <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
+                  {account.name}
+                </div>
+                <div className="text-[10px] text-emerald-700 font-mono mt-1 flex items-center gap-1">
+                  <Phone className="w-2.5 h-2.5" />
+                  <span>{displayPhoneNumber(account.phone)}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
-        <p className="text-[11px] text-slate-400 text-center mt-3">
-          Sistem menggunakan SSR HttpOnly cookies &amp; Edge Rate Limiter
+
+        <p className="text-[11px] text-slate-400 text-center mt-4">
+          Otentikasi dilindungi pembatasan 1x pakai &amp; jeda cooldown 5 menit
         </p>
       </div>
     </div>

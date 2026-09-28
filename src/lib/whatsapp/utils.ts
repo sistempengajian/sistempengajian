@@ -1,6 +1,5 @@
 /**
- * WhatsApp Helper Utilities
- * Memformat nomor telepon Indonesia dan membuat URL tautan WhatsApp langsung
+ * Helper utility untuk manipulasi nomor telepon dan URL WhatsApp
  */
 
 export function normalizePhoneNumber(rawPhone: string | null | undefined): string | null {
@@ -21,17 +20,6 @@ export function normalizePhoneNumber(rawPhone: string | null | undefined): strin
   return cleaned;
 }
 
-export function formatWhatsAppUrl(
-  phone: string | null | undefined,
-  message: string
-): string | null {
-  const normalized = normalizePhoneNumber(phone);
-  if (!normalized) return null;
-
-  const encodedMessage = encodeURIComponent(message);
-  return `https://wa.me/${normalized}?text=${encodedMessage}`;
-}
-
 export function displayPhoneNumber(phone: string | null | undefined): string {
   if (!phone) return '-';
   const cleaned = phone.replace(/\D/g, '');
@@ -44,4 +32,22 @@ export function displayPhoneNumber(phone: string | null | undefined): string {
     }
   }
   return phone;
+}
+
+export function formatWhatsAppDirectUrl(
+  phone: string | null | undefined,
+  message: string
+): string | null {
+  const normalized = normalizePhoneNumber(phone);
+  if (!normalized) return null;
+
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${normalized}?text=${encodedMessage}`;
+}
+
+export function formatWhatsAppUrl(
+  phone: string | null | undefined,
+  message: string
+): string | null {
+  return formatWhatsAppDirectUrl(phone, message);
 }

@@ -4,18 +4,20 @@ import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import {
-  GamifikasiFilterOptions,
-  GamificationDashboardData,
+  LeaderboardFilterOptions,
+  LeaderboardDashboardData,
   LeaderboardEntry,
   GamificationPodium,
   GamificationMission,
   GamificationBadge,
   GamificationUserProfile,
-  ScopeOptionItem,
+  StudentGamificationDashboardData,
+  LeaderboardRegionTier,
+  OrganizationOption,
 } from './types';
 import { SEED_BADGES } from '@/lib/constants';
 
-// Level thresholds calculation
+// Level thresholds calculation helper (Internal non-exported helper for server action)
 function calculateLevelInfo(totalPoints: number): {
   level: number;
   levelTitle: string;
@@ -57,8 +59,8 @@ function calculateLevelInfo(totalPoints: number): {
   };
 }
 
-// Date Range Helper for Leaderboard Filters
-function getGamifikasiPeriodDates(period: GamifikasiFilterOptions['period']): {
+// Helper: Date Range for Leaderboard
+function getGamifikasiPeriodDates(period: LeaderboardFilterOptions['period']): {
   startDate?: Date;
   endDate?: Date;
   periodLabel: string;
@@ -115,84 +117,10 @@ function getGamifikasiPeriodDates(period: GamifikasiFilterOptions['period']): {
   };
 }
 
-// Main Server Action: Fetch Gamification & Leaderboard Dashboard Data
-export async function getGamificationDashboardData(
-  filterParams?: Partial<GamifikasiFilterOptions>
-): Promise<GamificationDashboardData> {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  const currentFilter: GamifikasiFilterOptions = {
-    scopeType: filterParams?.scopeType || 'ALL',
-    scopeId: filterParams?.scopeId,
-    period: filterParams?.period || 'THIS_MONTH',
-    studentId: filterParams?.studentId,
-  };
-
-  const { startDate, endDate, periodLabel } = getGamifikasiPeriodDates(currentFilter.period);
-
-  // 1. Dapatkan informasi profil user login
-  let currentUser = authUser
-    ? await prisma.user.findUnique({
-        where: { id: authUser.id },
-        include: {
-          roles: true,
-          generation: true,
-          organization: true,
-          gamification: true,
-          children: {
-            include: {
-              student: {
-                include: {
-                  generation: true,
-                  gamification: true,
-                  badges: { include: { badge: true } },
-                },
-              },
-            },
-          },
-        },
-      })
-    : null;
-
-  // Tentukan target student ID untuk misi & profil (Santri sendiri atau anak terpilih jika Ortu)
-  const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
-  const isStudent = Boolean(currentUser?.roles.some((r) => r.role === 'SANTRI'));
-
-  let activeStudentId = currentUser?.id;
-  if (isParent && currentUser?.children && currentUser.children.length > 0) {
-    if (currentFilter.studentId) {
-      activeStudentId = currentFilter.studentId;
-    } else {
-      activeStudentId = currentUser.children[0].studentUserId;
-    }
-  }
-
-  // 2. Query Scope Options (Kelas, Jenjang, Kelompok)
-  const [classes, generations, organizations, dbBadges] = await Promise.all([
-    prisma.class.findMany({
-      select: { id: true, name: true, generation: { select: { name: true } } },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.generation.findMany({
-      select: { id: true, name: true, code: true },
-      orderBy: { minAge: 'asc' },
-    }),
-    prisma.organization.findMany({
-      where: { type: 'KELOMPOK' },
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.badge.findMany({
-      orderBy: { pointBonus: 'asc' },
-    }),
-  ]);
-
-  // Jika tabel badges masih kosong, pastikan auto-seed badge dasar
-  let allBadges = dbBadges;
-  if (allBadges.length === 0) {
+// Ensure Badges Seeded
+async function ensureSeedBadges() {
+  const count = await prisma.badge.count();
+  if (count === 0) {
     for (const b of SEED_BADGES) {
       await prisma.badge.upsert({
         where: { codeName: b.codeName },
@@ -207,32 +135,161 @@ export async function getGamificationDashboardData(
         },
       });
     }
-    allBadges = await prisma.badge.findMany({ orderBy: { pointBonus: 'asc' } });
+  }
+}
+
+// ==============================================================================
+// 1. ACTION: LEADERBOARD WILAYAH (KELOMPOK, DESA, DAERAH)
+// ==============================================================================
+export async function getLeaderboardData(
+  filterParams?: Partial<LeaderboardFilterOptions>
+): Promise<LeaderboardDashboardData> {
+  await ensureSeedBadges();
+
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  // Query Current User to know default organization
+  const currentUser = authUser
+    ? await prisma.user.findUnique({
+        where: { id: authUser.id },
+        include: {
+          organization: {
+            include: {
+              parent: {
+                include: { parent: true },
+              },
+            },
+          },
+          children: true,
+          roles: true,
+        },
+      })
+    : null;
+
+  const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
+  const activeStudentId = isParent && currentUser?.children && currentUser.children.length > 0
+    ? currentUser.children[0].studentUserId
+    : currentUser?.id;
+
+  // Query All Organizations for Tier Options
+  const allOrganizations = await prisma.organization.findMany({
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      parentId: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const availableKelompok: OrganizationOption[] = allOrganizations
+    .filter((o) => o.type === 'KELOMPOK')
+    .map((o) => ({ id: o.id, name: o.name, type: 'KELOMPOK' as const, parentId: o.parentId }));
+
+  const availableDesa: OrganizationOption[] = allOrganizations
+    .filter((o) => o.type === 'DESA')
+    .map((o) => ({ id: o.id, name: o.name, type: 'DESA' as const, parentId: o.parentId }));
+
+  const availableDaerah: OrganizationOption[] = allOrganizations
+    .filter((o) => o.type === 'DAERAH')
+    .map((o) => ({ id: o.id, name: o.name, type: 'DAERAH' as const, parentId: o.parentId }));
+
+  // Determine user's default regional IDs (Kelompok, Desa, Daerah)
+  let userOrgId = currentUser?.organizationId;
+  if (!userOrgId && isParent && currentUser?.children && currentUser.children.length > 0) {
+    const child = await prisma.user.findUnique({
+      where: { id: currentUser.children[0].studentUserId },
+      select: { organizationId: true },
+    });
+    userOrgId = child?.organizationId || undefined;
   }
 
-  const scopeOptions: ScopeOptionItem[] = [
-    { id: 'ALL', label: 'Semua Santri (Gabungan)', type: 'ALL' },
-    ...generations.map((g) => ({
-      id: g.id,
-      label: `Jenjang: ${g.name}`,
-      type: 'GENERATION' as const,
-      group: 'Jenjang Usia',
-    })),
-    ...classes.map((c) => ({
-      id: c.id,
-      label: `Kelas: ${c.name}`,
-      type: 'CLASS' as const,
-      group: 'Daftar Kelas',
-    })),
-    ...organizations.map((o) => ({
-      id: o.id,
-      label: `Kelompok: ${o.name}`,
-      type: 'ORGANIZATION' as const,
-      group: 'Kelompok Pengajian',
-    })),
-  ];
+  let userDefaultKelompokId: string | undefined = undefined;
+  let userDefaultDesaId: string | undefined = undefined;
+  let userDefaultDaerahId: string | undefined = undefined;
 
-  // 3. Bangun Where Clause untuk Pengambilan Santri
+  if (userOrgId) {
+    const userOrg = allOrganizations.find((o) => o.id === userOrgId);
+    if (userOrg?.type === 'KELOMPOK') {
+      userDefaultKelompokId = userOrg.id;
+      userDefaultDesaId = userOrg.parentId || undefined;
+      const parentDesa = allOrganizations.find((o) => o.id === userOrg.parentId);
+      userDefaultDaerahId = parentDesa?.parentId || availableDaerah[0]?.id;
+    } else if (userOrg?.type === 'DESA') {
+      userDefaultDesaId = userOrg.id;
+      userDefaultDaerahId = userOrg.parentId || availableDaerah[0]?.id;
+      const childKel = availableKelompok.find((k) => k.parentId === userOrg.id);
+      userDefaultKelompokId = childKel?.id || availableKelompok[0]?.id;
+    } else if (userOrg?.type === 'DAERAH') {
+      userDefaultDaerahId = userOrg.id;
+      const childDesa = availableDesa.find((d) => d.parentId === userOrg.id);
+      userDefaultDesaId = childDesa?.id || availableDesa[0]?.id;
+      const childKel = availableKelompok.find((k) => k.parentId === childDesa?.id);
+      userDefaultKelompokId = childKel?.id || availableKelompok[0]?.id;
+    }
+  }
+
+  if (!userDefaultKelompokId && availableKelompok.length > 0) userDefaultKelompokId = availableKelompok[0].id;
+  if (!userDefaultDesaId && availableDesa.length > 0) userDefaultDesaId = availableDesa[0].id;
+  if (!userDefaultDaerahId && availableDaerah.length > 0) userDefaultDaerahId = availableDaerah[0].id;
+
+  // Set default tier & selected organization
+  const currentTier: LeaderboardRegionTier = filterParams?.regionTier || 'KELOMPOK';
+  const selectedPeriod = filterParams?.period || 'THIS_MONTH';
+  const { startDate, endDate, periodLabel } = getGamifikasiPeriodDates(selectedPeriod);
+
+  let selectedOrgId = filterParams?.organizationId;
+  let tierLabel = '';
+
+  // Determine org filter based on tier
+  let matchingOrgIds: string[] = [];
+
+  if (currentTier === 'KELOMPOK') {
+    if (!selectedOrgId && availableKelompok.length > 0) {
+      selectedOrgId = userDefaultKelompokId || availableKelompok[0].id;
+    }
+    const org = availableKelompok.find((k) => k.id === selectedOrgId) || availableKelompok[0];
+    if (org) {
+      selectedOrgId = org.id;
+      matchingOrgIds = [org.id];
+      tierLabel = `Kelompok ${org.name}`;
+    } else {
+      tierLabel = 'Tingkat Kelompok';
+    }
+  } else if (currentTier === 'DESA') {
+    if (!selectedOrgId && availableDesa.length > 0) {
+      selectedOrgId = userDefaultDesaId || availableDesa[0].id;
+    }
+    const org = availableDesa.find((d) => d.id === selectedOrgId) || availableDesa[0];
+    if (org) {
+      selectedOrgId = org.id;
+      // Get all kelompok under this desa + desa itself
+      const childKelompokIds = availableKelompok.filter((k) => k.parentId === org.id).map((k) => k.id);
+      matchingOrgIds = [org.id, ...childKelompokIds];
+      tierLabel = `Desa ${org.name}`;
+    } else {
+      tierLabel = 'Tingkat Desa';
+    }
+  } else {
+    // DAERAH
+    if (!selectedOrgId && availableDaerah.length > 0) {
+      selectedOrgId = userDefaultDaerahId || availableDaerah[0].id;
+    }
+    const org = availableDaerah.find((d) => d.id === selectedOrgId) || availableDaerah[0];
+    if (org) {
+      selectedOrgId = org.id;
+      matchingOrgIds = allOrganizations.map((o) => o.id);
+      tierLabel = `Daerah ${org.name}`;
+    } else {
+      matchingOrgIds = allOrganizations.map((o) => o.id);
+      tierLabel = 'Seluruh Wilayah Daerah';
+    }
+  }
+
+  // Where Clause for Students
   const userWhere: any = {
     roles: {
       some: {
@@ -242,22 +299,11 @@ export async function getGamificationDashboardData(
     status: 'ACTIVE',
   };
 
-  if (currentFilter.scopeType === 'GENERATION' && currentFilter.scopeId) {
-    userWhere.generationId = currentFilter.scopeId;
-  } else if (currentFilter.scopeType === 'ORGANIZATION' && currentFilter.scopeId) {
-    userWhere.organizationId = currentFilter.scopeId;
-  } else if (currentFilter.scopeType === 'CLASS' && currentFilter.scopeId) {
-    // Cari santri yang berada di kelas ini
-    const classObj = await prisma.class.findUnique({
-      where: { id: currentFilter.scopeId },
-      include: { generation: true },
-    });
-    if (classObj?.generationId) {
-      userWhere.generationId = classObj.generationId;
-    }
+  if (matchingOrgIds.length > 0) {
+    userWhere.organizationId = { in: matchingOrgIds };
   }
 
-  // 4. Ambil semua santri sesuai scope
+  // Query Students with attendances, submissions, progress, badges
   const students = await prisma.user.findMany({
     where: userWhere,
     include: {
@@ -305,7 +351,7 @@ export async function getGamificationDashboardData(
     },
   });
 
-  // 5. Hitung Poin Santri untuk Periode Terpilih
+  // Calculate Scores for each Student
   const leaderboardEntries: LeaderboardEntry[] = students.map((std) => {
     const totalLifetimePoints = std.gamification?.totalPoints || 0;
     const currentStreak = std.gamification?.currentStreakDays || 0;
@@ -319,14 +365,14 @@ export async function getGamificationDashboardData(
     std.attendanceRecords.forEach((att) => {
       if (att.status === 'HADIR') {
         hadirCount++;
-        periodPoints += 10; // 10 Poin per kehadiran
+        periodPoints += 10;
       } else if (att.status === 'TERLAMBAT') {
         hadirCount += 0.5;
         periodPoints += 5;
       }
     });
 
-    // Poin dari Tugas Selesai
+    // Poin dari Tugas
     let completedAssignmentsCount = 0;
     std.assignmentSubmissions.forEach((sub) => {
       if (sub.status === 'GRADED' || sub.status === 'SUBMITTED') {
@@ -339,10 +385,9 @@ export async function getGamificationDashboardData(
     const completedChecklistsCount = std.materialProgress.length;
     periodPoints += (completedChecklistsCount * 5);
 
-    // Poin dari Lencana Terbuka
+    // Poin dari Lencana
     const badgesCount = std.badges.length;
     if (!startDate) {
-      // All-time: prioritaskan totalPoints dari DB gamification
       periodPoints = Math.max(totalLifetimePoints, periodPoints + (badgesCount * 50));
     } else {
       periodPoints = Math.max(periodPoints, Math.min(totalLifetimePoints, 50));
@@ -353,7 +398,6 @@ export async function getGamificationDashboardData(
 
     const levelInfo = calculateLevelInfo(periodPoints > 0 ? periodPoints : totalLifetimePoints);
 
-    // Cek nama kelas jika ada
     const genName = std.generation?.name || 'Santri';
     const orgName = std.organization?.name || 'Kelompok';
 
@@ -362,9 +406,9 @@ export async function getGamificationDashboardData(
       fullName: std.fullName,
       avatarUrl: std.avatarUrl,
       generationName: genName,
-      className: `${genName} - ${orgName}`,
+      className: `${genName} • ${orgName}`,
       organizationName: orgName,
-      rank: 0, // Akan di-assign setelah sorting
+      rank: 0,
       totalPoints: periodPoints > 0 ? periodPoints : (totalLifetimePoints > 0 ? totalLifetimePoints : 50),
       level: levelInfo.level,
       currentStreakDays: currentStreak,
@@ -376,19 +420,19 @@ export async function getGamificationDashboardData(
     };
   });
 
-  // Urutkan leaderboard: Poin Tertinggi -> Streak Tertinggi -> Presensi Tertinggi
+  // Sort Leaderboard
   leaderboardEntries.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.currentStreakDays !== a.currentStreakDays) return b.currentStreakDays - a.currentStreakDays;
     return b.attendanceRate - a.attendanceRate;
   });
 
-  // Assign Ranking Index (1-based)
+  // Assign Rank Numbers
   leaderboardEntries.forEach((entry, idx) => {
     entry.rank = idx + 1;
   });
 
-  // Pisahkan Podium (Rank 1, 2, 3) dan List Ranks (4 - 10+)
+  // Podium (Ranks 1, 2, 3) & List (Ranks 4-10)
   const podium: GamificationPodium = {
     rank1: leaderboardEntries[0],
     rank2: leaderboardEntries[1],
@@ -396,84 +440,161 @@ export async function getGamificationDashboardData(
   };
 
   const rankingsList = leaderboardEntries.slice(3, 10);
+  const currentUserRank = leaderboardEntries.find((e) => e.studentId === activeStudentId);
 
-  // 6. Evaluasi Data Profil Pengguna Aktif (Santri / Anak)
-  let userProfile: GamificationUserProfile | undefined = undefined;
-  const targetStudent = students.find((s) => s.id === activeStudentId) || students[0];
+  return {
+    podium,
+    rankingsList,
+    currentUserRank,
+    totalParticipants: leaderboardEntries.length,
+    currentTier,
+    selectedOrgId,
+    selectedPeriod,
+    periodLabel,
+    tierLabel,
+    availableKelompok,
+    availableDesa,
+    availableDaerah,
+    userDefaultKelompokId,
+    userDefaultDesaId,
+    userDefaultDaerahId,
+  };
+}
 
-  if (targetStudent) {
-    const targetEntry = leaderboardEntries.find((e) => e.studentId === targetStudent.id);
-    const totalPoints = targetEntry?.totalPoints || targetStudent.gamification?.totalPoints || 0;
-    const levelInfo = calculateLevelInfo(totalPoints);
+// ==============================================================================
+// 2. ACTION: CAPAIAN UTAMA, MISI & TROFI SANTRI (STUDENT GAMIFICATION)
+// ==============================================================================
+export async function getStudentGamificationData(
+  targetStudentId?: string
+): Promise<StudentGamificationDashboardData> {
+  await ensureSeedBadges();
 
-    userProfile = {
-      studentId: targetStudent.id,
-      fullName: targetStudent.fullName,
-      avatarUrl: targetStudent.avatarUrl,
-      generationName: targetStudent.generation?.name || 'Santri',
-      className: targetStudent.organization?.name,
-      rank: targetEntry?.rank || 1,
-      totalStudents: students.length,
-      totalPoints,
-      currentLevel: levelInfo.level,
-      levelTitle: levelInfo.levelTitle,
-      currentLevelPoints: levelInfo.currentLevelPoints,
-      nextLevelPoints: levelInfo.nextLevelPoints,
-      levelProgressPercent: levelInfo.levelProgressPercent,
-      currentStreakDays: targetStudent.gamification?.currentStreakDays || 0,
-      highestStreakDays: targetStudent.gamification?.highestStreakDays || 0,
-      totalBadgesUnlocked: targetStudent.badges.length,
-      totalBadgesAvailable: allBadges.length,
-      availableClaimableMissions: 0, // Akan dihitung dari misi yang selesai tapi belum diklaim
-      isStudentOrChild: Boolean(isStudent || isParent),
-    };
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  let currentUser = authUser
+    ? await prisma.user.findUnique({
+        where: { id: authUser.id },
+        include: {
+          roles: true,
+          generation: true,
+          organization: true,
+          gamification: true,
+          children: {
+            include: {
+              student: {
+                include: {
+                  generation: true,
+                  gamification: true,
+                  badges: { include: { badge: true } },
+                },
+              },
+            },
+          },
+        },
+      })
+    : null;
+
+  const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
+  const isStudent = Boolean(currentUser?.roles.some((r) => r.role === 'SANTRI'));
+
+  let activeStudentId = targetStudentId || currentUser?.id;
+  if (isParent && currentUser?.children && currentUser.children.length > 0 && !targetStudentId) {
+    activeStudentId = currentUser.children[0].studentUserId;
   }
 
-  // 7. Hitung Progress Misi Harian, Pekanan, dan Milestones
+  const [targetStudent, allBadges, totalStudentsCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: activeStudentId || '' },
+      include: {
+        generation: true,
+        organization: true,
+        gamification: true,
+        badges: { include: { badge: true } },
+        attendanceRecords: true,
+        assignmentSubmissions: true,
+        materialProgress: { where: { isCompleted: true } },
+      },
+    }),
+    prisma.badge.findMany({ orderBy: { pointBonus: 'asc' } }),
+    prisma.user.count({
+      where: {
+        roles: { some: { role: 'SANTRI' } },
+        status: 'ACTIVE',
+      },
+    }),
+  ]);
+
+  const totalPoints = targetStudent?.gamification?.totalPoints || 0;
+  const levelInfo = calculateLevelInfo(totalPoints);
+  const currentStreak = targetStudent?.gamification?.currentStreakDays || 0;
+  const highestStreak = targetStudent?.gamification?.highestStreakDays || currentStreak;
+
+  const userProfile: GamificationUserProfile = {
+    studentId: targetStudent?.id || '',
+    fullName: targetStudent?.fullName || 'Santri Generasi',
+    avatarUrl: targetStudent?.avatarUrl || null,
+    generationName: targetStudent?.generation?.name || 'Santri',
+    className: targetStudent?.organization?.name,
+    organizationName: targetStudent?.organization?.name,
+    rank: 1, // Akan dihitung atau di-display
+    totalStudents: totalStudentsCount,
+    totalPoints,
+    currentLevel: levelInfo.level,
+    levelTitle: levelInfo.levelTitle,
+    currentLevelPoints: levelInfo.currentLevelPoints,
+    nextLevelPoints: levelInfo.nextLevelPoints,
+    levelProgressPercent: levelInfo.levelProgressPercent,
+    currentStreakDays: currentStreak,
+    highestStreakDays: highestStreak,
+    totalBadgesUnlocked: targetStudent?.badges.length || 0,
+    totalBadgesAvailable: allBadges.length,
+    availableClaimableMissions: 0,
+    isStudentOrChild: Boolean(isStudent || isParent),
+  };
+
+  // Misi Harian, Pekanan, Milestones
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  // Presensi hari ini
-  const todayAttendance = targetStudent
-    ? await prisma.attendanceRecord.findFirst({
-        where: {
-          studentId: targetStudent.id,
-          createdAt: { gte: startOfToday, lte: endOfToday },
-        },
-      })
-    : null;
-
-  // Checklist hari ini
-  const todayChecklist = targetStudent
-    ? await prisma.materialChecklistProgress.findFirst({
-        where: {
-          studentId: targetStudent.id,
-          evaluatedAt: { gte: startOfToday, lte: endOfToday },
-          isCompleted: true,
-        },
-      })
-    : null;
-
-  // Paraf Ortu aktif
-  const todayVerification = targetStudent
-    ? await prisma.assignmentSubmission.findFirst({
-        where: {
-          studentId: targetStudent.id,
-          parentVerification: { isNot: null },
-        },
-      })
-    : null;
+  const [todayAttendance, todayChecklist, todayVerification] = await Promise.all([
+    targetStudent
+      ? prisma.attendanceRecord.findFirst({
+          where: {
+            studentId: targetStudent.id,
+            createdAt: { gte: startOfToday, lte: endOfToday },
+          },
+        })
+      : null,
+    targetStudent
+      ? prisma.materialChecklistProgress.findFirst({
+          where: {
+            studentId: targetStudent.id,
+            evaluatedAt: { gte: startOfToday, lte: endOfToday },
+            isCompleted: true,
+          },
+        })
+      : null,
+    targetStudent
+      ? prisma.assignmentSubmission.findFirst({
+          where: {
+            studentId: targetStudent.id,
+            parentVerification: { isNot: null },
+          },
+        })
+      : null,
+  ]);
 
   const isTodayPunctual = todayAttendance?.status === 'HADIR';
   const hasCompletedChecklistToday = !!todayChecklist;
   const hasParentVerification = !!todayVerification;
-
-  const currentStreak = targetStudent?.gamification?.currentStreakDays || 0;
   const totalSubmissions = targetStudent?.assignmentSubmissions.length || 0;
   const totalCompletedChecklist = targetStudent?.materialProgress.length || 0;
 
-  // Daftar Misi Harian (Daily Quests)
+  // Daily Quests
   const dailyMissions: GamificationMission[] = [
     {
       id: 'daily_presensi_tepat_waktu',
@@ -522,7 +643,7 @@ export async function getGamificationDashboardData(
     },
   ];
 
-  // Daftar Misi Pekanan (Weekly Quests)
+  // Weekly Quests
   const weeklyMissions: GamificationMission[] = [
     {
       id: 'weekly_perfect_attendance',
@@ -571,7 +692,7 @@ export async function getGamificationDashboardData(
     },
   ];
 
-  // Daftar Milestone Quests (Sepanjang Waktu)
+  // Milestone Quests
   const milestoneMissions: GamificationMission[] = [
     {
       id: 'milestone_hafalan_10',
@@ -620,19 +741,16 @@ export async function getGamificationDashboardData(
     },
   ];
 
-  // Hitung berapa misi yang siap diklaim
+  // Count Claimable
   let claimableCount = 0;
   [...dailyMissions, ...weeklyMissions, ...milestoneMissions].forEach((m) => {
     if (m.isCompleted && !m.isClaimed) {
       claimableCount++;
     }
   });
+  userProfile.availableClaimableMissions = claimableCount;
 
-  if (userProfile) {
-    userProfile.availableClaimableMissions = claimableCount;
-  }
-
-  // 8. Transform Badges (Unlocked vs Locked)
+  // Badges Transformation
   const studentBadgeMap = new Map<string, any>();
   targetStudent?.badges.forEach((sb: any) => {
     studentBadgeMap.set(sb.badgeId, sb);
@@ -687,20 +805,16 @@ export async function getGamificationDashboardData(
 
   return {
     userProfile,
-    podium,
-    rankingsList,
     dailyMissions,
     weeklyMissions,
     milestoneMissions,
     badges,
-    scopeOptions,
-    currentFilter,
-    periodLabel,
-    totalParticipants: students.length,
   };
 }
 
-// Server Action: Klaim Hadiah Misi Berhasil
+// ==============================================================================
+// 3. ACTION: CLAIM MISSION REWARD
+// ==============================================================================
 export async function claimMissionReward(
   studentId: string,
   missionCode: string,
@@ -716,7 +830,6 @@ export async function claimMissionReward(
       return { success: false, message: 'Autentikasi diperlukan.' };
     }
 
-    // Update total points in UserGamification
     const currentGamification = await prisma.userGamification.findUnique({
       where: { userId: studentId },
     });
@@ -740,6 +853,7 @@ export async function claimMissionReward(
     });
 
     revalidatePath('/gamifikasi');
+    revalidatePath('/leaderboard');
     return {
       success: true,
       message: `🎉 Selamat! Kamu berhasil mengklaim +${rewardXp} XP. Total Poin sekarang: ${newPoints} XP!`,

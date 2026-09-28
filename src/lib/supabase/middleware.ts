@@ -73,8 +73,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If already logged in and visiting /login -> redirect to /dashboard
-  if (user && isAuthRoute) {
+  const isMagicLoginRoute = request.nextUrl.pathname.startsWith('/login/magic');
+
+  // If already logged in and visiting /login -> redirect to /dashboard (kecuali sedang memverifikasi magic token)
+  if (user && isAuthRoute && !isMagicLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);

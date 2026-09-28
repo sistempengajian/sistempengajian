@@ -1,12 +1,11 @@
-export type GamifikasiScopeType = 'ALL' | 'CLASS' | 'GENERATION' | 'ORGANIZATION';
+export type LeaderboardRegionTier = 'KELOMPOK' | 'DESA' | 'DAERAH';
 
 export type GamifikasiPeriod = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_SEMESTER' | 'ALL_TIME';
 
-export interface GamifikasiFilterOptions {
-  scopeType: GamifikasiScopeType;
-  scopeId?: string;
+export interface LeaderboardFilterOptions {
+  regionTier: LeaderboardRegionTier;
+  organizationId?: string;
   period: GamifikasiPeriod;
-  studentId?: string; // Untuk orang tua memilih anak tertentu
 }
 
 export interface LeaderboardEntry {
@@ -71,6 +70,7 @@ export interface GamificationUserProfile {
   avatarUrl: string | null;
   generationName?: string;
   className?: string;
+  organizationName?: string;
   rank: number;
   totalStudents: number;
   totalPoints: number;
@@ -87,23 +87,35 @@ export interface GamificationUserProfile {
   isStudentOrChild: boolean;
 }
 
-export interface ScopeOptionItem {
+export interface OrganizationOption {
   id: string;
-  label: string;
-  type: GamifikasiScopeType;
-  group?: string;
+  name: string;
+  type: LeaderboardRegionTier;
+  parentId?: string | null;
 }
 
-export interface GamificationDashboardData {
-  userProfile?: GamificationUserProfile;
+export interface LeaderboardDashboardData {
   podium: GamificationPodium;
   rankingsList: LeaderboardEntry[];
+  currentUserRank?: LeaderboardEntry;
+  totalParticipants: number;
+  currentTier: LeaderboardRegionTier;
+  selectedOrgId?: string;
+  selectedPeriod: GamifikasiPeriod;
+  periodLabel: string;
+  tierLabel: string;
+  availableKelompok: OrganizationOption[];
+  availableDesa: OrganizationOption[];
+  availableDaerah: OrganizationOption[];
+  userDefaultKelompokId?: string;
+  userDefaultDesaId?: string;
+  userDefaultDaerahId?: string;
+}
+
+export interface StudentGamificationDashboardData {
+  userProfile: GamificationUserProfile;
   dailyMissions: GamificationMission[];
   weeklyMissions: GamificationMission[];
   milestoneMissions: GamificationMission[];
   badges: GamificationBadge[];
-  scopeOptions: ScopeOptionItem[];
-  currentFilter: GamifikasiFilterOptions;
-  periodLabel: string;
-  totalParticipants: number;
 }

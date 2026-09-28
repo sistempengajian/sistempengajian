@@ -162,17 +162,17 @@ export default function AppHeader({
 
         {/* Right: Gamifikasi Shortcut, Notification Popover & Minimalist Logout Button */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Quick Gamifikasi Leaderboard Link */}
+          {/* Quick Leaderboard Link */}
           <Link
-            href="/gamifikasi"
+            href="/leaderboard"
             prefetch={true}
             className={`w-9 h-9 flex items-center justify-center rounded-xl text-amber-600 hover:text-amber-700 active:scale-95 transition-all duration-200 border ${
               isScrolled
                 ? 'bg-amber-50/80 hover:bg-amber-100/80 border-amber-200/80 shadow-sm'
                 : 'bg-amber-50/50 hover:bg-amber-100/60 border-amber-200/50 shadow-none'
             }`}
-            title="Papan Juara & Gamifikasi Santri"
-            aria-label="Papan Juara & Gamifikasi"
+            title="Papan Juara & Leaderboard Wilayah"
+            aria-label="Leaderboard Wilayah"
           >
             <Trophy className="w-4 h-4 fill-amber-400 text-amber-600" />
           </Link>

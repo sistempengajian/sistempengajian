@@ -8,9 +8,7 @@ import {
   Zap,
   Sparkles,
   ChevronRight,
-  TrendingUp,
   Star,
-  CheckCircle2,
 } from 'lucide-react';
 import { GamificationUserProfile } from '@/app/(protected)/gamifikasi/types';
 
@@ -33,18 +31,18 @@ export default function UserProfileSummary({
     .toUpperCase();
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-5 sm:p-6 shadow-xl border border-slate-700/50">
-      {/* Decorative ambient lighting */}
-      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-10 left-10 w-60 h-60 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-white/95 via-slate-50/80 to-slate-100/90 border border-slate-200/80 shadow-sm p-4 sm:p-6 text-slate-900">
+      {/* Decorative ambient gradients */}
+      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-amber-100/30 via-amber-50/15 to-transparent pointer-events-none" />
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 bg-amber-300/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Container */}
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5">
         {/* Left: Avatar & Identity & Rank */}
-        <div className="flex items-center gap-4 min-w-0">
+        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
           <div className="relative flex-shrink-0">
-            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-tr from-amber-400 via-emerald-400 to-teal-300 p-0.5 shadow-lg shadow-emerald-500/20">
-              <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900 flex items-center justify-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-400 via-yellow-400 to-emerald-400 p-0.5 shadow-md shadow-amber-500/20">
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-100 flex items-center justify-center">
                 {userProfile.avatarUrl ? (
                   <img
                     src={userProfile.avatarUrl}
@@ -52,7 +50,7 @@ export default function UserProfileSummary({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="font-extrabold text-xl sm:text-2xl text-emerald-400">
+                  <span className="font-black text-lg sm:text-xl text-amber-700">
                     {initials}
                   </span>
                 )}
@@ -60,7 +58,7 @@ export default function UserProfileSummary({
             </div>
 
             {/* Level Pill floating on Avatar */}
-            <div className="absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md">
+            <div className="absolute -bottom-2 -right-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-sm">
               Lv. {userProfile.currentLevel}
             </div>
           </div>
@@ -68,24 +66,24 @@ export default function UserProfileSummary({
           {/* User Info */}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-xl font-bold tracking-tight text-white truncate" title={userProfile.fullName}>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate" title={userProfile.fullName}>
                 {userProfile.fullName}
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 text-xs font-semibold border border-white/10">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200/70">
                 {userProfile.generationName || 'Santri'}
               </span>
             </div>
 
-            <p className="text-xs text-slate-300 mt-0.5 truncate">
-              {userProfile.levelTitle} &bull; {userProfile.className || 'Generasi Qur\'ani'}
+            <p className="text-xs text-slate-500 mt-0.5 truncate">
+              {userProfile.levelTitle} • {userProfile.className || 'Generasi Qur\'ani'}
             </p>
 
             {/* Rank Position Pill */}
-            <div className="flex items-center gap-2 mt-2">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-bold">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-[11px] sm:text-xs font-bold shadow-2xs">
+                <Trophy className="w-3.5 h-3.5 fill-amber-400 text-amber-600 flex-shrink-0" />
                 <span>Peringkat #{userProfile.rank}</span>
-                <span className="text-amber-200/60 font-normal">
+                <span className="text-slate-400 font-normal">
                   dari {userProfile.totalStudents} Santri
                 </span>
               </div>
@@ -93,48 +91,48 @@ export default function UserProfileSummary({
           </div>
         </div>
 
-        {/* Right: Quick Stats & Claimable Quest CTA */}
-        <div className="flex flex-wrap items-center gap-3 md:justify-end">
+        {/* Right: Quick Stats */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 md:justify-end">
           {/* Total Points */}
-          <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
-              <Star className="w-5 h-5 fill-amber-400" />
+          <div className="flex-1 sm:flex-initial px-3 py-2 rounded-2xl bg-white/80 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center flex-shrink-0">
+              <Star className="w-4 h-4 fill-amber-400" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
                 Total Poin
               </span>
-              <span className="text-base sm:text-lg font-black text-amber-300">
-                {userProfile.totalPoints.toLocaleString('id-ID')} <span className="text-xs font-bold text-amber-400/80">XP</span>
+              <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                {userProfile.totalPoints.toLocaleString('id-ID')} <span className="text-[10px] font-bold text-amber-600">XP</span>
               </span>
             </div>
           </div>
 
           {/* Current Streak */}
-          <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center flex-shrink-0">
-              <Flame className="w-5 h-5 fill-orange-400" />
+          <div className="flex-1 sm:flex-initial px-3 py-2 rounded-2xl bg-white/80 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 text-orange-600 flex items-center justify-center flex-shrink-0">
+              <Flame className="w-4 h-4 fill-orange-400" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
                 Streak Harian
               </span>
-              <span className="text-base sm:text-lg font-black text-orange-300">
-                {userProfile.currentStreakDays} <span className="text-xs font-bold text-orange-400/80">Hari</span>
+              <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                {userProfile.currentStreakDays} <span className="text-[10px] font-bold text-orange-600">Hari</span>
               </span>
             </div>
           </div>
 
           {/* Badges Unlocked */}
-          <div className="flex-1 sm:flex-initial px-3.5 py-2 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0">
-              <Award className="w-5 h-5" />
+          <div className="flex-1 sm:flex-initial px-3 py-2 rounded-2xl bg-white/80 border border-slate-200/80 flex items-center gap-2.5 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Award className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
                 Lencana
               </span>
-              <span className="text-base sm:text-lg font-black text-indigo-300">
+              <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
                 {userProfile.totalBadgesUnlocked}/{userProfile.totalBadgesAvailable}
               </span>
             </div>
@@ -143,20 +141,20 @@ export default function UserProfileSummary({
       </div>
 
       {/* Progress Bar to Next Level */}
-      <div className="mt-5 pt-4 border-t border-white/10">
+      <div className="mt-4 pt-3.5 border-t border-slate-200/70">
         <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
-          <span className="text-slate-300 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-slate-600 font-semibold flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
             Progress Menuju Level {userProfile.currentLevel + 1}
           </span>
-          <span className="text-amber-300 font-bold">
+          <span className="text-amber-800 font-bold text-xs">
             {userProfile.currentLevelPoints} / {userProfile.nextLevelPoints} XP ({userProfile.levelProgressPercent}%)
           </span>
         </div>
 
-        <div className="w-full h-3 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-white/10">
+        <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-200/80 shadow-inner">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-amber-500 via-emerald-400 to-teal-300 transition-all duration-500 shadow-sm shadow-emerald-500/50"
+            className="h-full rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-500 transition-all duration-500 shadow-xs shadow-amber-500/30"
             style={{ width: `${userProfile.levelProgressPercent}%` }}
           />
         </div>
@@ -164,12 +162,12 @@ export default function UserProfileSummary({
 
       {/* Claimable Missions Callout Banner */}
       {userProfile.availableClaimableMissions > 0 && onNavigateToMissions && (
-        <div className="mt-4 p-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-amber-500/20 border border-emerald-400/40 flex items-center justify-between gap-3 animate-pulse">
+        <div className="mt-3.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border border-emerald-200/80 shadow-2xs flex items-center justify-between gap-3 animate-pulse">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 flex items-center justify-center flex-shrink-0 font-bold text-xs">
-              <Sparkles className="w-4 h-4 fill-slate-950" />
+            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs shadow-xs">
+              <Sparkles className="w-4 h-4 fill-white" />
             </div>
-            <span className="text-xs sm:text-sm font-bold text-emerald-200 truncate">
+            <span className="text-xs sm:text-sm font-bold text-emerald-950 truncate">
               {userProfile.availableClaimableMissions} Hadiah Misi Siap Diklaim!
             </span>
           </div>
@@ -177,7 +175,7 @@ export default function UserProfileSummary({
           <button
             type="button"
             onClick={onNavigateToMissions}
-            className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-md flex-shrink-0"
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex-shrink-0"
           >
             <span>Klaim Sekarang</span>
             <ChevronRight className="w-3.5 h-3.5" />
