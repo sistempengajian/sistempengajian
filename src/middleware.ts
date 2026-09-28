@@ -31,7 +31,7 @@ const redis = isConfigured && redisUrl && redisToken
 const authRateLimiter = redis
   ? new Ratelimit({
       redis,
-      limiter: Ratelimit.slidingWindow(5, '1 m'), // 5 attempts per min for auth
+      limiter: Ratelimit.slidingWindow(20, '1 m'), // 20 attempts per min for auth
       prefix: 'ratelimit:auth',
     })
   : null;
@@ -39,7 +39,7 @@ const authRateLimiter = redis
 const apiRateLimiter = redis
   ? new Ratelimit({
       redis,
-      limiter: Ratelimit.slidingWindow(60, '1 m'), // 60 req per min for APIs
+      limiter: Ratelimit.slidingWindow(100, '1 m'), // 100 req per min for APIs
       prefix: 'ratelimit:api',
     })
   : null;
@@ -47,42 +47,47 @@ const apiRateLimiter = redis
 export async function middleware(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? '127.0.0.1';
   const pathname = request.nextUrl.pathname;
+  const isDev = process.env.NODE_ENV === 'development';
+  const isLocalIp = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
 
-  // 1. Rate Limiting for Auth and API Routes (with safe try/catch fallback)
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
-    if (authRateLimiter) {
-      try {
-        const { success, limit, remaining, reset } = await authRateLimiter.limit(ip);
-        if (!success) {
-          return new NextResponse(
-            JSON.stringify({
-              error: 'Terlalu banyak percobaan masuk. Mohon tunggu beberapa saat.',
-              limit,
-              remaining,
-              reset,
-            }),
-            {
-              status: 429,
-              headers: { 'Content-Type': 'application/json', 'Retry-After': reset.toString() },
-            }
-          );
+  // 1. Rate Limiting for Auth Mutations & API Routes
+  // Jangan membatasi GET request (navigasi halaman /login) agar tidak memblokir render UI
+  if (!isDev && !isLocalIp) {
+    if (request.method === 'POST' && (pathname.startsWith('/login') || pathname.startsWith('/api/auth'))) {
+      if (authRateLimiter) {
+        try {
+          const { success, limit, remaining, reset } = await authRateLimiter.limit(ip);
+          if (!success) {
+            return new NextResponse(
+              JSON.stringify({
+                error: 'Terlalu banyak percobaan masuk. Mohon tunggu beberapa saat.',
+                limit,
+                remaining,
+                reset,
+              }),
+              {
+                status: 429,
+                headers: { 'Content-Type': 'application/json', 'Retry-After': reset.toString() },
+              }
+            );
+          }
+        } catch (err) {
+          console.warn('[RateLimiter] Skipping auth rate limiter due to error:', err);
         }
-      } catch (err) {
-        console.warn('[RateLimiter] Skipping rate limiter due to error:', err);
       }
-    }
-  } else if (pathname.startsWith('/api/')) {
-    if (apiRateLimiter) {
-      try {
-        const { success } = await apiRateLimiter.limit(ip);
-        if (!success) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Batas permintaan terlampaui. Coba lagi sebentar lagi.' }),
-            { status: 429, headers: { 'Content-Type': 'application/json' } }
-          );
+    } else if (pathname.startsWith('/api/') && !pathname.startsWith('/api/webhooks')) {
+      if (apiRateLimiter) {
+        try {
+          const { success } = await apiRateLimiter.limit(ip);
+          if (!success) {
+            return new NextResponse(
+              JSON.stringify({ error: 'Batas permintaan API terlampaui. Coba lagi sebentar lagi.' }),
+              { status: 429, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (err) {
+          console.warn('[RateLimiter] Skipping API rate limiter due to error:', err);
         }
-      } catch (err) {
-        console.warn('[RateLimiter] Skipping API rate limiter due to error:', err);
       }
     }
   }

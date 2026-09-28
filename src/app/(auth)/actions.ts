@@ -10,168 +10,6 @@ import crypto from 'crypto';
 
 const LOGIN_COOLDOWN_SECONDS = 300; // 5 Menit Cooldown
 
-interface TokenRecordData {
-  id: string;
-  token: string;
-  phoneNumber: string;
-  userId: string;
-  isUsed: boolean;
-  usedAt?: Date | null;
-  expiresAt: Date;
-  createdAt: Date;
-}
-
-/**
- * Helper resilien untuk mencari token terakhir (mendukung Prisma ORM & Raw SQL fallback)
- */
-async function getRecentTokenRecord(
-  normalized: string,
-  localFormat: string,
-  userId?: string,
-  sinceDate?: Date
-): Promise<TokenRecordData | null> {
-  try {
-    if ((prisma as any).whatsAppLoginToken?.findFirst) {
-      const rec = await prisma.whatsAppLoginToken.findFirst({
-        where: {
-          OR: [
-            { phoneNumber: normalized },
-            { phoneNumber: localFormat },
-            ...(userId ? [{ userId }] : []),
-          ],
-          ...(sinceDate ? { createdAt: { gte: sinceDate } } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (rec) return rec as TokenRecordData;
-    }
-  } catch {
-    // Fallback ke Raw SQL jika HMR runtime belum me-reload model ORM
-  }
-
-  try {
-    const rawResults: any[] = await prisma.$queryRaw`
-      SELECT id, token, phone_number as "phoneNumber", user_id as "userId", 
-             is_used as "isUsed", used_at as "usedAt", expires_at as "expiresAt", created_at as "createdAt"
-      FROM whatsapp_login_tokens
-      WHERE (phone_number = ${normalized} OR phone_number = ${localFormat})
-        ${sinceDate ? prisma.$queryRaw`AND created_at >= ${sinceDate}` : prisma.$queryRaw``}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-    return rawResults[0] || null;
-  } catch (rawErr) {
-    console.warn('[MagicLogin DB Notice]:', rawErr);
-    return null;
-  }
-}
-
-/**
- * Helper resilien untuk menyimpan token baru
- */
-async function insertLoginTokenRecord(data: {
-  token: string;
-  phoneNumber: string;
-  userId: string;
-  expiresAt: Date;
-}): Promise<void> {
-  try {
-    if ((prisma as any).whatsAppLoginToken?.create) {
-      await prisma.whatsAppLoginToken.create({
-        data: {
-          token: data.token,
-          phoneNumber: data.phoneNumber,
-          userId: data.userId,
-          expiresAt: data.expiresAt,
-          isUsed: false,
-        },
-      });
-      return;
-    }
-  } catch {}
-
-  // Raw SQL fallback
-  await prisma.$executeRaw`
-    INSERT INTO whatsapp_login_tokens (id, token, phone_number, user_id, is_used, expires_at, created_at)
-    VALUES (gen_random_uuid(), ${data.token}, ${data.phoneNumber}, ${data.userId}::uuid, false, ${data.expiresAt}, NOW())
-  `;
-}
-
-/**
- * Helper resilien untuk mengambil token beserta data User untuk verifikasi
- */
-async function findLoginTokenWithUser(token: string) {
-  const cleanToken = token.trim();
-
-  try {
-    if ((prisma as any).whatsAppLoginToken?.findUnique) {
-      const rec = await prisma.whatsAppLoginToken.findUnique({
-        where: { token: cleanToken },
-        include: {
-          user: {
-            include: {
-              roles: true,
-              organization: true,
-              generation: true,
-            },
-          },
-        },
-      });
-      if (rec) return rec;
-    }
-  } catch {}
-
-  // Raw SQL Fallback
-  const rawTokens: any[] = await prisma.$queryRaw`
-    SELECT id, token, phone_number as "phoneNumber", user_id as "userId", 
-           is_used as "isUsed", used_at as "usedAt", expires_at as "expiresAt", created_at as "createdAt"
-    FROM whatsapp_login_tokens
-    WHERE token = ${cleanToken}
-    LIMIT 1
-  `;
-  if (!rawTokens || rawTokens.length === 0) return null;
-  const t = rawTokens[0];
-
-  const user = await prisma.user.findUnique({
-    where: { id: t.userId },
-    include: {
-      roles: true,
-      organization: true,
-      generation: true,
-    },
-  });
-  if (!user) return null;
-
-  return {
-    ...t,
-    user,
-  };
-}
-
-/**
- * Helper resilien untuk menandai token sudah dipakai (single-use)
- */
-async function markTokenAsUsed(tokenId: string): Promise<void> {
-  try {
-    if ((prisma as any).whatsAppLoginToken?.update) {
-      await prisma.whatsAppLoginToken.update({
-        where: { id: tokenId },
-        data: {
-          isUsed: true,
-          usedAt: new Date(),
-        },
-      });
-      return;
-    }
-  } catch {}
-
-  await prisma.$executeRaw`
-    UPDATE whatsapp_login_tokens
-    SET is_used = true, used_at = NOW()
-    WHERE id = ${tokenId}::uuid
-  `;
-}
-
 /**
  * Memeriksa sisa waktu jeda (cooldown) pengiriman link masuk WhatsApp
  */
@@ -185,14 +23,24 @@ export async function getWhatsAppLoginCooldown(phoneInput: string): Promise<{
     const localFormat = normalized.startsWith('62') ? '0' + normalized.slice(2) : normalized;
     const fiveMinutesAgo = new Date(Date.now() - LOGIN_COOLDOWN_SECONDS * 1000);
 
-    const recentToken = await getRecentTokenRecord(normalized, localFormat, undefined, fiveMinutesAgo);
+    const recentToken = await prisma.whatsAppLoginToken.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: normalized },
+          { phoneNumber: localFormat },
+        ],
+        createdAt: { gte: fiveMinutesAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     if (!recentToken) return { cooldownRemaining: 0 };
 
-    const tokenCreatedAt = new Date(recentToken.createdAt).getTime();
-    const elapsedMs = Date.now() - tokenCreatedAt;
+    const elapsedMs = Date.now() - recentToken.createdAt.getTime();
     const remaining = Math.max(0, Math.ceil((LOGIN_COOLDOWN_SECONDS * 1000 - elapsedMs) / 1000));
     return { cooldownRemaining: remaining };
-  } catch {
+  } catch (err) {
+    console.error('[getWhatsAppLoginCooldown Error]:', err);
     return { cooldownRemaining: 0 };
   }
 }
@@ -223,15 +71,15 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
 
     const localFormat = normalized.startsWith('62') ? '0' + normalized.slice(2) : normalized;
 
-    // 1. Cari pengguna aktif berdasarkan nomor telepon
+    // 1. Cari pengguna berdasarkan nomor telepon (format lokal / internasional)
     const user = await prisma.user.findFirst({
       where: {
         OR: [
           { phoneNumber: normalized },
           { phoneNumber: localFormat },
           { phoneNumber: `+${normalized}` },
+          { phoneNumber: { contains: localFormat.slice(1) } },
         ],
-        status: 'ACTIVE',
       },
       include: {
         roles: true,
@@ -245,13 +93,29 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
       };
     }
 
+    if (user.status !== 'ACTIVE') {
+      return {
+        success: false,
+        error: `Akun Anda (${user.fullName}) sedang ${user.status === 'SUSPENDED' ? 'ditangguhkan' : 'tidak aktif'}. Silakan hubungi pengurus wilayah / admin.`,
+      };
+    }
+
     // 2. Cek Cooldown 5 Menit
     const fiveMinutesAgo = new Date(Date.now() - LOGIN_COOLDOWN_SECONDS * 1000);
-    const recentToken = await getRecentTokenRecord(normalized, localFormat, user.id, fiveMinutesAgo);
+    const recentToken = await prisma.whatsAppLoginToken.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: normalized },
+          { phoneNumber: localFormat },
+          { userId: user.id },
+        ],
+        createdAt: { gte: fiveMinutesAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     if (recentToken) {
-      const tokenCreatedAt = new Date(recentToken.createdAt).getTime();
-      const elapsedMs = Date.now() - tokenCreatedAt;
+      const elapsedMs = Date.now() - recentToken.createdAt.getTime();
       const remainingSeconds = Math.max(1, Math.ceil((LOGIN_COOLDOWN_SECONDS * 1000 - elapsedMs) / 1000));
       const mins = Math.floor(remainingSeconds / 60);
       const secs = remainingSeconds % 60;
@@ -269,11 +133,14 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
     const magicToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 menit
 
-    await insertLoginTokenRecord({
-      token: magicToken,
-      phoneNumber: normalized,
-      userId: user.id,
-      expiresAt,
+    await prisma.whatsAppLoginToken.create({
+      data: {
+        token: magicToken,
+        phoneNumber: normalized,
+        userId: user.id,
+        expiresAt,
+        isUsed: false,
+      },
     });
 
     // 4. Susun Pesan WhatsApp Magic Link
@@ -342,8 +209,21 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
       return { success: false, error: 'Token masuk tidak valid atau format salah.' };
     }
 
+    const cleanToken = token.trim();
+
     // 1. Cari token di database
-    const tokenRecord = await findLoginTokenWithUser(token);
+    const tokenRecord = await prisma.whatsAppLoginToken.findUnique({
+      where: { token: cleanToken },
+      include: {
+        user: {
+          include: {
+            roles: true,
+            organization: true,
+            generation: true,
+          },
+        },
+      },
+    });
 
     if (!tokenRecord) {
       return { success: false, error: 'Tautan masuk tidak ditemukan atau telah dihapus.' };
@@ -359,8 +239,7 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
     }
 
     // 3. Cek apakah sudah kedaluwarsa (15 menit)
-    const tokenExpiresAt = new Date(tokenRecord.expiresAt);
-    if (tokenExpiresAt < new Date()) {
+    if (tokenRecord.expiresAt < new Date()) {
       return {
         success: false,
         error: 'Tautan masuk telah kedaluwarsa (melebihi batas 15 menit). Silakan minta tautan baru dari halaman login.',
@@ -377,7 +256,13 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
     }
 
     // 5. Kunci token SEGERA (Tandai isUsed = true untuk mencegah pemakaian ulang)
-    await markTokenAsUsed(tokenRecord.id);
+    await prisma.whatsAppLoginToken.update({
+      where: { id: tokenRecord.id },
+      data: {
+        isUsed: true,
+        usedAt: new Date(),
+      },
+    });
 
     // 6. Buat sesi otentikasi Supabase untuk pengguna
     try {
@@ -427,11 +312,14 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
       console.error('[MagicLogin Supabase Auth Setup Error]:', authErr);
     }
 
-    revalidatePath('/', 'layout');
+    try {
+      revalidatePath('/', 'layout');
+    } catch {}
+
     return {
       success: true,
       userName: tokenRecord.user.fullName,
-      roles: tokenRecord.user.roles.map((r: any) => r.role),
+      roles: tokenRecord.user.roles.map((r) => r.role),
     };
   } catch (err: any) {
     console.error('[VerifyMagicToken Error]:', err);
