@@ -30,49 +30,16 @@ import {
  */
 function categorizeMaterialTitle(title: string): string {
   const lower = title.toLowerCase();
+
+  // 1. Pegon & Literasi:
+  // Jika ada kata Menulis atau Angka Arab -> Pegon & Literasi
   if (
-    lower.includes('surat') ||
-    lower.includes('qur') ||
-    lower.includes('tajwid') ||
-    lower.includes('juz') ||
-    lower.includes('makhraj') ||
-    lower.includes('tilawah') ||
-    lower.includes('tahsin') ||
-    lower.includes('tahfidz')
-  ) {
-    return "Al-Qur'an & Tahfidz";
-  }
-  if (
-    lower.includes('hadits') ||
-    lower.includes('hadis') ||
-    lower.includes('arbain') ||
-    lower.includes('bukhari') ||
-    lower.includes('muslim') ||
-    lower.includes('sunan')
-  ) {
-    return 'Hadits & Sunnah';
-  }
-  if (
-    lower.includes('doa') ||
-    lower.includes('dzikir') ||
-    lower.includes('wirid') ||
-    lower.includes('harian')
-  ) {
-    return 'Doa & Dzikir Harian';
-  }
-  if (
-    lower.includes('fiqih') ||
-    lower.includes('sholat') ||
-    lower.includes('shalat') ||
-    lower.includes('wudhu') ||
-    lower.includes('thaharah') ||
-    lower.includes('puasa') ||
-    lower.includes('zakat') ||
-    lower.includes('ibadah')
-  ) {
-    return 'Fiqih & Ibadah';
-  }
-  if (
+    lower.includes('angka arab') ||
+    lower.includes('menulis') ||
+    lower.includes('kitab manqul') ||
+    lower.includes('pr 13') ||
+    lower.includes('pr13') ||
+    lower.includes('pr-13') ||
     lower.includes('pegon') ||
     lower.includes('khot') ||
     lower.includes('tulis') ||
@@ -80,6 +47,148 @@ function categorizeMaterialTitle(title: string): string {
     lower.includes('makna')
   ) {
     return 'Pegon & Literasi';
+  }
+
+  // 2. Doa & Dzikir Harian:
+  // Jika ada kata Asma'ul Husna -> Doa & Dzikir Harian
+  // Jika ada kata Do'a -> Doa & Dzikir Harian
+  if (
+    lower.includes('asmaul husna') ||
+    lower.includes("asma'ul husna") ||
+    lower.includes('doa') ||
+    lower.includes("do'a") ||
+    lower.includes('dzikir') ||
+    lower.includes('wirid')
+  ) {
+    return 'Doa & Dzikir Harian';
+  }
+
+  // 3. Hadits & Sunnah:
+  // Jika ada kata 5 Bab / 5 BAB -> Hadits & Sunnah
+  // Jika ada kata 4 Tali Keimanan -> Hadits & Sunnah
+  // Jika ada kata QHJ -> Hadits & Sunnah
+  // Jika ada kata Beribadah (pada faham Al-Qur'an & Al-Hadist) -> Hadits & Sunnah
+  if (
+    lower.includes('5 bab') ||
+    lower.includes('4 tali keimanan') ||
+    lower.includes('qhj') ||
+    lower.includes("qur'an hadist jama'ah") ||
+    lower.includes("qur'an hadits jama'ah") ||
+    lower.includes('beribadah') ||
+    lower.includes('hadits') ||
+    lower.includes('hadis') ||
+    lower.includes('hadist') ||
+    lower.includes('dalil') ||
+    lower.includes('musnad') ||
+    lower.includes('manqul') ||
+    lower.includes('arbain') ||
+    lower.includes('bukhari') ||
+    lower.includes('muslim') ||
+    lower.includes('sunan') ||
+    lower.includes('sunnah')
+  ) {
+    return 'Hadits & Sunnah';
+  }
+
+  // 4. Fiqih & Ibadah:
+  // Ketentuan Ibadah & Aqidah: Rukun Iman, Rukun Islam, Ihsan, Syirik, Surga, Neraka, sholat, berwudhu, BAK dan BAB, Suci & Najis, mensucikan Najis
+  // Akhlak & Budi Pekerti: 6 Thobi'at Luhur, Akhlaq tercela, orang tua, saudara, Ulil Amri, tetangga, tamu, masjid, alam sekitar, salam, boso, sak det sak nyet
+  // Kemandirian: mandiri, peralatan makan, perlengkapan pengajian
+  if (
+    lower.includes('rukun iman') ||
+    lower.includes('rukun islam') ||
+    lower.includes('ihsan') ||
+    lower.includes('syirik') ||
+    lower.includes('qodar') ||
+    lower.includes('surga') ||
+    lower.includes('neraka') ||
+    lower.includes('sholat') ||
+    lower.includes('shalat') ||
+    lower.includes('berwudhu') ||
+    lower.includes('wudhu') ||
+    lower.includes('bak dan bab') ||
+    lower.includes('bak & bab') ||
+    lower.includes('suci & najis') ||
+    lower.includes('suci dan najis') ||
+    lower.includes('mensucikan najis') ||
+    lower.includes('kesucian') ||
+    lower.includes('najis') ||
+    lower.includes('mandi junub') ||
+    lower.includes('thaharah') ||
+    lower.includes('thoharoh') ||
+    lower.includes('sesuci') ||
+    lower.includes('puasa') ||
+    lower.includes('mahram') ||
+    lower.includes('mahrom') ||
+    lower.includes('aurat') ||
+    lower.includes('aurot') ||
+    lower.includes('dihalalkan') ||
+    lower.includes('halal') ||
+    lower.includes('harom') ||
+    lower.includes('maksiat') ||
+    lower.includes("6 thobi'at luhur") ||
+    lower.includes('6 thobiat luhur') ||
+    lower.includes("thobi'at luhur") ||
+    lower.includes('thobiat luhur') ||
+    lower.includes('akhlaq tercela') ||
+    lower.includes('akhlak tercela') ||
+    lower.includes('orang tua') ||
+    lower.includes('saudara') ||
+    lower.includes('ulil amri') ||
+    lower.includes('tetangga') ||
+    lower.includes('tamu') ||
+    lower.includes('masjid') ||
+    lower.includes('alam sekitar') ||
+    lower.includes('salam') ||
+    lower.includes('boso') ||
+    lower.includes('sak det sak nyet') ||
+    lower.includes('sak det') ||
+    lower.includes('mandiri') ||
+    lower.includes('kemandirian') ||
+    lower.includes('peralatan makan') ||
+    lower.includes('perlengkapan pengajian') ||
+    lower.includes('adab') ||
+    lower.includes('bakti') ||
+    lower.includes('tatakrama') ||
+    lower.includes('akhlak') ||
+    lower.includes('akhlaq') ||
+    lower.includes('fiqih') ||
+    lower.includes('zakat') ||
+    lower.includes('ibadah')
+  ) {
+    return 'Fiqih & Ibadah';
+  }
+
+  // 5. Al-Qur'an & Tahfidz:
+  // Jika ada kata Hijayyah -> Al-Qur'an & Tahfidz
+  // Jika ada kata Fatkhah -> Al-Qur'an & Tahfidz
+  // Jika ada kata Hal (halaman tilawati) -> Al-Qur'an & Tahfidz
+  // Jika ada kata Surat -> Al-Qur'an & Tahfidz
+  if (
+    lower.includes('hijayyah') ||
+    lower.includes('hijaiyah') ||
+    lower.includes('fatkhah') ||
+    lower.includes('fathah') ||
+    /\bhal\b|\bhal\.|\bhalaman\b/i.test(title) ||
+    lower.includes('surat') ||
+    lower.includes('tartil') ||
+    lower.includes("al-qur'an") ||
+    lower.includes('al-quran') ||
+    lower.includes("qur'an") ||
+    lower.includes('quran') ||
+    lower.includes('qur') ||
+    lower.includes('tajwid') ||
+    lower.includes('hafalan surat') ||
+    lower.includes('kandungan') ||
+    lower.includes('tafsir') ||
+    lower.includes('juz') ||
+    lower.includes('makhraj') ||
+    lower.includes('tilawah') ||
+    lower.includes('tilawati') ||
+    lower.includes('tahsin') ||
+    lower.includes('tahfidz')
+  ) {
+    return "Al-Qur'an & Tahfidz";
   }
   if (
     lower.includes('akhlak') ||

@@ -309,21 +309,26 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
               {/* Chart Visual Presentation */}
               <div className="my-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-                <div className="grid grid-cols-4 gap-4 sm:gap-8 items-end h-56 border-b border-slate-800 pb-4">
-                  {attendanceTrends.map((t, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end">
-                      <div className="text-xs sm:text-sm font-bold text-emerald-400">{t.rate}%</div>
-                      <div className="w-full max-w-[64px] bg-slate-800 rounded-t-xl overflow-hidden flex flex-col justify-end h-44">
-                        <div
-                          className="bg-emerald-500 rounded-t-xl transition-all duration-500"
-                          style={{ height: `${Math.max(10, t.rate)}%` }}
-                        />
+                <div className="overflow-x-auto">
+                  <div
+                    className="grid gap-4 sm:gap-6 items-end h-56 border-b border-slate-800 pb-4 min-w-[500px]"
+                    style={{ gridTemplateColumns: `repeat(${attendanceTrends.length}, minmax(0, 1fr))` }}
+                  >
+                    {attendanceTrends.map((t, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end">
+                        <div className="text-xs sm:text-sm font-bold text-emerald-400">{t.rate}%</div>
+                        <div className="w-full max-w-[64px] bg-slate-800 rounded-t-xl overflow-hidden flex flex-col justify-end h-44">
+                          <div
+                            className="bg-emerald-500 rounded-t-xl transition-all duration-500"
+                            style={{ height: `${Math.max(10, t.rate)}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center truncate w-full" title={t.periodLabel}>
+                          {t.periodLabel}
+                        </span>
                       </div>
-                      <span className="text-[11px] sm:text-xs font-medium text-slate-300 text-center truncate w-full">
-                        {t.periodLabel}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-5 gap-2 mt-4 text-center text-xs">

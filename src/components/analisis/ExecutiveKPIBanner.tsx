@@ -177,7 +177,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{summary.characterAverage}</h3>
                 <span className="text-xs font-semibold text-slate-400">/100</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">Rata-rata 5 dimensi</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Rerata dimensi karakter</p>
             </div>
 
             {/* Circle Line Gauge */}

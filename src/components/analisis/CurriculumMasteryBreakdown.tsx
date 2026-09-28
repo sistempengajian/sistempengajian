@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CurriculumCategoryMastery } from '@/app/(protected)/analisis/types';
-import { BookOpen, CheckCircle, Award, Target } from 'lucide-react';
+import { BookOpen, CheckCircle, Target, Info, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import CircularGauge from './CircularGauge';
+import { CURRICULUM_CATEGORIES } from '@/lib/curriculumClassification';
 
 interface CurriculumMasteryBreakdownProps {
   categories: CurriculumCategoryMastery[];
@@ -12,6 +13,9 @@ interface CurriculumMasteryBreakdownProps {
 export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProps> = ({
   categories,
 }) => {
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [showAllKeywordsModal, setShowAllKeywordsModal] = useState<boolean>(false);
+
   if (!categories || categories.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
@@ -26,6 +30,10 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
   const averageRate = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
   const targetBenchmark = 80; // Standar target 80%
 
+  const toggleCategoryExpand = (catName: string) => {
+    setExpandedCategory((prev) => (prev === catName ? null : catName));
+  };
+
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs flex flex-col justify-between">
       <div>
@@ -36,25 +44,42 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-200/70 shadow-2xs">
                 <BookOpen className="h-4 w-4" />
               </span>
-              <h3 className="font-bold text-slate-900 text-base">Ketuntasan Kurikulum (Grafik Batang)</h3>
+              <h3 className="font-bold text-slate-900 text-base">Ketuntasan Kurikulum</h3>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">Penguasaan materi per bidang studi terhadap standar target {targetBenchmark}%</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Penguasaan materi & deskripsi capaian per bidang studi terhadap standar target {targetBenchmark}%
+            </p>
           </div>
 
-          {/* Average circle line pill */}
-          <div className="flex items-center gap-2.5 rounded-2xl bg-cyan-50/70 p-2 border border-cyan-200/80 self-start sm:self-auto shadow-2xs">
-            <CircularGauge
-              value={averageRate}
-              size={36}
-              strokeWidth={4}
-              strokeColor="stroke-cyan-600"
-              trackColor="stroke-cyan-200/70"
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            {/* Toggle all keywords guide button */}
+            <button
+              onClick={() => setShowAllKeywordsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200/80 rounded-xl transition shadow-2xs"
+              title="Lihat Panduan Kata Kunci Pengarah Kolom G"
             >
-              <span className="text-[10px] font-black text-cyan-950">{averageRate}%</span>
-            </CircularGauge>
-            <div className="pr-1">
-              <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block">Rerata Capaian</span>
-              <span className="text-xs font-black text-cyan-950">{totalCompleted}/{totalTarget} materi</span>
+              <Tag className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Average circle line pill */}
+            <div className="flex items-center gap-2.5 rounded-2xl bg-cyan-50/70 p-2 border border-cyan-200/80 shadow-2xs">
+              <CircularGauge
+                value={averageRate}
+                size={36}
+                strokeWidth={4}
+                strokeColor="stroke-cyan-600"
+                trackColor="stroke-cyan-200/70"
+              >
+                <span className="text-[10px] font-black text-cyan-950">{averageRate}%</span>
+              </CircularGauge>
+              <div className="pr-1">
+                <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block">
+                  Rerata Capaian
+                </span>
+                <span className="text-xs font-black text-cyan-950">
+                  {totalCompleted}/{totalTarget} materi
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -83,6 +108,9 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                 ? 'from-amber-400 to-amber-500'
                 : 'from-rose-400 to-rose-500';
 
+            const catKeywords = CURRICULUM_CATEGORIES[cat.category]?.keywords || [];
+            const isExpanded = expandedCategory === cat.category;
+
             return (
               <div key={idx} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -94,9 +122,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-black text-slate-900">{rate}%</span>
-                    {isTargetMet && (
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
-                    )}
+                    {isTargetMet && <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />}
                   </div>
                 </div>
 
@@ -115,6 +141,22 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                     title={`Standar Kelulusan: ${targetBenchmark}%`}
                   />
                 </div>
+
+                {/* Collapsible Keyword Reference Section */}
+                {isExpanded && catKeywords.length > 0 && (
+                  <div className="mt-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-[11px] text-slate-600 space-y-1.5 animate-fadeIn">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <Tag className="h-3 w-3 text-cyan-600" />
+                    </div>
+                    <ul className="list-disc list-inside space-y-1 text-slate-600 pl-1">
+                      {catKeywords.map((kw, kIdx) => (
+                        <li key={kIdx} className="leading-relaxed">
+                          <span className="font-medium text-slate-700">{kw}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -125,12 +167,63 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
       <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
         <span className="flex items-center gap-1.5">
           <Target className="h-3.5 w-3.5 text-cyan-600" />
-          Garis penanda vertikal menunjukkan target ketuntasan standar 80%.
+          Pencocokan kata kunci mencakup judul dan deskripsi capaian (Target 80%).
         </span>
         <span className="font-bold text-emerald-700">
           {categories.filter((c) => c.masteryRate >= targetBenchmark).length} / {categories.length} Tuntas Target
         </span>
       </div>
+
+      {/* Modal View for All Keywords */}
+      {showAllKeywordsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                  <Tag className="h-4 w-4" />
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAllKeywordsModal(false)}
+                className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {Object.entries(CURRICULUM_CATEGORIES).map(([catKey, catDef]) => (
+                <div key={catKey} className="border border-slate-200/80 rounded-2xl p-4 bg-white shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full inline-block"
+                      style={{ backgroundColor: catDef.color }}
+                    />
+                    <h5 className="font-bold text-slate-800 text-sm">{catDef.category}</h5>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600 pl-2">
+                    {catDef.keywords.map((kw, kwIdx) => (
+                      <li key={kwIdx} className="leading-relaxed">
+                        <span className="font-medium text-slate-700">{kw}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setShowAllKeywordsModal(false)}
+                className="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-xs rounded-xl transition shadow-xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

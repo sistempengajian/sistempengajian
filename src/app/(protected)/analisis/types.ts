@@ -57,16 +57,20 @@ export interface AnalyticsSummaryKPI {
   topPerformerCount: number;
   atRiskCount: number;
   averageStreak: number;
+  completedSessionsCount: number; // Total pengajian yang statusnya selesai pada periode terpilih
 }
 
 export interface AttendanceTrendItem {
   periodLabel: string; // misal: "Pekan 1 (1-7 Sep)"
+  startDate?: string;
+  endDate?: string;
   hadir: number;
   terlambat: number;
   izin: number;
   sakit: number;
   alpa: number;
   rate: number; // persentase hadir+terlambat
+  completedSessions?: number; // Total sesi pengajian selesai di pekan ini
 }
 
 export interface CurriculumCategoryMastery {
@@ -111,6 +115,30 @@ export interface PerformerStudentItem {
   homeroomTeacherName?: string;
 }
 
+export interface ParentVerificationItem {
+  studentId: string;
+  studentName: string;
+  gender: 'MALE' | 'FEMALE';
+  className: string;
+  parentName: string;
+  parentPhone?: string;
+  totalRequired: number;
+  totalVerified: number;
+  totalPending: number;
+  verificationRate: number; // 0-100%
+  lastVerifiedAt?: string;
+  status: 'AKTIF' | 'SEDANG' | 'PERLU_DIPACU';
+}
+
+export interface ParentEngagementSummary {
+  hasVerificationTasks: boolean;
+  totalRequiredTasks: number;
+  totalVerifiedTasks: number;
+  totalPendingTasks: number;
+  overallVerificationRate: number; // 0-100%
+  parentItems: ParentVerificationItem[];
+}
+
 export interface AnalyticsDashboardData {
   scopeInfo: {
     type: AnalyticsScopeType;
@@ -128,5 +156,6 @@ export interface AnalyticsDashboardData {
   topPerformers: PerformerStudentItem[];
   atRiskStudents: PerformerStudentItem[];
   allStudents: PerformerStudentItem[];
+  parentEngagement?: ParentEngagementSummary;
   generatedAt: string;
 }

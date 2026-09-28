@@ -16,6 +16,7 @@ import { CharacterRadarChart } from './CharacterRadarChart';
 import { BenchmarkComparisonTable } from './BenchmarkComparisonTable';
 import { TopAndAtRiskPerformers } from './TopAndAtRiskPerformers';
 import { StudentCohortTable } from './StudentCohortTable';
+import { ParentEngagementCard } from './ParentEngagementCard';
 import { PresentationModeModal } from './PresentationModeModal';
 import { ExportReportModal } from './ExportReportModal';
 import {
@@ -191,7 +192,10 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
 
       {/* 4. Visual Charts Section: Trends & Kurikulum */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <AttendanceTrendChart trends={data.attendanceTrends} />
+        <AttendanceTrendChart
+          trends={data.attendanceTrends}
+          completedSessionsCount={data.summary.completedSessionsCount}
+        />
         <CurriculumMasteryBreakdown categories={data.curriculumCategories} />
       </div>
 
@@ -226,6 +230,11 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
           </div>
         )}
       </div>
+
+      {/* 5.5 Keaktifan Paraf Tugas Orang Tua (Kondisional jika ada tugas yang perlu paraf) */}
+      {data.parentEngagement && data.parentEngagement.hasVerificationTasks && (
+        <ParentEngagementCard engagement={data.parentEngagement} />
+      )}
 
       {/* 6. Top & At-Risk Performers 2-Sided Comparison */}
       <TopAndAtRiskPerformers

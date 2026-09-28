@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AttendanceTrendItem } from '@/app/(protected)/analisis/types';
 import {
   CalendarDays,
@@ -12,16 +12,39 @@ import {
   XCircle,
   LineChart as LineChartIcon,
   BarChart2,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Layers,
 } from 'lucide-react';
 
 interface AttendanceTrendChartProps {
   trends: AttendanceTrendItem[];
+  completedSessionsCount?: number;
 }
 
-export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ trends }) => {
+const PAGE_SIZE = 4;
+
+export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
+  trends,
+  completedSessionsCount,
+}) => {
   const [chartMode, setChartMode] = useState<'line' | 'column'>('line');
-  const [activeIdx, setActiveIdx] = useState<number>(trends.length - 1);
+  const [isShowAll, setIsShowAll] = useState<boolean>(false);
+  
+  // Default window start index to show the latest 4 weeks
+  const defaultStart = Math.max(0, (trends?.length || 0) - PAGE_SIZE);
+  const [windowStartIndex, setWindowStartIndex] = useState<number>(defaultStart);
+  const [activeIdx, setActiveIdx] = useState<number>(0);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  // Sync window start index when trends length changes
+  useEffect(() => {
+    if (trends && trends.length > 0) {
+      setWindowStartIndex(Math.max(0, trends.length - PAGE_SIZE));
+      setActiveIdx(Math.min(PAGE_SIZE - 1, trends.length - 1));
+    }
+  }, [trends]);
 
   if (!trends || trends.length === 0) {
     return (
@@ -31,14 +54,48 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
     );
   }
 
+  // Visible items based on pagination/sliding window
+  const visibleTrends = isShowAll
+    ? trends
+    : trends.slice(windowStartIndex, windowStartIndex + PAGE_SIZE);
+
   const selectedIdx = hoveredIdx !== null ? hoveredIdx : activeIdx;
-  const currentItem = trends[selectedIdx] || trends[trends.length - 1];
+  const currentItem = visibleTrends[selectedIdx] || visibleTrends[visibleTrends.length - 1] || trends[0];
+
   const firstRate = trends[0]?.rate ?? 0;
   const lastRate = trends[trends.length - 1]?.rate ?? 0;
   const deltaRate = Math.round(lastRate - firstRate);
 
+  // Total completed sessions across trends or from prop
+  const totalCompletedPengajian =
+    completedSessionsCount !== undefined
+      ? completedSessionsCount
+      : trends.reduce((acc, t) => acc + (t.completedSessions || 0), 0);
+
+  // Pagination navigation handlers
+  const canGoPrev = windowStartIndex > 0;
+  const canGoNext = windowStartIndex + PAGE_SIZE < trends.length;
+
+  const handlePrev = () => {
+    if (canGoPrev) {
+      const newStart = Math.max(0, windowStartIndex - PAGE_SIZE);
+      setWindowStartIndex(newStart);
+      setActiveIdx(0);
+      setHoveredIdx(null);
+    }
+  };
+
+  const handleNext = () => {
+    if (canGoNext) {
+      const newStart = Math.min(trends.length - PAGE_SIZE, windowStartIndex + PAGE_SIZE);
+      setWindowStartIndex(newStart);
+      setActiveIdx(0);
+      setHoveredIdx(null);
+    }
+  };
+
   // SVG Line Chart Dimensions & Coordinate Calculations
-  const svgWidth = 560;
+  const svgWidth = isShowAll ? Math.max(560, visibleTrends.length * 90) : 560;
   const svgHeight = 220;
   const paddingLeft = 40;
   const paddingRight = 30;
@@ -47,10 +104,10 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
   const plotWidth = svgWidth - paddingLeft - paddingRight;
   const plotHeight = svgHeight - paddingTop - paddingBottom;
 
-  const points = trends.map((t, idx) => {
+  const points = visibleTrends.map((t, idx) => {
     const x =
-      trends.length > 1
-        ? paddingLeft + (idx / (trends.length - 1)) * plotWidth
+      visibleTrends.length > 1
+        ? paddingLeft + (idx / (visibleTrends.length - 1)) * plotWidth
         : paddingLeft + plotWidth / 2;
     const y = paddingTop + plotHeight - (Math.min(Math.max(t.rate, 0), 100) / 100) * plotHeight;
     return { x, y, item: t, idx };
@@ -95,13 +152,19 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
             </span>
             <h3 className="font-bold text-slate-900 text-base">Tren Presensi Berkala</h3>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Dinamika fluktuasi kehadiran santri per interval waktu</p>
+          <p className="text-xs text-slate-500 mt-0.5">Dinamika fluktuasi kehadiran santri per interval pekan</p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Badge Total Pengajian Selesai */}
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-800 border border-cyan-200/80 shadow-2xs" title="Total jadwal pengajian yang statusnya selesai pada periode ini">
+            <BookOpen className="h-3.5 w-3.5 text-cyan-600" />
+            <span>{totalCompletedPengajian} Pengajian Selesai</span>
+          </div>
+
           {/* Delta badge */}
           <div
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold border shadow-2xs ${
               deltaRate >= 0
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-rose-50 text-rose-700 border-rose-200'
@@ -143,16 +206,89 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
         </div>
       </div>
 
+      {/* Pagination & Sliding Controls (If more than PAGE_SIZE weeks) */}
+      {trends.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-1 pb-2 border-b border-slate-100 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-medium">Rentang Tampilan:</span>
+            {!isShowAll ? (
+              <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                Pekan {windowStartIndex + 1} - {Math.min(windowStartIndex + PAGE_SIZE, trends.length)} dari {trends.length} Pekan
+              </span>
+            ) : (
+              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                Semua {trends.length} Pekan
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {/* Toggle All vs 4 Weeks */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsShowAll(!isShowAll);
+                setActiveIdx(0);
+                setHoveredIdx(null);
+              }}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-semibold transition cursor-pointer border ${
+                isShowAll
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+              title={isShowAll ? 'Tampilkan per 4 pekan' : 'Tampilkan seluruh pekan periode ini'}
+            >
+              <Layers className="h-3 w-3" />
+              <span>{isShowAll ? 'Mode 4 Pekan' : 'Lihat Semua Pekan'}</span>
+            </button>
+
+            {!isShowAll && (
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  disabled={!canGoPrev}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                    canGoPrev
+                      ? 'bg-white text-slate-800 shadow-2xs hover:bg-slate-50'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
+                  title="Geser 4 Pekan Sebelumnya"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sebelumnya</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={!canGoNext}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                    canGoNext
+                      ? 'bg-white text-slate-800 shadow-2xs hover:bg-slate-50'
+                      : 'text-slate-300 cursor-not-allowed'
+                  }`}
+                  title="Geser 4 Pekan Selanjutnya"
+                >
+                  <span className="hidden sm:inline">Selanjutnya</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Chart Rendering Area */}
       <div className="mt-4">
         {chartMode === 'line' ? (
           /* ======================================================= */
           /* 1. GRAFIK GARIS (LINE CHART & SMOOTH AREA SPLINE)       */
           /* ======================================================= */
-          <div className="relative w-full overflow-hidden select-none">
+          <div className="relative w-full overflow-x-auto select-none">
             <svg
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full h-auto overflow-visible"
+              className="w-full h-auto overflow-visible min-w-[500px]"
             >
               <defs>
                 {/* Area Gradient */}
@@ -284,7 +420,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
                       x={pt.x}
                       y={svgHeight - 12}
                       textAnchor="middle"
-                      className={`text-[11px] transition-colors ${
+                      className={`text-[10px] sm:text-[11px] transition-colors ${
                         isHovered ? 'fill-emerald-800 font-bold' : 'fill-slate-500 font-medium'
                       }`}
                     >
@@ -299,9 +435,14 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
           /* ======================================================= */
           /* 2. GRAFIK KOLOM (COLUMN CHART VERTICAL)                 */
           /* ======================================================= */
-          <div>
-            <div className="grid grid-cols-4 gap-3 sm:gap-6 items-end h-48 border-b border-slate-100 pb-3">
-              {trends.map((item, idx) => {
+          <div className="overflow-x-auto">
+            <div
+              className={`grid gap-3 sm:gap-6 items-end h-48 border-b border-slate-100 pb-3 min-w-[480px]`}
+              style={{
+                gridTemplateColumns: `repeat(${visibleTrends.length}, minmax(0, 1fr))`,
+              }}
+            >
+              {visibleTrends.map((item, idx) => {
                 const isSelected = activeIdx === idx;
                 const total = item.hadir + item.terlambat + item.izin + item.sakit + item.alpa;
                 const heightPercent = Math.max(18, Math.min(100, item.rate));
@@ -358,7 +499,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
 
                     {/* X-axis Label */}
                     <span
-                      className={`mt-2 text-[11px] font-semibold text-center truncate max-w-full transition-colors ${
+                      className={`mt-2 text-[10px] sm:text-[11px] font-semibold text-center truncate max-w-full transition-colors ${
                         isSelected ? 'text-emerald-800 font-bold' : 'text-slate-500'
                       }`}
                       title={item.periodLabel}
@@ -375,13 +516,20 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({ tren
         {/* Selected Interval Detail Card */}
         {currentItem && (
           <div className="mt-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 p-4">
-            <div className="flex items-center justify-between text-xs mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs mb-3">
               <span className="font-bold text-slate-800">
                 Rincian Presensi: <span className="text-emerald-700">{currentItem.periodLabel}</span>
               </span>
-              <span className="text-slate-500 text-[11px]">
-                Kehadiran Total: <strong className="text-slate-900 font-black">{currentItem.rate}%</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                {currentItem.completedSessions !== undefined && (
+                  <span className="text-cyan-700 font-semibold text-[11px] bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200/60">
+                    {currentItem.completedSessions} Pengajian Selesai
+                  </span>
+                )}
+                <span className="text-slate-500 text-[11px]">
+                  Tingkat Kehadiran: <strong className="text-slate-900 font-black">{currentItem.rate}%</strong>
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">

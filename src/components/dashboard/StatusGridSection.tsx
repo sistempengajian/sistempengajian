@@ -399,6 +399,15 @@ export default function StatusGridSection({
                       </div>
                     </div>
                   </div>
+
+                  <Link
+                    href="/gamifikasi"
+                    onClick={() => setActiveModalId(null)}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>Buka Papan Peringkat & Misi</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               )}
 

@@ -14,7 +14,76 @@ import {
   PerformerStudentItem,
   StudentSelectorItem,
   ScopeFilterOption,
+  ParentEngagementSummary,
+  ParentVerificationItem,
 } from './types';
+import { classifyCurriculumCategory } from '@/lib/curriculumClassification';
+import { parseAssignmentConfig } from '@/lib/assignmentConfig';
+
+// Helper: Cek apakah sebuah tugas benar-benar ditujukan untuk santri tertentu
+function isAssignmentForStudent(
+  assignment: {
+    id: string;
+    organizationId: string;
+    classId?: string | null;
+    materialId?: string | null;
+    attachmentUrl?: string | null;
+    class?: { id: string; generationId?: string | null } | null;
+    material?: { id: string; targetGenerationId?: string | null } | null;
+    submissions: { studentId: string; status: string; parentVerification?: any }[];
+  },
+  student: {
+    id: string;
+    organizationId?: string | null;
+    generationId?: string | null;
+  }
+): boolean {
+  // 1. Jika santri sudah memiliki submission di tugas ini
+  if (assignment.submissions.some((sub) => sub.studentId === student.id)) {
+    return true;
+  }
+
+  const config = parseAssignmentConfig(assignment.attachmentUrl);
+
+  // 2. Sasaran spesifik santri
+  if (config.targetStudentIds && config.targetStudentIds.length > 0) {
+    return config.targetStudentIds.includes(student.id);
+  }
+
+  // 3. Sasaran spesifik jenjang/generasi di config
+  if (config.targetGenerationIds && config.targetGenerationIds.length > 0) {
+    if (!student.generationId) return false;
+    return config.targetGenerationIds.includes(student.generationId);
+  }
+
+  // 4. Sasaran jenjang dari class tugas
+  if (assignment.class?.generationId) {
+    if (!student.generationId) return false;
+    return assignment.class.generationId === student.generationId;
+  }
+
+  // 5. Sasaran jenjang dari material tugas
+  if (assignment.material?.targetGenerationId) {
+    if (!student.generationId) return false;
+    return assignment.material.targetGenerationId === student.generationId;
+  }
+
+  // 6. Jika tugas bersifat umum organisasi tanpa pembatasan jenjang
+  if (
+    !assignment.classId &&
+    !assignment.materialId &&
+    !config.targetGenerationIds?.length &&
+    !config.targetStudentIds?.length
+  ) {
+    if (assignment.organizationId && student.organizationId) {
+      return assignment.organizationId === student.organizationId;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 
 // Helper: Hitung batas tanggal berdasarkan periode
 function getPeriodDateRange(period: AnalyticsPeriod): {
@@ -422,6 +491,7 @@ export async function getAnalyticsDashboardData(
         topPerformerCount: 0,
         atRiskCount: 0,
         averageStreak: 0,
+        completedSessionsCount: 0,
       },
       attendanceTrends: [],
       curriculumCategories: standardCategories.map((cat) => ({
@@ -436,6 +506,14 @@ export async function getAnalyticsDashboardData(
       topPerformers: [],
       atRiskStudents: [],
       allStudents: [],
+      parentEngagement: {
+        hasVerificationTasks: false,
+        totalRequiredTasks: 0,
+        totalVerifiedTasks: 0,
+        totalPendingTasks: 0,
+        overallVerificationRate: 0,
+        parentItems: [],
+      },
       generatedAt: new Date().toISOString(),
     };
   }
@@ -477,12 +555,43 @@ export async function getAnalyticsDashboardData(
         }
       : {};
 
+  const targetStudentsGen = await prisma.user.findMany({
+    where: { id: { in: targetStudentIds } },
+    select: { id: true, generationId: true, organizationId: true },
+  });
+  const targetGenIds = Array.from(
+    new Set(targetStudentsGen.map((s) => s.generationId).filter(Boolean))
+  ) as string[];
+  const targetOrgIds = Array.from(
+    new Set(targetStudentsGen.map((s) => s.organizationId).filter(Boolean))
+  ) as string[];
+
+  const monthNames = [
+    'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
+    'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+  ];
+  let filterMonths: string[] = [];
+  if (period === 'THIS_MONTH') {
+    filterMonths = [monthNames[now.getMonth()]];
+  } else if (period === 'LAST_MONTH') {
+    const prevM = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    filterMonths = [monthNames[prevM]];
+  } else if (period === 'THIS_SEMESTER') {
+    const m = now.getMonth();
+    filterMonths = m >= 6 ? monthNames.slice(6, 12) : monthNames.slice(0, 6);
+  } else {
+    filterMonths = monthNames;
+  }
+
   const [
     studentsProfileRaw,
     attendanceRecordsRaw,
     checklistProgressRaw,
     evaluationsRaw,
     totalChecklistItemsCount,
+    assignmentsRaw,
+    targetMaterialsRaw,
+    completedSchedulesCountRaw,
   ] = await Promise.all([
     // A. Profil Santri
     prisma.user.findMany({
@@ -521,8 +630,10 @@ export async function getAnalyticsDashboardData(
           select: {
             schedule: {
               select: {
+                id: true,
                 title: true,
                 startTime: true,
+                status: true,
               },
             },
           },
@@ -546,10 +657,12 @@ export async function getAnalyticsDashboardData(
           select: {
             id: true,
             itemTitle: true,
+            description: true,
             material: {
               select: {
                 id: true,
                 title: true,
+                description: true,
                 targetGeneration: {
                   select: { name: true },
                 },
@@ -579,6 +692,104 @@ export async function getAnalyticsDashboardData(
     prisma.materialChecklistItem.count({
       where: {
         material: { isActive: true },
+      },
+    }),
+
+    // F. Tugas / Penugasan dalam rentang periode
+    prisma.assignment.findMany({
+      where: {
+        ...(startDate && endDate ? { createdAt: { gte: startDate, lte: endDate } } : {}),
+        OR: [
+          {
+            submissions: {
+              some: { studentId: { in: targetStudentIds } },
+            },
+          },
+          ...(scopeType === 'CLASS' && scopeId ? [{ classId: scopeId }] : []),
+          ...(targetGenIds.length > 0
+            ? [
+                { class: { generationId: { in: targetGenIds } } },
+                { material: { targetGenerationId: { in: targetGenIds } } },
+              ]
+            : []),
+          ...(targetOrgIds.length > 0 ? [{ organizationId: { in: targetOrgIds } }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        organizationId: true,
+        classId: true,
+        materialId: true,
+        attachmentUrl: true,
+        requiresParentVerification: true,
+        class: {
+          select: {
+            id: true,
+            generationId: true,
+          },
+        },
+        material: {
+          select: {
+            id: true,
+            targetGenerationId: true,
+          },
+        },
+        submissions: {
+          where: { studentId: { in: targetStudentIds } },
+          select: {
+            id: true,
+            studentId: true,
+            status: true,
+            parentVerification: {
+              select: {
+                id: true,
+                isVerifiedByParent: true,
+                parentFeedback: true,
+                verifiedAt: true,
+                parent: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phoneNumber: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+
+    // G. Materi kurikulum target yang harus diselesaikan untuk santri dalam periode ini
+    prisma.material.findMany({
+      where: {
+        isActive: true,
+        ...(targetGenIds.length > 0 ? { targetGenerationId: { in: targetGenIds } } : {}),
+        ...(filterMonths.length < 12
+          ? {
+              OR: filterMonths.map((mName) => ({
+                title: { contains: mName, mode: 'insensitive' },
+              })),
+            }
+          : {}),
+      },
+      include: {
+        checklistItems: true,
+      },
+    }),
+
+    // H. Total sesi pengajian yang statusnya selesai (COMPLETED)
+    prisma.schedule.count({
+      where: {
+        status: 'COMPLETED',
+        ...(startDate && endDate ? { startTime: { gte: startDate, lte: endDate } } : {}),
+        OR: [
+          { attendanceSessions: { some: { records: { some: { studentId: { in: targetStudentIds } } } } } },
+          ...(scopeType === 'CLASS' && scopeId ? [{ classId: scopeId }, { targetClasses: { some: { classId: scopeId } } }] : []),
+          ...(scopeType === 'GENERATION' && scopeId ? [{ targetGenerations: { some: { generationId: scopeId } } }] : []),
+          ...(scopeType === 'KELOMPOK' && scopeId ? [{ organizationId: scopeId }] : []),
+        ],
       },
     }),
   ]);
@@ -637,52 +848,86 @@ export async function getAnalyticsDashboardData(
 
   // 4. Kalkulasi Metrik Kurikulum per Santri & Bidang Studi
   const studentChecklistMap = new Map<string, number>();
-  const categoryMasteryMap = new Map<string, { completed: number; totalRef: number }>();
 
-  standardCategories.forEach((c) => {
-    categoryMasteryMap.set(c.key, { completed: 0, totalRef: 20 });
+  // Hitung jumlah santri per jenjang untuk pengali target checklist materi
+  const studentsPerGen: Record<string, number> = {};
+  studentsProfileRaw.forEach((s) => {
+    const gId = s.generation?.id || 'default';
+    studentsPerGen[gId] = (studentsPerGen[gId] || 0) + 1;
   });
+
+  // Hitung total target checklist per kategori materi
+  const categoryTargets: Record<string, number> = {
+    "Al-Qur'an & Tahfidz": 0,
+    'Hadits & Sunnah': 0,
+    'Doa & Dzikir Harian': 0,
+    'Fiqih & Ibadah': 0,
+    'Pegon & Literasi': 0,
+  };
+  const checklistCountPerGen: Record<string, number> = {};
+
+  targetMaterialsRaw.forEach((m) => {
+    const gId = m.targetGenerationId;
+    const genStudentCount = gId && studentsPerGen[gId] ? studentsPerGen[gId] : targetStudentIds.length;
+    checklistCountPerGen[gId] = (checklistCountPerGen[gId] || 0) + m.checklistItems.length;
+
+    m.checklistItems.forEach((item) => {
+      const cat = classifyCurriculumCategory(
+        item.itemTitle,
+        m.title,
+        item.description || '',
+        m.description || ''
+      );
+      categoryTargets[cat] = (categoryTargets[cat] || 0) + genStudentCount;
+    });
+  });
+
+  // Hitung total capaian checklist yang telah selesai per kategori
+  const categoryCompleted: Record<string, number> = {
+    "Al-Qur'an & Tahfidz": 0,
+    'Hadits & Sunnah': 0,
+    'Doa & Dzikir Harian': 0,
+    'Fiqih & Ibadah': 0,
+    'Pegon & Literasi': 0,
+  };
 
   checklistProgressRaw.forEach((p) => {
     studentChecklistMap.set(p.studentId, (studentChecklistMap.get(p.studentId) || 0) + 1);
 
-    const matTitle = (p.checklistItem.material.title || '').toLowerCase();
-    let catKey = "Al-Qur'an & Tahfidz";
-    if (matTitle.includes('hadits') || matTitle.includes('alim')) {
-      catKey = 'Hadits & Sunnah';
-    } else if (matTitle.includes('doa') || matTitle.includes('dzikir')) {
-      catKey = 'Doa & Dzikir Harian';
-    } else if (matTitle.includes('fiqih') || matTitle.includes('sholat') || matTitle.includes('wudhu')) {
-      catKey = 'Fiqih & Ibadah';
-    } else if (matTitle.includes('pegon') || matTitle.includes('tulis')) {
-      catKey = 'Pegon & Literasi';
-    }
+    const itemTitle = p.checklistItem.itemTitle || '';
+    const itemDesc = p.checklistItem.description || '';
+    const matTitle = p.checklistItem.material.title || '';
+    const matDesc = p.checklistItem.material.description || '';
+    const catKey = classifyCurriculumCategory(itemTitle, matTitle, itemDesc, matDesc);
 
-    const curr = categoryMasteryMap.get(catKey) || { completed: 0, totalRef: 20 };
-    curr.completed += 1;
-    categoryMasteryMap.set(catKey, curr);
+    categoryCompleted[catKey] = (categoryCompleted[catKey] || 0) + 1;
   });
 
-  const baseTargetPerStudent = Math.max(15, Math.round(totalChecklistItemsCount / 4) || 20);
+  const totalTargetAllCategories = Object.values(categoryTargets).reduce((a, b) => a + b, 0);
   const totalCompletedChecklist = checklistProgressRaw.length;
-  const maxPossibleCompleted = targetStudentIds.length * baseTargetPerStudent;
+  const maxPossibleCompleted =
+    totalTargetAllCategories > 0 ? totalTargetAllCategories : targetStudentIds.length * 20;
+
   const curriculumMasteryRate =
     maxPossibleCompleted > 0 && totalCompletedChecklist > 0
       ? Math.min(100, Math.round((totalCompletedChecklist / maxPossibleCompleted) * 100))
       : 0;
 
-  const curriculumCategories: CurriculumCategoryMastery[] = standardCategories.map((cat) => {
-    const data = categoryMasteryMap.get(cat.key) || { completed: 0, totalRef: 20 };
-    const maxTarget = Math.max(1, targetStudentIds.length * 5);
-    const rate = data.completed > 0 ? Math.min(100, Math.round((data.completed / maxTarget) * 100)) : 0;
-    return {
-      category: cat.key,
-      masteryRate: rate,
-      completedItems: data.completed,
-      totalItems: maxTarget,
-      color: cat.color,
-    };
-  });
+  // Hasilkan bidang materi secara dinamis sesuai checklist yang ada atau diselesaikan
+  const curriculumCategories: CurriculumCategoryMastery[] = standardCategories
+    .filter((cat) => categoryTargets[cat.key] > 0 || categoryCompleted[cat.key] > 0)
+    .map((cat) => {
+      const target = categoryTargets[cat.key] || 0;
+      const completed = categoryCompleted[cat.key] || 0;
+      const rate = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+      return {
+        category: cat.key,
+        masteryRate: rate,
+        completedItems: completed,
+        totalItems: target,
+        color: cat.color,
+      };
+    });
 
   // 5. Kalkulasi Karakter & Radar 5 Dimensi
   const studentEvalMap = new Map<string, { totalAdab: number; totalKeaktifan: number; count: number }>();
@@ -710,18 +955,35 @@ export async function getAnalyticsDashboardData(
   const avgKeaktifan = evalCountAll > 0 ? Math.round(totalKeaktifanAll / evalCountAll) : 0;
   const characterAverage = evalCountAll > 0 ? Math.round((avgAdab + avgKeaktifan) / 2) : 0;
 
-  const hasCharacterData = evalCountAll > 0;
+  // Kalkulasi Keaktifan Pengerjaan Tugas (disesuaikan dengan tugas yang benar-benar ditujukan untuk santri)
+  let totalExpectedSubmissionsAll = 0;
+  let totalCompletedSubmissionsAll = 0;
+
+  studentsProfileRaw.forEach((student) => {
+    const studentTasks = assignmentsRaw.filter((a) =>
+      isAssignmentForStudent(a, {
+        id: student.id,
+        organizationId: student.organization?.id,
+        generationId: student.generation?.id,
+      })
+    );
+
+    totalExpectedSubmissionsAll += studentTasks.length;
+
+    studentTasks.forEach((a) => {
+      const sub = a.submissions.find((s) => s.studentId === student.id);
+      if (sub && (sub.status === 'SUBMITTED' || sub.status === 'VERIFIED_BY_PARENT' || sub.status === 'GRADED')) {
+        totalCompletedSubmissionsAll += 1;
+      }
+    });
+  });
+
+  const taskCompletionRate =
+    totalExpectedSubmissionsAll > 0
+      ? Math.min(100, Math.round((totalCompletedSubmissionsAll / totalExpectedSubmissionsAll) * 100))
+      : 0;
+
   const characterRadar: CharacterDimensionScore[] = [
-    {
-      dimension: "Tartil Al-Qur'an",
-      score: hasCharacterData ? avgAdab : 0,
-      benchmark: 80,
-    },
-    {
-      dimension: 'Hafalan Hadits',
-      score: curriculumMasteryRate,
-      benchmark: 75,
-    },
     {
       dimension: 'Budi Pekerti (Adab)',
       score: avgAdab,
@@ -734,10 +996,19 @@ export async function getAnalyticsDashboardData(
     },
     {
       dimension: 'Kemandirian & Disiplin',
-      score: totalAttendances > 0 ? onTimeRate : 0,
+      score: validPresentCount > 0 ? Math.round((countHadir / validPresentCount) * 100) : 0,
       benchmark: 80,
     },
   ];
+
+  // Tambahkan dimensi Keaktifan Tugas jika terdapat penugasan untuk santri dalam periode berjalan
+  if (totalExpectedSubmissionsAll > 0) {
+    characterRadar.push({
+      dimension: 'Keaktifan Pengerjaan Tugas',
+      score: taskCompletionRate,
+      benchmark: 80,
+    });
+  }
 
   // 6. Analisis Profil Setiap Santri & Klasifikasi Santri Unggul vs Perlu Penguatan
   const allStudents: PerformerStudentItem[] = studentsProfileRaw.map((student) => {
@@ -752,10 +1023,18 @@ export async function getAnalyticsDashboardData(
     const sChecklist = studentChecklistMap.get(student.id) || 0;
     const sEval = studentEvalMap.get(student.id) || { totalAdab: 0, totalKeaktifan: 0, count: 0 };
 
+    const studentTargetChecklist =
+      (student.generation?.id && checklistCountPerGen[student.generation.id]) ||
+      (targetGenIds.length === 1 && checklistCountPerGen[targetGenIds[0]]) ||
+      Math.round(totalTargetAllCategories / (studentsProfileRaw.length || 1)) ||
+      20;
+
     const studentAttRate =
       sAtt.total > 0 ? Math.round(((sAtt.hadir + sAtt.terlambat) / sAtt.total) * 100) : 0;
     const studentCurriculumRate =
-      sChecklist > 0 ? Math.min(100, Math.round((sChecklist / baseTargetPerStudent) * 100)) : 0;
+      sChecklist > 0 && studentTargetChecklist > 0
+        ? Math.min(100, Math.round((sChecklist / studentTargetChecklist) * 100))
+        : 0;
     const studentCharScore =
       sEval.count > 0 ? Math.round((sEval.totalAdab / sEval.count + sEval.totalKeaktifan / sEval.count) / 2) : 0;
 
@@ -822,37 +1101,56 @@ export async function getAnalyticsDashboardData(
     .filter((s) => s.status === 'AT_RISK')
     .sort((a, b) => a.compositeScore - b.compositeScore);
 
-  // 7. Tren Kehadiran (Grouped by week intervals)
+  // 7. Tren Kehadiran (Dikelompokkan per interval pekan secara dinamis)
   const attendanceTrends: AttendanceTrendItem[] = [];
-  if (attendanceRecordsRaw.length > 0) {
-    const startMs = startDate ? startDate.getTime() : Date.now() - 28 * 24 * 3600 * 1000;
+  const startMs = startDate ? startDate.getTime() : Date.now() - 28 * 24 * 3600 * 1000;
+  const endMs = endDate ? endDate.getTime() : Date.now();
+  const numWeeks = Math.max(1, Math.ceil((endMs - startMs) / (7 * 24 * 3600 * 1000)));
 
-    for (let i = 0; i < 4; i++) {
-      const weekStart = new Date(startMs + i * 7 * 24 * 3600 * 1000);
-      const weekEnd = new Date(startMs + (i + 1) * 7 * 24 * 3600 * 1000);
-      const weekRecs = attendanceRecordsRaw.filter((r) => {
-        const rawDate = r.session?.schedule?.startTime || r.checkInTime || r.createdAt;
-        const t = new Date(rawDate).getTime();
-        return t >= weekStart.getTime() && t < weekEnd.getTime();
-      });
+  for (let i = 0; i < numWeeks; i++) {
+    const weekStart = new Date(startMs + i * 7 * 24 * 3600 * 1000);
+    const weekEnd = new Date(Math.min(endMs, startMs + (i + 1) * 7 * 24 * 3600 * 1000));
+    const weekRecs = attendanceRecordsRaw.filter((r) => {
+      const rawDate = r.session?.schedule?.startTime || r.checkInTime || r.createdAt;
+      const t = new Date(rawDate).getTime();
+      return t >= weekStart.getTime() && t < weekEnd.getTime();
+    });
 
-      const h = weekRecs.filter((r) => r.status === 'HADIR').length;
-      const t = weekRecs.filter((r) => r.status === 'TERLAMBAT').length;
-      const iz = weekRecs.filter((r) => r.status === 'IZIN').length;
-      const sk = weekRecs.filter((r) => r.status === 'SAKIT').length;
-      const al = weekRecs.filter((r) => r.status === 'ALPA').length;
-      const rate = weekRecs.length > 0 ? Math.round(((h + t) / weekRecs.length) * 100) : 0;
+    const h = weekRecs.filter((r) => r.status === 'HADIR').length;
+    const t = weekRecs.filter((r) => r.status === 'TERLAMBAT').length;
+    const iz = weekRecs.filter((r) => r.status === 'IZIN').length;
+    const sk = weekRecs.filter((r) => r.status === 'SAKIT').length;
+    const al = weekRecs.filter((r) => r.status === 'ALPA').length;
+    const rate = weekRecs.length > 0 ? Math.round(((h + t) / weekRecs.length) * 100) : 0;
 
-      attendanceTrends.push({
-        periodLabel: `Pekan ${i + 1}`,
-        hadir: h,
-        terlambat: t,
-        izin: iz,
-        sakit: sk,
-        alpa: al,
-        rate,
-      });
-    }
+    const completedSchedulesInWeek = new Set<string>();
+    weekRecs.forEach((r) => {
+      const sch = r.session?.schedule;
+      if (sch?.id) {
+        completedSchedulesInWeek.add(sch.id);
+      }
+    });
+
+    const sDay = weekStart.getDate();
+    const sMonth = weekStart.toLocaleDateString('id-ID', { month: 'short' });
+    const eDateObj = new Date(weekEnd.getTime() - 1);
+    const eDay = eDateObj.getDate();
+    const eMonth = eDateObj.toLocaleDateString('id-ID', { month: 'short' });
+    const dateRangeStr =
+      sMonth === eMonth ? `${sDay}-${eDay} ${sMonth}` : `${sDay} ${sMonth} - ${eDay} ${eMonth}`;
+
+    attendanceTrends.push({
+      periodLabel: `Pekan ${i + 1} (${dateRangeStr})`,
+      startDate: weekStart.toISOString(),
+      endDate: weekEnd.toISOString(),
+      hadir: h,
+      terlambat: t,
+      izin: iz,
+      sakit: sk,
+      alpa: al,
+      rate,
+      completedSessions: completedSchedulesInWeek.size,
+    });
   }
 
   // 8. Benchmark Perbandingan Sub-Unit (Per Kelompok atau Per Kelas)
@@ -910,6 +1208,13 @@ export async function getAnalyticsDashboardData(
     }
   }
 
+  const distinctSchedulesInAttendance = new Set<string>();
+  attendanceRecordsRaw.forEach((r) => {
+    const schId = r.session?.schedule?.id;
+    if (schId) distinctSchedulesInAttendance.add(schId);
+  });
+  const completedSessionsCount = Math.max(completedSchedulesCountRaw || 0, distinctSchedulesInAttendance.size);
+
   const summary: AnalyticsSummaryKPI = {
     totalStudents: targetStudentIds.length,
     activeStudentsCount: allStudents.length,
@@ -923,6 +1228,98 @@ export async function getAnalyticsDashboardData(
     topPerformerCount: topPerformers.length,
     atRiskCount: atRiskStudents.length,
     averageStreak,
+    completedSessionsCount,
+  };
+
+  // 9. Analisis Keaktifan Paraf Orang Tua (hanya untuk santri yang benar-benar memiliki tugas butuh paraf)
+  const verificationAssignments = assignmentsRaw.filter(
+    (a) => a.requiresParentVerification || a.submissions.some((s) => s.parentVerification)
+  );
+
+  let totalAllRequired = 0;
+  let totalAllVerified = 0;
+  const parentItems: ParentVerificationItem[] = [];
+
+  studentsProfileRaw.forEach((student) => {
+    // Cari tugas paraf yang benar-benar ditujukan untuk jenjang/kelas santri ini
+    const studentVerifTasks = verificationAssignments.filter((a) =>
+      isAssignmentForStudent(a, {
+        id: student.id,
+        organizationId: student.organization?.id,
+        generationId: student.generation?.id,
+      })
+    );
+
+    // Jika santri ini tidak memiliki tugas berparaf pada periode ini, jangan masukkan ke daftar/perhitungan paraf
+    if (studentVerifTasks.length === 0) {
+      return;
+    }
+
+    const totalRequiredForStudent = studentVerifTasks.length;
+    let verifiedCount = 0;
+    let lastVerifiedDate: Date | null = null;
+    let recordedParentName: string | undefined = undefined;
+    let recordedParentPhone: string | undefined = undefined;
+
+    studentVerifTasks.forEach((assignment) => {
+      const sub = assignment.submissions.find((s) => s.studentId === student.id);
+      if (sub) {
+        const pv = sub.parentVerification;
+        if (pv?.isVerifiedByParent || sub.status === 'VERIFIED_BY_PARENT' || sub.status === 'GRADED') {
+          verifiedCount++;
+          if (pv?.verifiedAt) {
+            const vDate = new Date(pv.verifiedAt);
+            if (!lastVerifiedDate || vDate > lastVerifiedDate) {
+              lastVerifiedDate = vDate;
+            }
+          }
+          if (pv?.parent?.fullName) recordedParentName = pv.parent.fullName;
+          if (pv?.parent?.phoneNumber) recordedParentPhone = pv.parent.phoneNumber;
+        }
+      }
+    });
+
+    totalAllRequired += totalRequiredForStudent;
+    totalAllVerified += verifiedCount;
+    const pendingCount = Math.max(0, totalRequiredForStudent - verifiedCount);
+    const rate = Math.round((verifiedCount / totalRequiredForStudent) * 100);
+
+    let status: 'AKTIF' | 'SEDANG' | 'PERLU_DIPACU' = 'PERLU_DIPACU';
+    if (rate >= 80) status = 'AKTIF';
+    else if (rate >= 50) status = 'SEDANG';
+
+    const fallbackParent = student.parents?.[0]?.parent;
+    const parentName = recordedParentName || fallbackParent?.fullName || 'Wali Santri';
+    const parentPhone = recordedParentPhone || fallbackParent?.phoneNumber || undefined;
+
+    parentItems.push({
+      studentId: student.id,
+      studentName: student.fullName,
+      gender: student.gender,
+      className: student.generation?.name || student.organization?.name || 'Kelas',
+      parentName,
+      parentPhone,
+      totalRequired: totalRequiredForStudent,
+      totalVerified: verifiedCount,
+      totalPending: pendingCount,
+      verificationRate: rate,
+      lastVerifiedAt: lastVerifiedDate ? (lastVerifiedDate as Date).toISOString() : undefined,
+      status,
+    });
+  });
+
+  const hasVerificationTasks = parentItems.length > 0 && totalAllRequired > 0;
+  const totalAllPending = Math.max(0, totalAllRequired - totalAllVerified);
+  const overallRate =
+    totalAllRequired > 0 ? Math.round((totalAllVerified / totalAllRequired) * 100) : 0;
+
+  const parentEngagement: ParentEngagementSummary = {
+    hasVerificationTasks,
+    totalRequiredTasks: totalAllRequired,
+    totalVerifiedTasks: totalAllVerified,
+    totalPendingTasks: totalAllPending,
+    overallVerificationRate: overallRate,
+    parentItems,
   };
 
   return {
@@ -942,6 +1339,7 @@ export async function getAnalyticsDashboardData(
     topPerformers,
     atRiskStudents,
     allStudents,
+    parentEngagement,
     generatedAt: new Date().toISOString(),
   };
 }
