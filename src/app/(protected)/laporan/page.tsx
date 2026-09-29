@@ -11,6 +11,7 @@ import { UserX, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { RoleTabId, RoleTabItem } from '@/components/navigation/RoleNavTabs';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 export const metadata = {
   title: 'Laporan Perkembangan Santri | Sistem Pengajian',
@@ -39,18 +40,21 @@ export default async function LaporanPage({
   else if (rawRole === 'PENGAJAR' || rawRole === 'TEACHER') preferredRole = 'PENGAJAR';
   else if (rawRole === 'ADMIN' || rawRole === 'MANAGE') preferredRole = 'ADMIN';
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!authUser) {
     redirect('/login');
   }
 
-  // 1. Ambil daftar santri yang diizinkan untuk diakses user ini
+  if (!dbUser || !effectiveUserId) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan login kembali.'));
+  }
+
+  // 1. Ambil daftar santri yang diizinkan untuk diakses user ini menggunakan ID Prisma yang valid
   const { students, defaultStudentId, userRoleCategory, availableRoles } =
-    await getAccessibleStudents(user.id, preferredRole);
+    await getAccessibleStudents(effectiveUserId, preferredRole);
 
   if (students.length === 0 || !defaultStudentId) {
     return (

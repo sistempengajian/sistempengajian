@@ -5,6 +5,8 @@ import KurikulumClientWrapper, { KurikulumRoleConfigData } from '@/components/ku
 import { getMaterialsPaginated } from './actions';
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function KurikulumPage({
   searchParams,
 }: {
@@ -20,64 +22,12 @@ export default async function KurikulumPage({
   const resolvedParams = await searchParams;
   let currentGenCode = (resolvedParams.gen || 'CABERAWIT') as string;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   // 1. Ambil data profil pengguna, peran, generasi, organisasi, dan relasi anak & kelas binaan
-  const [generations, userProfile] = await Promise.all([
+  const [{ authUser: user, dbUser: userProfile, effectiveUserId }, generations] = await Promise.all([
+    getEffectiveAuthUser(),
     prisma.generation.findMany({
       orderBy: { minAge: 'asc' },
     }),
-    user
-      ? prisma.user.findUnique({
-          where: { id: user.id },
-          include: {
-            roles: true,
-            generation: true,
-            organization: {
-              include: {
-                parent: true,
-              },
-            },
-            children: {
-              include: {
-                student: {
-                  include: {
-                    generation: true,
-                  },
-                },
-              },
-            },
-            homeroomClasses: {
-              select: {
-                id: true,
-                name: true,
-                academicYear: true,
-                organizationId: true,
-                generationId: true,
-                generation: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                  },
-                },
-                organization: {
-                  select: {
-                    id: true,
-                    name: true,
-                    type: true,
-                  },
-                },
-              },
-              orderBy: { name: 'asc' },
-            },
-            scheduleAssignments: { select: { id: true }, take: 1 },
-          },
-        })
-      : Promise.resolve(null),
   ]);
 
   // RBAC: Tentukan seluruh peran pengguna

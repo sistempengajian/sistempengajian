@@ -10,17 +10,16 @@ export const metadata: Metadata = {
   description: 'Pengaturan hierarki wilayah pengajian: Daerah, Desa, dan Kelompok binaan.',
 };
 
-export default async function OrganisasiPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { getEffectiveAuthUser } from '@/lib/auth';
 
-  if (!user) {
+export default async function OrganisasiPage() {
+  const { authUser: user, effectiveUserId } = await getEffectiveAuthUser();
+
+  if (!user || !effectiveUserId) {
     redirect('/login');
   }
 
-  const data = await getOrganizationsData(user.id);
+  const data = await getOrganizationsData(effectiveUserId);
   if (!data.userPermissions.canView) {
     redirect('/dashboard');
   }

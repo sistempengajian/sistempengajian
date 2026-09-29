@@ -6,32 +6,35 @@ import prisma from '@/lib/prisma';
 
 import { getRoleTheme } from '@/lib/theme';
 
+import { redirect } from 'next/navigation';
+
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser } = await getEffectiveAuthUser();
 
-  let roleCodes: string[] = [];
-  let fullName: string | undefined;
-
-  if (authUser) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        fullName: true,
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-    roleCodes = dbUser?.roles.map((r) => r.role) || [];
-    fullName = dbUser?.fullName;
+  if (!authUser) {
+    redirect('/login');
   }
+
+  if (!dbUser) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent('Sesi Anda tidak memiliki data profil terdaftar. Silakan login kembali.'));
+  }
+
+  if (dbUser.status !== 'ACTIVE') {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent(`Akun Anda (${dbUser.fullName}) saat ini sedang ${dbUser.status === 'SUSPENDED' ? 'ditangguhkan' : 'tidak aktif'}. Silakan hubungi pengurus.`));
+  }
+
+  const roleCodes: string[] = dbUser.roles.map((r) => r.role);
+  const fullName: string = dbUser.fullName;
 
   const roleTheme = getRoleTheme(roleCodes);
 

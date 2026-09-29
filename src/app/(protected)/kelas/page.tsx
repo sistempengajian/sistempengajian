@@ -27,34 +27,31 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function KelasPage({ searchParams }: PageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!authUser) {
     redirect('/login');
   }
 
-  // 1. Ambil data user & relasi
-  const currentUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      id: true,
-      fullName: true,
-      organizationId: true,
-      generationId: true,
-      roles: { select: { role: true } },
-      children: { select: { id: true }, take: 1 },
-      homeroomClasses: { select: { id: true }, take: 1 },
-      scheduleAssignments: { select: { id: true }, take: 1 },
-    },
-  });
-
-  if (!currentUser) {
-    redirect('/login');
+  if (!dbUser) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan login kembali.'));
   }
+
+  const currentUser = {
+    id: dbUser.id,
+    fullName: dbUser.fullName,
+    organizationId: dbUser.organizationId,
+    generationId: dbUser.generationId,
+    roles: dbUser.roles,
+    children: dbUser.children,
+    homeroomClasses: dbUser.homeroomClasses,
+    scheduleAssignments: dbUser.scheduleAssignments || [],
+  };
 
   const roleCodes = currentUser.roles.map((r) => r.role);
   const isManager =
@@ -191,13 +188,13 @@ export default async function KelasPage({ searchParams }: PageProps) {
     availableRoles.map(async (roleItem) => {
       try {
         if (roleItem.id === 'manage') {
-          roleDataMap.manage = await getClassesOverview(user.id, resolvedSearchParams);
+          roleDataMap.manage = await getClassesOverview(currentUser.id, resolvedSearchParams);
         } else if (roleItem.id === 'teacher') {
-          roleDataMap.teacher = await getHomeroomTeacherClassData(user.id);
+          roleDataMap.teacher = await getHomeroomTeacherClassData(currentUser.id);
         } else if (roleItem.id === 'parent') {
-          roleDataMap.parent = await getParentClassData(user.id, childId);
+          roleDataMap.parent = await getParentClassData(currentUser.id, childId);
         } else if (roleItem.id === 'student') {
-          roleDataMap.student = await getStudentClassData(user.id);
+          roleDataMap.student = await getStudentClassData(currentUser.id);
         }
       } catch (err) {
         console.error(`Error pre-fetching kelas data for role ${roleItem.id}:`, err);

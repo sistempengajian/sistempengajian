@@ -17,20 +17,13 @@ import {
   Calendar
 } from 'lucide-react';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function PrivateRemedialPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
   // Fetch all data in parallel to avoid multiple database roundtrips
-  const [userProfile, students, teachers, pendingSchedules, approvedSchedules] = await Promise.all([
-    user
-      ? prisma.user.findUnique({
-        where: { id: user.id },
-        include: { roles: true },
-      })
-      : Promise.resolve(null),
+  const [students, teachers, pendingSchedules, approvedSchedules] = await Promise.all([
     prisma.user.findMany({
       where: {
         roles: {

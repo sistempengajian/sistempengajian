@@ -10,25 +10,12 @@ export const metadata = {
   description: 'Konfigurasi antrean dewan pengajar/ustadz bergulir per pengajian, mingguan, dan bulanan.',
 };
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function RollingPengajarPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: true,
-    },
-  });
-
-  if (!userProfile) {
+  if (!user || !userProfile || !effectiveUserId) {
     redirect('/login');
   }
 
@@ -45,7 +32,7 @@ export default async function RollingPengajarPage() {
 
   // Ambil data rolling pengajar
   const { data: rollings = [] } = await getTeacherRollings({
-    userId: user.id,
+    userId: effectiveUserId,
     organizationId: userProfile.organizationId,
     roleCodes: roleCodes as any,
   });

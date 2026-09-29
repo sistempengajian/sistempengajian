@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { normalizePhoneNumber, displayPhoneNumber, whatsAppClient } from '@/lib/whatsapp';
 import crypto from 'crypto';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 const OTP_COOLDOWN_SECONDS = 60; // 60 detik jeda kirim ulang OTP
 const OTP_EXPIRY_MINUTES = 5; // 5 menit kedaluwarsa
@@ -29,12 +30,9 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
@@ -55,7 +53,7 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
       const existingUser = await prisma.user.findFirst({
         where: {
           username: cleanUsername,
-          id: { not: authUser.id },
+          id: { not: effectiveUserId },
         },
       });
 
@@ -77,7 +75,7 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
 
     // Update ke Database Prisma
     await prisma.user.update({
-      where: { id: authUser.id },
+      where: { id: effectiveUserId },
       data: {
         fullName: trimmedFullName,
         username: cleanUsername,
@@ -118,139 +116,100 @@ export async function requestPhoneChangeOtp(newPhoneInput: string): Promise<{
   targetPhone?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !currentUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: authUser.id },
-    });
-
-    if (!currentUser) {
-      return { success: false, error: 'Pengguna tidak ditemukan.' };
     }
 
     const normalizedNewPhone = normalizePhoneNumber(newPhoneInput);
     if (!normalizedNewPhone || normalizedNewPhone.length < 9) {
       return {
         success: false,
-        error: 'Format nomor WhatsApp baru tidak valid. Masukkan nomor HP aktif (contoh: 081234567890).',
+        error: 'Format nomor WhatsApp tidak valid. Masukkan minimal 9-15 digit (contoh: 08123456789 atau 628123456789).',
       };
     }
 
-    const localFormat = normalizedNewPhone.startsWith('62') ? '0' + normalizedNewPhone.slice(2) : normalizedNewPhone;
-
-    // Cek apakah nomor baru sama persis dengan nomor saat ini
-    const currentNormalized = normalizePhoneNumber(currentUser.phoneNumber);
-    if (currentNormalized === normalizedNewPhone) {
+    // Cek apakah nomor baru sama dengan nomor lama pengguna
+    if (currentUser.phoneNumber === normalizedNewPhone) {
       return {
         success: false,
-        error: 'Nomor WhatsApp baru tidak boleh sama dengan nomor WhatsApp yang saat ini terdaftar.',
+        error: 'Nomor WhatsApp baru sama dengan nomor yang saat ini terdaftar pada akun Anda.',
       };
     }
 
-    // Cek apakah nomor baru sudah dipakai oleh akun lain yang aktif
-    const existingOtherUser = await prisma.user.findFirst({
+    // Cek apakah nomor baru sudah terdaftar pada pengguna lain
+    const existingPhoneUser = await prisma.user.findFirst({
       where: {
-        id: { not: authUser.id },
-        OR: [
-          { phoneNumber: normalizedNewPhone },
-          { phoneNumber: localFormat },
-          { phoneNumber: `+${normalizedNewPhone}` },
-        ],
+        phoneNumber: normalizedNewPhone,
+        id: { not: effectiveUserId },
       },
     });
 
-    if (existingOtherUser) {
+    if (existingPhoneUser) {
       return {
         success: false,
-        error: `Nomor WhatsApp ${displayPhoneNumber(normalizedNewPhone)} sudah terdaftar pada akun lain (${existingOtherUser.fullName}).`,
+        error: `Nomor WhatsApp ${displayPhoneNumber(normalizedNewPhone)} sudah digunakan oleh akun lain.`,
       };
     }
 
-    // Cek jeda cooldown (60 detik)
-    const cooldownAgo = new Date(Date.now() - OTP_COOLDOWN_SECONDS * 1000);
-    const recentOtp = await prisma.whatsAppLoginToken.findFirst({
+    // Cek cooldown pengiriman OTP (terakhir dikirim dalam 60 detik)
+    const recentToken = await prisma.whatsAppLoginToken.findFirst({
       where: {
-        userId: authUser.id,
-        createdAt: { gte: cooldownAgo },
-        token: { startsWith: 'OTP_PHONE_CHANGE_' },
+        userId: effectiveUserId,
+        phoneNumber: normalizedNewPhone,
+        createdAt: {
+          gte: new Date(Date.now() - OTP_COOLDOWN_SECONDS * 1000),
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (recentOtp) {
-      const elapsedMs = Date.now() - recentOtp.createdAt.getTime();
-      const remainingSeconds = Math.max(1, Math.ceil((OTP_COOLDOWN_SECONDS * 1000 - elapsedMs) / 1000));
+    if (recentToken) {
+      const secondsPassed = Math.floor((Date.now() - new Date(recentToken.createdAt).getTime()) / 1000);
+      const remainingCooldown = Math.max(1, OTP_COOLDOWN_SECONDS - secondsPassed);
       return {
         success: false,
-        error: `Silakan tunggu ${remainingSeconds} detik lagi sebelum meminta kode verifikasi baru.`,
-        cooldownRemaining: remainingSeconds,
-        targetPhone: displayPhoneNumber(normalizedNewPhone),
+        error: `Silakan tunggu ${remainingCooldown} detik sebelum meminta kode OTP baru.`,
+        cooldownRemaining: remainingCooldown,
       };
     }
 
-    // Nonaktifkan OTP perubahan nomor sebelumnya yang belum dipakai
-    await prisma.whatsAppLoginToken.updateMany({
-      where: {
-        userId: authUser.id,
-        isUsed: false,
-        token: { startsWith: 'OTP_PHONE_CHANGE_' },
-      },
-      data: { isUsed: true },
-    });
-
-    // Buat kode OTP 6 Digit
+    // Generate kode OTP 6 Digit yang aman secara kriptografi
     const otpCode = crypto.randomInt(100000, 999999).toString();
-    const tokenIdentifier = `OTP_PHONE_CHANGE_${authUser.id}_${otpCode}_${Date.now()}`;
+    const tokenSecret = `OTP_PHONE_CHANGE_${otpCode}_${crypto.randomBytes(16).toString('hex')}`;
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
+    // Simpan ke tabel WhatsAppLoginToken
     await prisma.whatsAppLoginToken.create({
       data: {
-        token: tokenIdentifier,
+        token: tokenSecret,
         phoneNumber: normalizedNewPhone,
-        userId: authUser.id,
+        userId: effectiveUserId,
         expiresAt,
-        isUsed: false,
       },
     });
 
-    // Susun pesan WhatsApp Verifikasi
-    const message = `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. *${currentUser.fullName}*.
+    // Kirim pesan OTP via WhatsApp Gateway
+    const otpMessage = `*KODE VERIFIKASI PENGGANTIAN NOMOR*\n\nKode OTP Anda adalah: *${otpCode}*\n\nKode ini berlaku selama ${OTP_EXPIRY_MINUTES} menit untuk mengubah nomor WhatsApp pada akun *Sistem Pengajian* Anda (${currentUser.fullName}).\n\n_Jangan bagikan kode ini kepada siapapun._`;
 
-Berikut adalah kode verifikasi OTP untuk pembaruan nomor WhatsApp akun Anda di *Sistem Pengajian*:
-
-🔐 Kode Verifikasi: *${otpCode}*
-
-• Kode ini berlaku selama *5 menit*.
-• Masukkan kode ini pada halaman verifikasi profil untuk mengonfirmasi bahwa nomor WhatsApp ini aktif.
-• Jangan bagikan kode ini kepada siapapun demi keamanan data akun Anda.
-
-Alhamdulillah Jazakumullahu Khairan Katsiran.
-— *Sistem Manajemen Pengajian Terpadu*`;
-
-    // Kirim via WhatsApp Gateway ke Nomor Baru
     const sendResult = await whatsAppClient.sendMessage({
       to: normalizedNewPhone,
-      message,
-      recipientName: currentUser.fullName,
-      recipientUserId: currentUser.id,
-      messageType: 'CUSTOM_DIRECT',
+      message: otpMessage,
     });
 
-    if (!sendResult.success && sendResult.error && !sendResult.gatewayMessageId?.startsWith('sim_')) {
-      console.warn('[PhoneChange OTP] Peringatan gateway WhatsApp:', sendResult.error);
+    if (!sendResult.success) {
+      console.warn('[requestPhoneChangeOtp Warning]: WhatsApp gateway gagal mengirim pesan:', sendResult.error);
+      return {
+        success: false,
+        error: 'Gagal mengirim kode OTP ke WhatsApp Anda. Pastikan gateway WhatsApp aktif.',
+        targetPhone: normalizedNewPhone,
+      };
     }
 
     return {
       success: true,
-      message: `Kode verifikasi 6-digit telah dikirim ke WhatsApp ${displayPhoneNumber(normalizedNewPhone)}. Silakan masukkan kode untuk verifikasi.`,
+      message: `Kode verifikasi OTP 6-digit telah dikirimkan ke nomor WhatsApp ${displayPhoneNumber(normalizedNewPhone)}.`,
       cooldownRemaining: OTP_COOLDOWN_SECONDS,
       targetPhone: normalizedNewPhone,
     };
@@ -258,13 +217,16 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
     console.error('[requestPhoneChangeOtp Error]:', err);
     return {
       success: false,
-      error: err.message || 'Terjadi kesalahan sistem saat mengirim kode OTP.',
+      error: err.message || 'Terjadi kesalahan sistem saat meminta kode OTP.',
     };
   }
 }
 
 /**
- * 3. Server Action: Verifikasi Kode OTP dan Perbarui Nomor WhatsApp
+ * 3. Server Action: Verifikasi Kode OTP dan Terapkan Nomor WhatsApp Baru
+ * - Validasi kode OTP yang cocok dan belum kedaluwarsa
+ * - Tandai token telah digunakan
+ * - Perbarui kolom phoneNumber di database Prisma
  */
 export async function verifyPhoneChangeOtp(
   newPhoneInput: string,
@@ -276,12 +238,9 @@ export async function verifyPhoneChangeOtp(
   newPhone?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
@@ -298,7 +257,7 @@ export async function verifyPhoneChangeOtp(
     // Cari token OTP aktif untuk user dan nomor ini
     const activeTokens = await prisma.whatsAppLoginToken.findMany({
       where: {
-        userId: authUser.id,
+        userId: effectiveUserId,
         phoneNumber: normalizedNewPhone,
         isUsed: false,
         expiresAt: { gt: new Date() },
@@ -328,7 +287,7 @@ export async function verifyPhoneChangeOtp(
 
     // Update nomor WhatsApp di tabel User
     await prisma.user.update({
-      where: { id: authUser.id },
+      where: { id: effectiveUserId },
       data: {
         phoneNumber: normalizedNewPhone,
       },
@@ -360,12 +319,9 @@ export async function updateUserEmail(emailInput: string): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
@@ -377,8 +333,8 @@ export async function updateUserEmail(emailInput: string): Promise<{
     // Cek apakah email sudah digunakan user lain
     const existing = await prisma.user.findFirst({
       where: {
-        email: cleanEmail,
-        id: { not: authUser.id },
+        email: { equals: cleanEmail, mode: 'insensitive' },
+        id: { not: effectiveUserId },
       },
     });
 
@@ -387,7 +343,7 @@ export async function updateUserEmail(emailInput: string): Promise<{
     }
 
     await prisma.user.update({
-      where: { id: authUser.id },
+      where: { id: effectiveUserId },
       data: { email: cleanEmail },
     });
 
@@ -416,17 +372,14 @@ export async function unlinkUserEmail(): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
     await prisma.user.update({
-      where: { id: authUser.id },
+      where: { id: effectiveUserId },
       data: { email: null },
     });
 
@@ -445,5 +398,3 @@ export async function unlinkUserEmail(): Promise<{
     };
   }
 }
-
-

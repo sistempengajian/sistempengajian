@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TierLevel, UserRole } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 const classSchema = z.object({
   name: z
@@ -43,22 +44,10 @@ export async function createClass(
   formData: FormData
 ): Promise<ClassFormState> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
-      return { success: false, message: 'Sesi Anda telah berakhir. Silakan login kembali.' };
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      include: { roles: true },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'Pengguna tidak ditemukan di sistem.' };
+    if (!authUser || !currentUser) {
+      return { success: false, message: 'Sesi Anda telah berakhir atau pengguna tidak ditemukan di sistem.' };
     }
 
     const currentUserRoles = currentUser.roles.map((r) => r.role);
@@ -226,22 +215,10 @@ export async function updateClass(
   formData: FormData
 ): Promise<ClassFormState> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
-      return { success: false, message: 'Sesi Anda telah berakhir. Silakan login kembali.' };
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      include: { roles: true },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'Pengguna tidak ditemukan di sistem.' };
+    if (!authUser || !currentUser) {
+      return { success: false, message: 'Sesi Anda telah berakhir atau pengguna tidak ditemukan di sistem.' };
     }
 
     const currentUserRoles = currentUser.roles.map((r) => r.role);
@@ -420,22 +397,10 @@ export async function deleteClass(
   classId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
-      return { success: false, message: 'Sesi Anda telah berakhir. Silakan login kembali.' };
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      include: { roles: true },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'Pengguna tidak ditemukan di sistem.' };
+    if (!authUser || !currentUser) {
+      return { success: false, message: 'Sesi Anda telah berakhir atau pengguna tidak ditemukan di sistem.' };
     }
 
     const currentUserRoles = currentUser.roles.map((r) => r.role);

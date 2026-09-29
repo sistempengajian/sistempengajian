@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import { TaskType, SubmissionStatus, TierLevel } from '@prisma/client';
 import { generateMagicToken, verifyMagicToken } from '@/lib/magicToken';
 import { processMediaPayload, deleteUnusedMedia, deleteTaskMedia, uploadTaskImage } from '@/lib/storage/mediaUploader';
@@ -68,47 +69,11 @@ export async function canUserManageAssignment(
  * Mendapatkan data tugas terstruktur berdasarkan role pengguna aktif
  */
 export async function getAssignmentsData(selectedStudentId?: string, requestedRole?: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!authUser) {
     throw new Error('Tidak terautentikasi');
   }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: {
-      roles: true,
-      organization: {
-        include: {
-          parent: {
-            include: { parent: true },
-          },
-        },
-      },
-      generation: true,
-      gamification: true,
-      children: {
-        include: {
-          student: {
-            include: {
-              organization: {
-                include: {
-                  parent: {
-                    include: { parent: true },
-                  },
-                },
-              },
-              generation: true,
-              gamification: true,
-            },
-          },
-        },
-      },
-    },
-  });
 
   if (!userProfile) {
     throw new Error('Profil pengguna tidak ditemukan');

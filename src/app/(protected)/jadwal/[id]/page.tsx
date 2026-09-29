@@ -13,6 +13,7 @@ import ScheduleDetailView, {
 } from '@/components/jadwal/detail/ScheduleDetailView';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { UserRole } from '@prisma/client';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,36 +47,11 @@ export default async function ScheduleDetailPage({
 }) {
   const resolvedParams = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!user) {
     redirect('/login');
   }
-
-  // 1. Ambil data profil pengguna & perannya
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: true,
-      children: {
-        include: {
-          student: {
-            select: {
-              id: true,
-              fullName: true,
-              avatarUrl: true,
-              organizationId: true,
-              generationId: true,
-            },
-          },
-        },
-      },
-    },
-  });
 
   if (!userProfile) {
     redirect('/login');
@@ -212,11 +188,11 @@ export default async function ScheduleDetailPage({
   }
 
   // Cek hak akses granular
-  const isAssignedTeacher = schedule.teachers.some((t) => t.teacherId === user.id);
+  const isAssignedTeacher = schedule.teachers.some((t) => t.teacherId === effectiveUserId);
   const isHomeroomTeacher =
-    schedule.class?.homeroomTeacherId === user.id ||
-    schedule.targetClasses.some((tc) => tc.class?.homeroomTeacherId === user.id);
-  const isOwnerOfProposal = schedule.requestedByUserId === user.id;
+    schedule.class?.homeroomTeacherId === effectiveUserId ||
+    schedule.targetClasses.some((tc) => tc.class?.homeroomTeacherId === effectiveUserId);
+  const isOwnerOfProposal = schedule.requestedByUserId === effectiveUserId;
   const isPendingProposal = schedule.approvalStatus === 'PENDING';
 
   const canManage = isManager;
@@ -785,7 +761,7 @@ export default async function ScheduleDetailPage({
       canDelete={canDelete}
       canApprove={canApprove}
       requestedByUser={requestedByUser}
-      currentUserId={user.id}
+      currentUserId={effectiveUserId}
       availableTeachers={teachers}
       availableClasses={classes as any}
       availableMaterials={materials as any}

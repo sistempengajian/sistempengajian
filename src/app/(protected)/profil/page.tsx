@@ -20,8 +20,13 @@ export default async function ProfilPage() {
     redirect('/login');
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
+  const dbUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: authUser.id },
+        ...(authUser.email ? [{ email: authUser.email }, { username: authUser.email.split('@')[0] }] : []),
+      ],
+    },
     include: {
       generation: {
         select: {

@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import {
   LeaderboardFilterOptions,
   LeaderboardDashboardData,
@@ -146,33 +147,12 @@ export async function getLeaderboardData(
 ): Promise<LeaderboardDashboardData> {
   await ensureSeedBadges();
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  // Query Current User to know default organization
-  const currentUser = authUser
-    ? await prisma.user.findUnique({
-        where: { id: authUser.id },
-        include: {
-          organization: {
-            include: {
-              parent: {
-                include: { parent: true },
-              },
-            },
-          },
-          children: true,
-          roles: true,
-        },
-      })
-    : null;
+  const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
   const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
   const activeStudentId = isParent && currentUser?.children && currentUser.children.length > 0
     ? currentUser.children[0].studentUserId
-    : currentUser?.id;
+    : (currentUser?.id || effectiveUserId);
 
   // Query All Organizations for Tier Options
   const allOrganizations = await prisma.organization.findMany({
@@ -469,38 +449,12 @@ export async function getStudentGamificationData(
 ): Promise<StudentGamificationDashboardData> {
   await ensureSeedBadges();
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  let currentUser = authUser
-    ? await prisma.user.findUnique({
-        where: { id: authUser.id },
-        include: {
-          roles: true,
-          generation: true,
-          organization: true,
-          gamification: true,
-          children: {
-            include: {
-              student: {
-                include: {
-                  generation: true,
-                  gamification: true,
-                  badges: { include: { badge: true } },
-                },
-              },
-            },
-          },
-        },
-      })
-    : null;
+  const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
   const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
   const isStudent = Boolean(currentUser?.roles.some((r) => r.role === 'SANTRI'));
 
-  let activeStudentId = targetStudentId || currentUser?.id;
+  let activeStudentId = targetStudentId || currentUser?.id || effectiveUserId;
   if (isParent && currentUser?.children && currentUser.children.length > 0 && !targetStudentId) {
     activeStudentId = currentUser.children[0].studentUserId;
   }

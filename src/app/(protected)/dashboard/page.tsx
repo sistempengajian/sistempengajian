@@ -37,46 +37,23 @@ import { getRoleTheme, COMMON_THEME } from '@/lib/theme';
 import StatusGridSection from '@/components/dashboard/StatusGridSection';
 import ProgressCircle from '@/components/dashboard/ProgressCircle';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: profile } = await getEffectiveAuthUser();
 
   if (!authUser) {
     redirect('/login');
   }
 
-  // Fetch full user profile, upcoming schedule, and pending approvals concurrently
-  const [profile, nextSchedule, rawPendingApprovalsCount] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: authUser.id },
-      include: {
-        organization: {
-          include: {
-            parent: {
-              include: {
-                parent: true,
-              },
-            },
-          },
-        },
-        generation: true,
-        roles: true,
-        gamification: true,
-        children: {
-          include: {
-            student: {
-              include: {
-                generation: true,
-                gamification: true,
-              },
-            },
-          },
-        },
-        homeroomClasses: true,
-      },
-    }),
+  if (!profile) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent('Profil pengguna tidak ditemukan di database. Silakan masuk kembali.'));
+  }
+
+  // Fetch upcoming schedule and pending approvals concurrently
+  const [nextSchedule, rawPendingApprovalsCount] = await Promise.all([
     prisma.schedule.findFirst({
       where: {
         status: { in: ['SCHEDULED', 'ACTIVE'] },
@@ -103,10 +80,6 @@ export default async function DashboardPage() {
       },
     }),
   ]);
-
-  if (!profile) {
-    redirect('/login');
-  }
 
   // Fetch materi kurikulum yang akan disampaikan sesuai jadwal / jenjang pengguna
   const targetGenId = nextSchedule?.class?.generationId || profile.generationId;

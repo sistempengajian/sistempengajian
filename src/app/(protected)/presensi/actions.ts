@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import {
   generateSessionSecret,
   generateQrPayload,
@@ -336,12 +337,9 @@ export async function reopenAttendanceSession(sessionId: string) {
  * Memproses scan QR oleh Santri via pemindai kamera
  */
 export async function submitStudentQrScan(rawContent: string, scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !effectiveUserId) {
     return { success: false, message: 'Sesi login Anda telah berakhir. Silakan login kembali.' };
   }
 
@@ -375,7 +373,7 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
     where: {
       sessionId_studentId: {
         sessionId: session.id,
-        studentId: authUser.id,
+        studentId: effectiveUserId,
       },
     },
     update: {
@@ -386,7 +384,7 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
     },
     create: {
       sessionId: session.id,
-      studentId: authUser.id,
+      studentId: effectiveUserId,
       method: AttendanceMethod.QR_SCAN_STUDENT,
       status: AttendanceStatus.HADIR,
       checkInTime: now,
@@ -397,14 +395,14 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
   // Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak
   try {
     await prisma.userGamification.upsert({
-      where: { userId: authUser.id },
+      where: { userId: effectiveUserId },
       update: {
         totalPoints: { increment: 10 },
         currentStreakDays: { increment: 1 },
         updatedAt: now,
       },
       create: {
-        userId: authUser.id,
+        userId: effectiveUserId,
         totalPoints: 10,
         currentStreakDays: 1,
         highestStreakDays: 1,
@@ -430,12 +428,9 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
  * Memproses scan Dynamic QR oleh Orang Tua atas nama Ananda/Santri
  */
 export async function submitParentQrScan(rawContent: string, scheduleId: string, studentId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !effectiveUserId) {
     return { success: false, message: 'Sesi login Anda telah berakhir. Silakan login kembali.' };
   }
 
@@ -444,7 +439,7 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
     where: {
       studentUserId_parentUserId: {
         studentUserId: studentId,
-        parentUserId: authUser.id,
+        parentUserId: effectiveUserId,
       },
     },
   });
@@ -733,22 +728,13 @@ export async function saveComprehensiveEvaluation({
   teacherPrivateNote?: string;
   targetCapaianUpdates?: TargetCapaianInput[];
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
   }
 
-  // 1. Dapatkan profil & peran authUser untuk validasi hak otorisasi penguji
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: { roles: true },
-  });
-
-  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const roleCodes = userProfile.roles.map((r) => r.role) || [];
   const canCompleteDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');
   const canCompleteDesa = roleCodes.includes('PJ_DESA') || canCompleteDaerah;
 
@@ -929,10 +915,7 @@ export async function saveBulkComprehensiveEvaluation({
   }
 
   // 1. Dapatkan profil & peran authUser untuk validasi hak otorisasi penguji
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: { roles: true },
-  });
+  const { dbUser: userProfile } = await getEffectiveAuthUser();
 
   const roleCodes = userProfile?.roles.map((r) => r.role) || [];
   const canCompleteDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');

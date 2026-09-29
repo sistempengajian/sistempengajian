@@ -12,25 +12,12 @@ export const metadata = {
   description: 'Kelola riwayat batch jadwal rolling yang telah dibuat dari blueprint Pengajian Rolling.',
 };
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function RollingJadwalPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: true,
-    },
-  });
-
-  if (!userProfile || !userProfile.organizationId) {
+  if (!user || !userProfile || !userProfile.organizationId || !effectiveUserId) {
     redirect('/login');
   }
 
@@ -46,7 +33,7 @@ export default async function RollingJadwalPage() {
   }
 
   const userCtx = {
-    userId: user.id,
+    userId: effectiveUserId,
     organizationId: userProfile.organizationId,
     roleCodes: roleCodes as any,
   };

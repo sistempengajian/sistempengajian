@@ -10,25 +10,12 @@ export const metadata = {
   description: 'Konfigurasi antrean materi bergulir per pengajian, mingguan, dan bulanan.',
 };
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function RollingMateriPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: true,
-    },
-  });
-
-  if (!userProfile) {
+  if (!user || !userProfile || !effectiveUserId) {
     redirect('/login');
   }
 
@@ -54,7 +41,7 @@ export default async function RollingMateriPage() {
       orderBy: { minAge: 'asc' },
     }),
     getMaterialRollings(undefined, {
-      userId: user.id,
+      userId: effectiveUserId,
       organizationId: userProfile.organizationId,
       roleCodes: roleCodes as any,
     }),

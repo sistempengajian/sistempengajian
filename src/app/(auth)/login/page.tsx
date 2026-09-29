@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { requestWhatsAppMagicLogin, getWhatsAppLoginCooldown, login } from '../actions';
+import { requestWhatsAppMagicLogin, getWhatsAppLoginCooldown, login, loginAsDemoUser } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 import {
   Phone,
@@ -19,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   Loader2,
+  Zap,
 } from 'lucide-react';
 import { displayPhoneNumber } from '@/lib/whatsapp/utils';
 
@@ -194,7 +195,10 @@ function LoginForm() {
     }
   };
 
-  // Quick Demo Account Selector
+  // Instant Demo Login State
+  const [instantLoadingRole, setInstantLoadingRole] = useState<string | null>(null);
+
+  // Quick Demo Account Selector (Fill inputs)
   const handleSelectDemo = (account: DemoAccount) => {
     setPhone(account.phone);
     setEmail(account.email);
@@ -208,6 +212,24 @@ function LoginForm() {
         setCooldownSeconds(res.cooldownRemaining);
       } else {
         setCooldownSeconds(0);
+      }
+    });
+  };
+
+  // 1-Click Instant Demo Login (Direct dashboard access for testing)
+  const handleInstantDemoLogin = (e: React.MouseEvent, account: DemoAccount) => {
+    e.stopPropagation();
+    setInstantLoadingRole(account.role);
+    setErrorMessage(null);
+
+    startTransition(async () => {
+      const res = await loginAsDemoUser(account.phone);
+      if (!res.success) {
+        setErrorMessage(res.error || 'Gagal masuk akun demo.');
+        setInstantLoadingRole(null);
+      } else {
+        router.push(redirectTo);
+        router.refresh();
       }
     });
   };
@@ -494,42 +516,65 @@ function LoginForm() {
         <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-700 mb-3">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Pilih Akun Demo Cepat:</span>
+            <span>Pilih Akun Demo Uji Coba:</span>
           </div>
-          <span className="text-[10px] text-slate-400 font-normal">Klik untuk mengisi nomor WA</span>
+          <span className="text-[10px] text-slate-400 font-normal">Klik Masuk Cepat untuk demo instan</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {DEMO_ACCOUNTS.map((account) => {
             const isSelected = phone === account.phone;
+            const isLoading = instantLoadingRole === account.role;
             return (
-              <button
+              <div
                 key={account.role}
-                type="button"
                 onClick={() => handleSelectDemo(account)}
-                className={`text-left p-2.5 rounded-2xl border transition-all text-xs group cursor-pointer ${
+                className={`p-3 rounded-2xl border transition-all text-xs flex flex-col justify-between gap-2.5 cursor-pointer ${
                   isSelected
-                    ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/20'
-                    : 'border-slate-200/80 bg-slate-50/60 hover:bg-emerald-50/70 hover:border-emerald-200'
+                    ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs'
+                    : 'border-slate-200/80 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-200 shadow-2xs'
                 }`}
               >
-                <div className="font-bold text-slate-800 group-hover:text-emerald-900 leading-tight">
-                  {account.role}
+                <div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-slate-900 leading-tight">
+                      {account.role}
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-mono flex items-center gap-0.5">
+                      <Phone className="w-2.5 h-2.5" />
+                      <span>{displayPhoneNumber(account.phone)}</span>
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
+                    {account.name}
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
-                  {account.name}
-                </div>
-                <div className="text-[10px] text-emerald-700 font-mono mt-1 flex items-center gap-1">
-                  <Phone className="w-2.5 h-2.5" />
-                  <span>{displayPhoneNumber(account.phone)}</span>
-                </div>
-              </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => handleInstantDemoLogin(e, account)}
+                  disabled={isPending}
+                  className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Masuk Demo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 fill-amber-300 text-amber-300" />
+                      <span>Masuk Cepat (Demo)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             );
           })}
         </div>
 
         <p className="text-[11px] text-slate-400 text-center mt-4">
-          Otentikasi dilindungi pembatasan 1x pakai &amp; jeda cooldown 5 menit
+          Otentikasi dilindungi pembatasan 1x pakai &amp; sinkronisasi database pengguna
         </p>
       </div>
     </div>

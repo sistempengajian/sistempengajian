@@ -27,6 +27,8 @@ import { generateSessionSecret, generateQrPayload, TOTP_STEP_SECONDS } from '@/l
 import { resolveMaterialsForSchedule } from '@/lib/curriculumVersionResolver';
 import { getParentAbsenceHistory, populateDefaultAbsenceForSession } from '@/app/(protected)/presensi/actions';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export default async function PresensiPage({
   searchParams,
 }: {
@@ -34,13 +36,16 @@ export default async function PresensiPage({
 }) {
   const resolvedParams = searchParams ? await searchParams : {};
   const requestedScheduleId = resolvedParams.scheduleId;
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser) {
     redirect('/login');
+  }
+
+  if (!userProfile) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect('/login?auth_error=' + encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan login kembali.'));
   }
 
   const scheduleInclude = {
@@ -89,37 +94,13 @@ export default async function PresensiPage({
     },
   };
 
-  // Fetch data profil dan jadwal spesifik secara paralel jika scheduleId disediakan
-  const [userProfile, directSchedule] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: authUser.id },
-      include: {
-        roles: true,
-        organization: true,
-        generation: true,
-        children: {
-          include: {
-            student: {
-              include: {
-                generation: true,
-                organization: true,
-              },
-            },
-          },
-        },
-      },
-    }),
-    requestedScheduleId
-      ? prisma.schedule.findUnique({
-          where: { id: requestedScheduleId },
-          include: scheduleInclude,
-        })
-      : Promise.resolve(null),
-  ]);
-
-  if (!userProfile) {
-    redirect('/login');
-  }
+  // Fetch jadwal spesifik jika scheduleId disediakan
+  const directSchedule = requestedScheduleId
+    ? await prisma.schedule.findUnique({
+        where: { id: requestedScheduleId },
+        include: scheduleInclude,
+      })
+    : null;
 
   const roleCodes = userProfile.roles.map((r) => r.role);
   const isPengajar = roleCodes.includes('PENGAJAR') || roleCodes.includes('WALI_KELAS');
@@ -146,7 +127,7 @@ export default async function PresensiPage({
           where: {
             status: { in: ['ACTIVE', 'SCHEDULED'] },
             teachers: {
-              some: { teacherId: authUser.id },
+              some: { teacherId: userProfile.id },
             },
           },
           orderBy: { startTime: 'asc' },
@@ -605,7 +586,7 @@ export default async function PresensiPage({
       });
     }
 
-    const currentScheduleTeacher = activeSchedule.teachers.find((t) => t.teacherId === authUser.id);
+    const currentScheduleTeacher = activeSchedule.teachers.find((t) => t.teacherId === userProfile.id);
     const primaryScheduleTeacher = activeSchedule.teachers.find((t) => t.isPrimary) || activeSchedule.teachers[0];
     const teacherInfo = currentScheduleTeacher
       ? {
@@ -771,7 +752,7 @@ export default async function PresensiPage({
         where: { scheduleId: activeSchedule.id },
         include: {
           records: {
-            where: { studentId: authUser.id },
+            where: { studentId: userProfile.id },
           },
         },
       });

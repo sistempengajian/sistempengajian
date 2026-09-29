@@ -6,6 +6,8 @@ import { getAssignmentsData } from './actions';
 import TugasClientWrapper from '@/components/tugas/TugasClientWrapper';
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export const metadata = {
   title: 'Tugas Pasca-Pengajian | Sistem Pengajian Terstruktur',
   description: 'Modul pengerjaan, setoran suara, checklist harian, koreksi pengajar, dan paraf digital orang tua.',
@@ -18,29 +20,11 @@ export default async function TugasPage({
 }) {
   const resolvedParams = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: currentUser } = await getEffectiveAuthUser();
 
   if (!authUser) {
     redirect('/login');
   }
-
-  // 1. Ambil data profil & peran user
-  const currentUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      id: true,
-      fullName: true,
-      organizationId: true,
-      generationId: true,
-      roles: { select: { role: true } },
-      children: { select: { id: true }, take: 1 },
-      homeroomClasses: { select: { id: true }, take: 1 },
-      scheduleAssignments: { select: { id: true }, take: 1 },
-    },
-  });
 
   if (!currentUser) {
     redirect('/login');

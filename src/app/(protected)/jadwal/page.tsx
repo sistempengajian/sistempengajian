@@ -6,6 +6,7 @@ import JadwalClientWrapper, { RoleConfigData } from '@/components/jadwal/JadwalC
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { UserRole } from '@prisma/client';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 export const metadata = {
   title: 'Jadwal Pengajian | Sistem Pengajian Terstruktur',
@@ -182,47 +183,11 @@ export default async function JadwalPage({
 }) {
   const resolvedParams = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!user) {
     redirect('/login');
   }
-
-  // 1. Ambil data profil pengguna beserta relasi organisasi, kelas binaan & anak
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: {
-        include: {
-          parent: {
-            include: {
-              parent: true,
-            },
-          },
-        },
-      },
-      homeroomClasses: { select: { id: true, name: true } },
-      scheduleAssignments: { select: { id: true }, take: 1 },
-      children: {
-        include: {
-          student: {
-            include: {
-              organization: {
-                include: {
-                  parent: true,
-                },
-              },
-              generation: true,
-            },
-          },
-        },
-      },
-    },
-  });
 
   if (!userProfile) {
     redirect('/login');
@@ -441,10 +406,10 @@ export default async function JadwalPage({
       scheduleWhere: {
         OR: [
           {
-            teachers: { some: { teacherId: user.id } },
+            teachers: { some: { teacherId: effectiveUserId } },
             OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
           },
-          { requestedByUserId: user.id },
+          { requestedByUserId: effectiveUserId },
           ...((userProfile?.homeroomClasses || []).length > 0
             ? [
                 {
@@ -678,7 +643,7 @@ export default async function JadwalPage({
       generations={generations as any}
       scopedOrganizations={scopedOrganizations as any}
       currentUserOrgId={userProfile?.organizationId || null}
-      currentUserId={user.id}
+      currentUserId={effectiveUserId}
       roleCodes={roleCodes}
     />
   );

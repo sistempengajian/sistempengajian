@@ -4,14 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, ApprovalStatus } from '@prisma/client';
+import { getEffectiveAuthUser } from '@/lib/auth';
 
 export async function requestPrivateRemedial(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !effectiveUserId) {
     return { error: 'Anda harus masuk untuk mengajukan pengajian private.' };
   }
 
@@ -33,10 +31,6 @@ export async function requestPrivateRemedial(formData: FormData) {
     };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-  });
-
   if (!userProfile?.organizationId) {
     return { error: 'Organisasi wilayah tidak ditemukan.' };
   }
@@ -53,7 +47,7 @@ export async function requestPrivateRemedial(formData: FormData) {
         endTime: new Date(endTimeStr),
         maxStudentsQuota: 5,
         status: ScheduleStatus.SCHEDULED,
-        requestedByUserId: user.id,
+        requestedByUserId: effectiveUserId,
         requesterType: 'PENGAJAR',
         approvalStatus: ApprovalStatus.PENDING,
         teachers: {
@@ -78,12 +72,9 @@ export async function requestPrivateRemedial(formData: FormData) {
 
 // PJ Approval Action: Setujui Jadwal Private
 export async function approvePrivateRemedial(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !effectiveUserId) {
     return { error: 'Anda harus masuk untuk menyetujui pengajuan.' };
   }
 
@@ -92,7 +83,7 @@ export async function approvePrivateRemedial(scheduleId: string) {
       where: { id: scheduleId },
       data: {
         approvalStatus: ApprovalStatus.APPROVED,
-        approvedByPjId: user.id,
+        approvedByPjId: effectiveUserId,
         status: ScheduleStatus.SCHEDULED,
       },
     });
@@ -108,12 +99,9 @@ export async function approvePrivateRemedial(scheduleId: string) {
 
 // PJ Rejection Action: Tolak Jadwal Private
 export async function rejectPrivateRemedial(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !effectiveUserId) {
     return { error: 'Anda harus masuk untuk menolak pengajuan.' };
   }
 
@@ -122,7 +110,7 @@ export async function rejectPrivateRemedial(scheduleId: string) {
       where: { id: scheduleId },
       data: {
         approvalStatus: ApprovalStatus.REJECTED,
-        approvedByPjId: user.id,
+        approvedByPjId: effectiveUserId,
         status: ScheduleStatus.CANCELLED,
       },
     });

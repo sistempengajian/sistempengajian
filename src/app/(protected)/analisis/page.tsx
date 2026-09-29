@@ -8,6 +8,8 @@ import AnalisisClientWrapper from '@/components/analisis/AnalisisClientWrapper';
 import { UserX, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
+import { getEffectiveAuthUser } from '@/lib/auth';
+
 export const metadata = {
   title: 'Analitika & Presentasi Eksekutif | Sistem Pengajian',
   description:
@@ -25,22 +27,11 @@ export default async function AnalisisPage({
 }) {
   const resolvedParams = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: user, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!authUser) {
     redirect('/login');
   }
-
-  // 1. Verifikasi RBAC pengguna
-  const user = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: {
-      roles: true,
-    },
-  });
 
   if (!user) {
     redirect('/login');

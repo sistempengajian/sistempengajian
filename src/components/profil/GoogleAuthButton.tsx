@@ -21,9 +21,10 @@ import { updateUserEmail, unlinkUserEmail } from '@/app/(protected)/profil/actio
 
 interface GoogleAuthButtonProps {
   email: string | null;
+  userId?: string;
 }
 
-export default function GoogleAuthButton({ email }: GoogleAuthButtonProps) {
+export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProps) {
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'warning'; text: string; details?: string } | null>(null);
@@ -70,7 +71,13 @@ export default function GoogleAuthButton({ email }: GoogleAuthButtonProps) {
     try {
       const supabase = createClient();
       const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback?next=/profil`;
+
+      // Simpan cookie ID pengguna agar alur callback tahu akun mana yang sedang ditautkan
+      if (userId) {
+        document.cookie = `pengajian_link_uid=${userId}; path=/; max-age=600; SameSite=Lax`;
+      }
+
+      const redirectTo = `${origin}/auth/callback?action=link&next=/profil${userId ? `&link_uid=${userId}` : ''}`;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

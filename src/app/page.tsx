@@ -328,7 +328,7 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              href="/dashboard"
+              href="/login?redirectTo=/dashboard"
               className="px-6 py-3 rounded-2xl bg-white hover:bg-pastel-slate-100 border border-pastel-slate-300 text-pastel-slate-800 font-semibold text-sm shadow-sm active:scale-95 transition-all flex items-center gap-2"
             >
               <ExternalLink className="w-4 h-4 text-pastel-mint-600" />

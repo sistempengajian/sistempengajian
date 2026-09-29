@@ -367,7 +367,8 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
             </div>
 
             {/* Email & Google Auth Button */}
-            <GoogleAuthButton email={currentUser.email} />
+            <GoogleAuthButton email={currentUser.email} userId={currentUser.id} />
+
 
             {/* Tempat & Tanggal Lahir (TTL) */}
             <div className="p-3 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3">

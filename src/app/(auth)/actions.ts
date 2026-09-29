@@ -269,7 +269,9 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
       const supabaseAdmin = createAdminClient();
       const userEmail = tokenRecord.user.email || `${tokenRecord.user.username || tokenRecord.user.id}@pengajian.app`;
 
-      const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      // Pastikan user ada di Supabase Auth dengan ID yang sama
+      let authUserId = tokenRecord.user.id;
+      const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
         email: userEmail,
       });
@@ -285,6 +287,7 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
           await supabaseAdmin.auth.admin.createUser({
             id: tokenRecord.user.id,
             email: userEmail,
+            password: 'DemoPassword2026!',
             email_confirm: true,
             user_metadata: {
               full_name: tokenRecord.user.fullName,
@@ -327,6 +330,98 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
       success: false,
       error: err.message || 'Gagal memverifikasi tautan masuk.',
     };
+  }
+}
+
+/**
+ * Server Action: Masuk Instan Akun Demo (1-Klik untuk Pengujian Sistem)
+ */
+export async function loginAsDemoUser(identifier: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const normalized = normalizePhoneNumber(identifier);
+    const localFormat = normalized?.startsWith('62') ? '0' + normalized.slice(2) : normalized;
+
+    // Cari pengguna demo di Prisma berdasarkan nomor HP, email, atau username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(normalized ? [{ phoneNumber: normalized }, { phoneNumber: localFormat }] : []),
+          { email: identifier },
+          { username: identifier },
+        ],
+      },
+      include: {
+        roles: true,
+      },
+    });
+
+    if (!user) {
+      return { success: false, error: 'Akun demo tidak ditemukan di database.' };
+    }
+
+    if (user.status !== 'ACTIVE') {
+      return { success: false, error: 'Akun demo sedang tidak aktif.' };
+    }
+
+    const userEmail = user.email || (user.username ? `${user.username}@pengajian.app` : `${user.id}@pengajian.app`);
+    const supabaseAdmin = createAdminClient();
+    const supabase = await createClient();
+
+    // 1. Coba login langsung via signInWithPassword (DemoPassword2026!)
+    const { error: pwdErr } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: 'DemoPassword2026!',
+    });
+
+    if (!pwdErr) {
+      revalidatePath('/', 'layout');
+      return { success: true };
+    }
+
+    // 2. Jika password gagal, gunakan OTP magiclink generator (admin)
+    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: userEmail,
+    });
+
+    if (linkData?.properties?.hashed_token) {
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        token_hash: linkData.properties.hashed_token,
+        type: 'magiclink',
+      });
+
+      if (!otpErr) {
+        revalidatePath('/', 'layout');
+        return { success: true };
+      }
+    }
+
+    // 3. Jika belum terdaftar di Supabase Auth, buat akun baru dengan ID Prisma
+    await supabaseAdmin.auth.admin.createUser({
+      id: user.id,
+      email: userEmail,
+      password: 'DemoPassword2026!',
+      email_confirm: true,
+      user_metadata: {
+        full_name: user.fullName,
+        username: user.username,
+      },
+    });
+
+    const { error: finalSignInErr } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: 'DemoPassword2026!',
+    });
+
+    if (finalSignInErr) {
+      return { success: false, error: finalSignInErr.message };
+    }
+
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch (err: any) {
+    console.error('[loginAsDemoUser Error]:', err);
+    return { success: false, error: err.message || 'Gagal masuk akun demo.' };
   }
 }
 
