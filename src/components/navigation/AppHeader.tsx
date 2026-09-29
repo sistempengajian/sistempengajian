@@ -6,47 +6,20 @@ import { useFormStatus } from 'react-dom';
 import {
   BookOpen,
   Bell,
-  LogOut,
-  Loader2,
   Check,
   Calendar,
   Sparkles,
   Inbox,
   X,
   Trophy,
+  User as UserIcon,
 } from 'lucide-react';
-import { logout } from '@/app/(auth)/actions';
 import { RoleTheme } from '@/lib/theme';
 
 interface AppHeaderProps {
   roleTheme: RoleTheme;
   roleCodes?: string[];
   userName?: string;
-}
-
-function LogoutButton({ isScrolled }: { isScrolled: boolean }) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={`group inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-semibold text-slate-600 hover:text-rose-600 transition-all duration-200 active:scale-95 disabled:opacity-60 cursor-pointer select-none border ${
-        isScrolled
-          ? 'bg-white/80 hover:bg-rose-50/90 border-slate-200/80 hover:border-rose-200/80 shadow-sm'
-          : 'bg-white/40 hover:bg-white/70 border-slate-200/50 hover:border-rose-200/60 shadow-none'
-      }`}
-      title="Keluar dari sesi"
-      aria-label="Keluar dari akun"
-    >
-      {pending ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
-      ) : (
-        <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-500 transition-colors" />
-      )}
-      <span className="hidden xs:inline sm:inline">Keluar</span>
-    </button>
-  );
 }
 
 export default function AppHeader({
@@ -292,10 +265,25 @@ export default function AppHeader({
             )}
           </div>
 
-          {/* Minimalist Clean Logout Button */}
-          <form action={logout}>
-            <LogoutButton isScrolled={isScrolled} />
-          </form>
+          {/* User Profile Avatar Link */}
+          <Link
+            href="/profil"
+            prefetch={true}
+            className={`inline-flex items-center gap-2 h-9 px-1.5 sm:px-3 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-700 active:scale-95 transition-all duration-200 border select-none ${
+              isScrolled
+                ? 'bg-white/80 hover:bg-slate-100/80 border-slate-200/80 shadow-sm'
+                : 'bg-white/40 hover:bg-white/70 border-slate-200/50 shadow-none'
+            }`}
+            title="Profil Pengguna & Pengaturan Akun"
+            aria-label="Buka Profil Pengguna"
+          >
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-[11px] shadow-2xs">
+              {userName ? userName.trim().charAt(0).toUpperCase() : <UserIcon className="w-3.5 h-3.5" />}
+            </div>
+            <span className="hidden xs:inline sm:inline max-w-[110px] truncate">
+              {userName ? userName.split(' ')[0] : 'Profil'}
+            </span>
+          </Link>
         </div>
       </div>
     </header>
