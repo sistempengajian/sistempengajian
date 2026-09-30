@@ -26,6 +26,9 @@ import {
   Ban,
   Users as UsersIcon,
   GraduationCap,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import { UserRole, Gender } from '@prisma/client';
 import { FormReferenceData, UserWithRelations, UpdateUserInput } from '../types';
@@ -106,6 +109,7 @@ export default function EditUserForm({
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || '');
   const [email, setEmail] = useState(user.email || '');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState<Gender>(user.gender);
   const [status, setStatus] = useState<string>(user.status);
   const [organizationId, setOrganizationId] = useState(
@@ -190,6 +194,12 @@ export default function EditUserForm({
       return;
     }
 
+    const trimmedPass = newPassword.trim();
+    if (trimmedPass && trimmedPass.length < 6) {
+      setErrorMessage('Kata sandi baru wajib minimal 6 karakter.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -198,7 +208,7 @@ export default function EditUserForm({
         username: username.trim() || undefined,
         phoneNumber: phoneNumber.trim() || undefined,
         email: email.trim() || undefined,
-        password: newPassword.trim() || undefined,
+        password: trimmedPass || undefined,
         gender,
         status,
         roles: selectedRoles,
@@ -566,38 +576,71 @@ export default function EditUserForm({
             <div className="rounded-3xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-amber-600" />
+                  <KeyRound className="w-4 h-4 text-amber-600" />
                   <h2 className="text-sm font-bold text-slate-800">
                     4. Akun Login &amp; Reset Kata Sandi
                   </h2>
                 </div>
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  (Otentikasi Akun)
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Alamat email custom dan kata sandi baru yang Anda simpan di sini akan disinkronkan ke database dan dapat langsung digunakan oleh pengguna untuk masuk ke sistem via menu <strong>Login Email/Password</strong>.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Email Login Custom */}
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700">
-                    Email Login
+                    Alamat Email Login
                   </label>
-                  <input
-                    type="email"
-                    placeholder="user@pengajian.app"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 text-xs sm:text-sm text-slate-800 font-medium transition-all"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      placeholder="contoh: nama@domain.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 text-xs sm:text-sm text-slate-800 font-medium transition-all"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">
+                    Format email valid (contoh: user@gmail.com / user@pengajian.app).
+                  </span>
                 </div>
 
+                {/* Kata Sandi Baru */}
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700">
                     Kata Sandi Baru (Opsional)
                   </label>
-                  <input
-                    type="password"
-                    placeholder="Kosongkan jika tidak diubah"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 text-xs sm:text-sm text-slate-800 font-medium transition-all"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Kosongkan jika tidak diubah"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 text-xs sm:text-sm text-slate-800 font-medium transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      title={showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">
+                    Minimal 6 karakter. Kosongkan jika tetap menggunakan sandi lama.
+                  </span>
                 </div>
               </div>
             </div>

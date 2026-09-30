@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import { getUsersOverview, getFormReferenceData } from './queries';
 import UserManagementView from '@/components/users/UserManagementView';
 
@@ -18,18 +18,15 @@ export default async function UsersPage({
 }) {
   const resolvedSearchParams = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, effectiveUserId, dbUser } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !effectiveUserId || !dbUser) {
     redirect('/login');
   }
 
   const [initialData, referenceData] = await Promise.all([
-    getUsersOverview(authUser.id, resolvedSearchParams),
-    getFormReferenceData(authUser.id),
+    getUsersOverview(effectiveUserId, resolvedSearchParams),
+    getFormReferenceData(effectiveUserId),
   ]);
 
   return (

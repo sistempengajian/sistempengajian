@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { UserRole, ParentRelationType, Gender } from '@prisma/client';
 import { CreateUserInput, UpdateUserInput } from '@/components/users/types';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import {
   getScopedOrganizationIds,
   getManageableRoles,
@@ -15,30 +16,16 @@ import {
 import { getUsersOverview } from './queries';
 
 /**
- * Validasi otentikasi dan peran pengelola
+ * Validasi otentikasi dan peran pengelola menggunakan resolusi akun terpadu
  */
 async function getAuthenticatedManager() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser } = await getEffectiveAuthUser();
 
-  if (!authUser) {
-    throw new Error('Sesi tidak valid. Silakan login kembali.');
+  if (!authUser || !dbUser) {
+    throw new Error('Sesi tidak valid atau profil pengelola tidak ditemukan. Silakan login kembali.');
   }
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: {
-      roles: true,
-      organization: true,
-    },
-  });
-
-  if (!currentUser) {
-    throw new Error('Data profil pengelola tidak ditemukan.');
-  }
-
+  const currentUser = dbUser;
   const roles = currentUser.roles.map((r) => r.role);
   const isAdmin = roles.includes('ADMIN_MASTER');
   const isPj =
@@ -50,7 +37,86 @@ async function getAuthenticatedManager() {
     throw new Error('Anda tidak memiliki wewenang untuk mengelola data pengguna.');
   }
 
-  return { currentUser, isAdmin, isPj, roles };
+  return { currentUser, isAdmin, isPj, roles, authUser };
+}
+
+/**
+ * Helper sinkronisasi kredensial pengguna ke Supabase Auth (auth.users)
+ * Menjamin email custom dan password baru tersimpan dan dapat digunakan untuk login email/password.
+ */
+export async function syncUserSupabaseAuth(params: {
+  userId: string;
+  email?: string | null;
+  password?: string | null;
+  fullName?: string | null;
+  username?: string | null;
+  phoneNumber?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabaseAdmin = createAdminClient();
+    const targetEmail =
+      params.email?.trim().toLowerCase() ||
+      (params.username?.trim().toLowerCase()
+        ? `${params.username.trim().toLowerCase()}@pengajian.app`
+        : `${params.userId}@pengajian.app`);
+
+    // 1. Coba cari apakah akun auth dengan userId sudah ada
+    const { data: existingUserById } = await supabaseAdmin.auth.admin.getUserById(params.userId);
+
+    const userMetadata = {
+      full_name: params.fullName?.trim() || undefined,
+      username: params.username?.trim().toLowerCase() || undefined,
+    };
+
+    if (existingUserById?.user) {
+      // User sudah ada di Supabase Auth -> Update Email & Password & Metadata
+      const updatePayload: any = {
+        email: targetEmail,
+        email_confirm: true,
+        user_metadata: {
+          ...existingUserById.user.user_metadata,
+          ...userMetadata,
+        },
+      };
+
+      if (params.password && params.password.length >= 6) {
+        updatePayload.password = params.password;
+      }
+
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
+        params.userId,
+        updatePayload
+      );
+
+      if (updateErr) {
+        console.warn(`[syncUserSupabaseAuth] Gagal update akun auth ${params.userId}:`, updateErr.message);
+        return { success: false, error: updateErr.message };
+      }
+
+      return { success: true };
+    }
+
+    // 2. Jika user belum ada di Supabase Auth, buatkan akun baru dengan ID Prisma yang sama
+    const createPayload: any = {
+      id: params.userId,
+      email: targetEmail,
+      password: (params.password && params.password.length >= 6) ? params.password : 'DemoPassword2026!',
+      email_confirm: true,
+      user_metadata: userMetadata,
+    };
+
+    const { error: createErr } = await supabaseAdmin.auth.admin.createUser(createPayload);
+
+    if (createErr) {
+      console.warn(`[syncUserSupabaseAuth] Gagal create akun auth ${params.userId}:`, createErr.message);
+      return { success: false, error: createErr.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[syncUserSupabaseAuth Exception]:', err);
+    return { success: false, error: err.message || 'Gagal menyelaraskan akun otentikasi Supabase.' };
+  }
 }
 
 /**
@@ -68,6 +134,10 @@ export async function createUser(input: CreateUserInput) {
 
     if (!input.roles || input.roles.length === 0) {
       return { success: false, message: 'Pilih minimal satu peran (role) untuk pengguna ini.' };
+    }
+
+    if (input.password && input.password.length < 6) {
+      return { success: false, message: 'Kata sandi awal wajib minimal 6 karakter.' };
     }
 
     // Validasi peran: Semua peran yang ditugaskan harus berada dalam batas wewenang pengelola
@@ -128,62 +198,29 @@ export async function createUser(input: CreateUserInput) {
     const trimmedEmail = input.email?.trim().toLowerCase() || null;
     const trimmedPhone = input.phoneNumber?.trim() || null;
 
-    // Cek duplikasi email jika ada
+    // Cek duplikasi email jika ada (case-insensitive)
     if (trimmedEmail) {
-      const existingEmail = await prisma.user.findUnique({
-        where: { email: trimmedEmail },
+      const existingEmail = await prisma.user.findFirst({
+        where: { email: { equals: trimmedEmail, mode: 'insensitive' } },
       });
       if (existingEmail) {
         return { success: false, message: `Email "${trimmedEmail}" sudah terdaftar pada akun lain.` };
       }
     }
 
-    // Cek duplikasi username jika ada
+    // Cek duplikasi username jika ada (case-insensitive)
     if (trimmedUsername) {
-      const existingUsername = await prisma.user.findUnique({
-        where: { username: trimmedUsername },
+      const existingUsername = await prisma.user.findFirst({
+        where: { username: { equals: trimmedUsername, mode: 'insensitive' } },
       });
       if (existingUsername) {
         return { success: false, message: `Username "${trimmedUsername}" sudah digunakan.` };
       }
     }
 
-    // Provisioning ke Supabase Auth jika email & password diisi
-    let assignedUserId: string | undefined = undefined;
-
-    if (trimmedEmail && input.password && input.password.length >= 6) {
-      try {
-        const supabaseAdmin = createAdminClient();
-        const { data: authCreated, error: authError } =
-          await supabaseAdmin.auth.admin.createUser({
-            email: trimmedEmail,
-            password: input.password,
-            email_confirm: true,
-            user_metadata: {
-              full_name: trimmedName,
-              username: trimmedUsername,
-            },
-          });
-
-        if (authError) {
-          return {
-            success: false,
-            message: `Gagal membuat akun login: ${authError.message}`,
-          };
-        }
-
-        if (authCreated?.user?.id) {
-          assignedUserId = authCreated.user.id;
-        }
-      } catch (authErr: any) {
-        console.warn('Supabase Auth provisioning skipped or failed:', authErr.message);
-      }
-    }
-
-    // Buat User di Prisma
+    // Buat User di Prisma terlebih dahulu
     const createdUser = await prisma.user.create({
       data: {
-        ...(assignedUserId ? { id: assignedUserId } : {}),
         fullName: trimmedName,
         username: trimmedUsername,
         email: trimmedEmail,
@@ -200,6 +237,16 @@ export async function createUser(input: CreateUserInput) {
           })),
         },
       },
+    });
+
+    // Sinkronkan akun login ke Supabase Auth
+    await syncUserSupabaseAuth({
+      userId: createdUser.id,
+      email: trimmedEmail,
+      password: input.password || null,
+      fullName: trimmedName,
+      username: trimmedUsername,
+      phoneNumber: trimmedPhone,
     });
 
     // Handle relasi Orang Tua jika ini adalah Santri dan data ortu disertakan
@@ -358,36 +405,58 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
     const trimmedEmail = input.email?.trim().toLowerCase() || null;
     const trimmedPhone = input.phoneNumber?.trim() || null;
 
-    // Cek duplikasi email (selain milik user ini)
-    if (trimmedEmail && trimmedEmail !== existingUser.email) {
-      const duplicateEmail = await prisma.user.findUnique({
-        where: { email: trimmedEmail },
+    // Validasi panjang password baru jika diisi
+    if (input.password && input.password.length < 6) {
+      return { success: false, message: 'Kata sandi baru wajib minimal 6 karakter.' };
+    }
+
+    // Cek duplikasi email (selain milik user ini) secara case-insensitive
+    if (trimmedEmail && trimmedEmail !== existingUser.email?.toLowerCase()) {
+      const duplicateEmail = await prisma.user.findFirst({
+        where: {
+          email: { equals: trimmedEmail, mode: 'insensitive' },
+          id: { not: userId },
+        },
       });
       if (duplicateEmail) {
         return { success: false, message: `Email "${trimmedEmail}" sudah digunakan akun lain.` };
       }
     }
 
-    // Cek duplikasi username (selain milik user ini)
-    if (trimmedUsername && trimmedUsername !== existingUser.username) {
-      const duplicateUsername = await prisma.user.findUnique({
-        where: { username: trimmedUsername },
+    // Cek duplikasi username (selain milik user ini) secara case-insensitive
+    if (trimmedUsername && trimmedUsername !== existingUser.username?.toLowerCase()) {
+      const duplicateUsername = await prisma.user.findFirst({
+        where: {
+          username: { equals: trimmedUsername, mode: 'insensitive' },
+          id: { not: userId },
+        },
       });
       if (duplicateUsername) {
-        return { success: false, message: `Username "${trimmedUsername}" sudah digunakan.` };
+        return { success: false, message: `Username "${trimmedUsername}" sudah digunakan akun lain.` };
       }
     }
 
-    // Update password di Supabase Auth jika disediakan
-    if (input.password && input.password.length >= 6) {
-      try {
-        const supabaseAdmin = createAdminClient();
-        await supabaseAdmin.auth.admin.updateUserById(userId, {
-          password: input.password,
-        });
-      } catch (authErr: any) {
-        console.warn('Supabase Auth update password failed:', authErr.message);
+    // Sinkronisasi pembaruan kredensial (email & password baru) ke Supabase Auth
+    const authSync = await syncUserSupabaseAuth({
+      userId,
+      email: trimmedEmail,
+      password: input.password?.trim() || null,
+      fullName: trimmedName,
+      username: trimmedUsername,
+      phoneNumber: trimmedPhone,
+    });
+
+    if (!authSync.success && authSync.error) {
+      if (
+        authSync.error.toLowerCase().includes('already registered') ||
+        authSync.error.toLowerCase().includes('already exists')
+      ) {
+        return {
+          success: false,
+          message: `Email "${trimmedEmail}" sudah terdaftar pada sistem otentikasi akun lain. Silakan gunakan email yang berbeda.`,
+        };
       }
+      console.warn(`[updateUser] Notice Supabase Auth sync for ${userId}:`, authSync.error);
     }
 
     // Transaksi database: Update data profil & sinkronisasi relasi peran
@@ -775,16 +844,13 @@ export async function fetchUsersOverviewAction(params: {
   search?: string;
 }) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !effectiveUserId) {
       return { success: false, message: 'Sesi telah berakhir. Silakan login kembali.' };
     }
 
-    const overview = await getUsersOverview(authUser.id, {
+    const overview = await getUsersOverview(effectiveUserId, {
       page: params.page ? String(params.page) : '1',
       limit: params.limit ? String(params.limit) : '20',
       role: params.role || undefined,

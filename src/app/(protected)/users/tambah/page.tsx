@@ -1,8 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import { UserRole } from '@prisma/client';
 import { getFormReferenceData } from '../queries';
 import { getManageableRoles } from '@/lib/scoped-access';
@@ -14,23 +13,13 @@ export const metadata: Metadata = {
 };
 
 export default async function TambahUserPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, effectiveUserId, dbUser } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !effectiveUserId || !dbUser) {
     redirect('/login');
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      roles: { select: { role: true } },
-    },
-  });
-
-  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const roleCodes = dbUser.roles.map((r) => r.role) || [];
   const isAdmin = roleCodes.includes('ADMIN_MASTER');
   const isPjDaerah = roleCodes.includes('PJ_DAERAH');
   const isPjDesa = roleCodes.includes('PJ_DESA');
@@ -49,7 +38,7 @@ export default async function TambahUserPage() {
   else if (isPjDesa) userScopeRole = 'PJ_DESA';
   else if (isPjKelompok) userScopeRole = 'PJ_KELOMPOK';
 
-  const referenceData = await getFormReferenceData(authUser.id);
+  const referenceData = await getFormReferenceData(effectiveUserId);
 
   return (
     <CreateUserForm

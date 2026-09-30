@@ -426,26 +426,115 @@ export async function loginAsDemoUser(identifier: string): Promise<{ success: bo
 }
 
 /**
- * Fallback Login dengan Email & Password
+ * Login dengan Alamat Email / Username / No. HP & Kata Sandi
  */
 export async function login(formData: FormData) {
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
+  const rawIdentifier = (formData.get('email') as string)?.trim();
+  const password = (formData.get('password') as string)?.trim();
   const redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
 
-  if (!email || !password) {
-    return { error: 'Email dan kata sandi wajib diisi.' };
+  if (!rawIdentifier || !password) {
+    return { error: 'Alamat email / username dan kata sandi wajib diisi.' };
+  }
+
+  const lowerInput = rawIdentifier.toLowerCase();
+  const phoneNormalized = normalizePhoneNumber(rawIdentifier);
+  const phoneLocal = phoneNormalized?.startsWith('62') ? '0' + phoneNormalized.slice(2) : phoneNormalized;
+
+  // 1. Cari user di database Prisma berdasarkan email, username, atau no HP
+  const dbUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: { equals: lowerInput, mode: 'insensitive' } },
+        { username: { equals: lowerInput, mode: 'insensitive' } },
+        ...(phoneNormalized
+          ? [
+              { phoneNumber: phoneNormalized },
+              { phoneNumber: phoneLocal! },
+              { phoneNumber: `+${phoneNormalized}` },
+              { phoneNumber: { contains: phoneLocal ? phoneLocal.slice(1) : phoneNormalized } },
+            ]
+          : []),
+      ],
+    },
+    include: {
+      roles: true,
+    },
+  });
+
+  if (dbUser && dbUser.status !== 'ACTIVE') {
+    return {
+      error: `Akun Anda (${dbUser.fullName}) sedang ${
+        dbUser.status === 'SUSPENDED' ? 'ditangguhkan' : 'tidak aktif'
+      }. Silakan hubungi pengurus wilayah / admin.`,
+    };
   }
 
   const supabase = await createClient();
+  const supabaseAdmin = createAdminClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
+  // Tentukan target email otentikasi di Supabase Auth
+  const targetEmail =
+    dbUser?.email ||
+    (dbUser?.username ? `${dbUser.username}@pengajian.app` : (dbUser ? `${dbUser.id}@pengajian.app` : lowerInput));
+
+  // 2. Coba sign in dengan target email
+  let { error: signInErr } = await supabase.auth.signInWithPassword({
+    email: targetEmail,
     password,
   });
 
-  if (error) {
-    return { error: error.message };
+  // Jika gagal dan input rawIdentifier berbeda dan berformat email, coba juga langsung rawIdentifier
+  if (signInErr && lowerInput !== targetEmail && lowerInput.includes('@')) {
+    const retryRes = await supabase.auth.signInWithPassword({
+      email: lowerInput,
+      password,
+    });
+    if (!retryRes.error) {
+      signInErr = null;
+    }
+  }
+
+  // 3. Jika user ada di Prisma tapi belum terdaftar di Supabase Auth, buatkan akun auth via admin
+  if (signInErr && dbUser) {
+    try {
+      const { data: existingAuth } = await supabaseAdmin.auth.admin.getUserById(dbUser.id);
+      if (!existingAuth?.user) {
+        await supabaseAdmin.auth.admin.createUser({
+          id: dbUser.id,
+          email: targetEmail,
+          password: password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: dbUser.fullName,
+            username: dbUser.username,
+          },
+        });
+
+        // Coba login ulang setelah provisioning
+        const retryAfterCreate = await supabase.auth.signInWithPassword({
+          email: targetEmail,
+          password,
+        });
+
+        if (!retryAfterCreate.error) {
+          signInErr = null;
+        }
+      }
+    } catch (syncCatch) {
+      console.warn('[Login sync notice]:', syncCatch);
+    }
+  }
+
+  if (signInErr) {
+    const errMsg = signInErr.message.toLowerCase();
+    if (errMsg.includes('invalid login credentials') || errMsg.includes('invalid credentials')) {
+      return { error: 'Alamat email/username atau kata sandi salah. Silakan periksa kembali kredensial Anda.' };
+    }
+    if (errMsg.includes('email not confirmed')) {
+      return { error: 'Email belum dikonfirmasi. Silakan hubungi admin.' };
+    }
+    return { error: signInErr.message };
   }
 
   revalidatePath('/', 'layout');

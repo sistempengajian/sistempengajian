@@ -1,8 +1,8 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import { getUserById, getFormReferenceData } from '../../queries';
 import { getManageableRoles } from '@/lib/scoped-access';
 import EditUserForm from '@/components/users/form/EditUserForm';
@@ -37,23 +37,13 @@ export default async function EditUserPage({
 }) {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, effectiveUserId, dbUser } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !effectiveUserId || !dbUser) {
     redirect('/login');
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      roles: { select: { role: true } },
-    },
-  });
-
-  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const roleCodes = dbUser.roles.map((r) => r.role) || [];
   const isAdmin = roleCodes.includes('ADMIN_MASTER');
   const isPjDaerah = roleCodes.includes('PJ_DAERAH');
   const isPjDesa = roleCodes.includes('PJ_DESA');
@@ -67,8 +57,8 @@ export default async function EditUserPage({
   const allowedRoles = getManageableRoles(roleCodes);
 
   const [targetUser, referenceData] = await Promise.all([
-    getUserById(id, authUser.id),
-    getFormReferenceData(authUser.id),
+    getUserById(id, effectiveUserId),
+    getFormReferenceData(effectiveUserId),
   ]);
 
   // Jika target user tidak ditemukan atau akses ditolak oleh Scoped RBAC
