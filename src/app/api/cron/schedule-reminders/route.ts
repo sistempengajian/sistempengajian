@@ -128,6 +128,16 @@ async function handleScheduleReminders(request: NextRequest) {
     const processLogs: string[] = [];
     const dryRunRecipients: any[] = [];
 
+    // Preload semua log pengiriman 24 jam terakhir dalam 1 query (Menghindari ratusan N+1 DB queries)
+    const existingLogs = await prisma.whatsAppMessageLog.findMany({
+      where: {
+        createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        magicToken: { not: null },
+      },
+      select: { magicToken: true },
+    });
+    const sentTokensSet = new Set(existingLogs.map((l) => l.magicToken));
+
     // Kumpulkan seluruh item pengiriman yang valid dan belum pernah dikirim
     type DispatchItem = {
       type: 'USTADZ' | 'ORANG_TUA' | 'SANTRI';
@@ -188,15 +198,7 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          const alreadySent = await prisma.whatsAppMessageLog.findFirst({
-            where: {
-              recipientPhone: teacher.phoneNumber,
-              magicToken: teacherDedupKey,
-              createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
-            },
-          });
-
-          if (alreadySent) {
+          if (sentTokensSet.has(teacherDedupKey)) {
             skippedCount++;
             continue;
           }
@@ -256,15 +258,7 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          const parentSent = await prisma.whatsAppMessageLog.findFirst({
-            where: {
-              recipientPhone: parent.phoneNumber,
-              magicToken: parentDedupKey,
-              createdAt: { gte: new Date(now.getTime() - 12 * 60 * 60 * 1000) },
-            },
-          });
-
-          if (parentSent) {
+          if (sentTokensSet.has(parentDedupKey)) {
             skippedCount++;
             continue;
           }
@@ -332,15 +326,7 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          const studentSent = await prisma.whatsAppMessageLog.findFirst({
-            where: {
-              recipientPhone: student.phoneNumber,
-              magicToken: studentDedupKey,
-              createdAt: { gte: new Date(now.getTime() - 12 * 60 * 60 * 1000) },
-            },
-          });
-
-          if (studentSent) {
+          if (sentTokensSet.has(studentDedupKey)) {
             skippedCount++;
             continue;
           }
@@ -394,10 +380,10 @@ async function handleScheduleReminders(request: NextRequest) {
       }
     }
 
-    // Eksekusi antrean pesan dengan batching dan batas waktu
+    // Eksekusi antrean pesan dengan batching dan batas waktu ketat (Maks 10 detik)
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 20000; // Maksimal 20 detik agar Cron-Job.org & Vercel tidak timeout
-    const BATCH_SIZE = 4;
+    const MAX_EXECUTION_TIME_MS = 10000;
+    const BATCH_SIZE = 5;
     let consecutiveErrors = 0;
 
     for (let i = 0; i < dispatchQueue.length; i += BATCH_SIZE) {
