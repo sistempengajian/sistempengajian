@@ -128,6 +128,16 @@ async function handleScheduleReminders(request: NextRequest) {
     const processLogs: string[] = [];
     const dryRunRecipients: any[] = [];
 
+    // Kumpulkan seluruh item pengiriman yang valid dan belum pernah dikirim
+    type DispatchItem = {
+      type: 'USTADZ' | 'ORANG_TUA' | 'SANTRI';
+      name: string;
+      phone: string;
+      execute: () => Promise<{ success: boolean; log: string; error?: string }>;
+    };
+
+    const dispatchQueue: DispatchItem[] = [];
+
     for (const schedule of upcomingSchedules) {
       const scheduleTimeMs = schedule.startTime.getTime();
       const diffHours = (scheduleTimeMs - now.getTime()) / (1000 * 60 * 60);
@@ -157,9 +167,7 @@ async function handleScheduleReminders(request: NextRequest) {
       ];
       const uniqueGenNames = Array.from(new Set(genNames)).join(', ') || 'Seluruh Jenjang';
 
-      // -------------------------------------------------------------
-      // 3. PENGIRIMAN PENGINGAT H-1 KE PENGAJAR / USTADZ (Termasuk Badal)
-      // -------------------------------------------------------------
+      // 3. Pengajar / Ustadz
       if (isH1Reminder) {
         for (const st of schedule.teachers) {
           const teacher = st.teacher;
@@ -180,7 +188,6 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          // Cek apakah pengingat H-1 sudah pernah dikirim ke ustadz ini
           const alreadySent = await prisma.whatsAppMessageLog.findFirst({
             where: {
               recipientPhone: teacher.phoneNumber,
@@ -194,41 +201,43 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          const sendTeacherRes = await sendScheduleReminderH1ToTeacher({
-            teacherPhone: teacher.phoneNumber,
-            teacherName: teacher.fullName,
-            dayDate: dayDateStr,
-            startTime: startTimeStr,
-            endTime: endTimeStr,
-            venueName,
-            organizationName: orgName,
-            generationName: uniqueGenNames,
-            className: schedule.class?.name,
-            materialTitle: materialTitles,
-            isBadal: st.isSubstitute,
-            scheduleId: schedule.id,
-            teacherUserId: teacher.id,
+          dispatchQueue.push({
+            type: 'USTADZ',
+            name: teacher.fullName,
+            phone: teacher.phoneNumber,
+            execute: async () => {
+              const res = await sendScheduleReminderH1ToTeacher({
+                teacherPhone: teacher.phoneNumber!,
+                teacherName: teacher.fullName,
+                dayDate: dayDateStr,
+                startTime: startTimeStr,
+                endTime: endTimeStr,
+                venueName,
+                organizationName: orgName,
+                generationName: uniqueGenNames,
+                className: schedule.class?.name,
+                materialTitle: materialTitles,
+                isBadal: st.isSubstitute,
+                scheduleId: schedule.id,
+                teacherUserId: teacher.id,
+              });
+              return {
+                success: Boolean(res.success),
+                log: `[H-1 Ustadz] ${teacher.fullName} (${schedule.title})`,
+                error: res.error,
+              };
+            },
           });
-
-          if (sendTeacherRes.success) {
-            sentCount++;
-            processLogs.push(`[H-1 Ustadz] ${teacher.fullName} (${schedule.title})`);
-          }
         }
       }
 
-      // -------------------------------------------------------------
-      // 4. CARI DAFTAR SANTRI & ORANG TUA TARGET PENERIMA PENGINGAT
-      // -------------------------------------------------------------
+      // 4. Target Santri & Orang Tua
       const targetStudents = await getTargetStudentsForSchedule(schedule);
 
-      // -------------------------------------------------------------
-      // 5. DISPATCH PESAN KE SANTRI & ORANG TUA
-      // -------------------------------------------------------------
       for (const student of targetStudents) {
         const genName = student.generation?.name || 'Santri';
 
-        // A. Kirim ke Orang Tua Santri jika tersedia
+        // Orang Tua
         for (const rel of student.parents) {
           const parent = rel.parent;
           if (!parent || !parent.phoneNumber) continue;
@@ -260,51 +269,54 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          if (isH1Reminder) {
-            const res = await sendScheduleReminderH1ToStudent({
-              recipientPhone: parent.phoneNumber,
-              recipientName: `Bpk/Ibu ${parent.fullName}`,
-              studentName: student.fullName,
-              generationName: genName,
-              scheduleTitle: schedule.title,
-              dayDate: dayDateStr,
-              startTime: startTimeStr,
-              endTime: endTimeStr,
-              venueName,
-              organizationName: orgName,
-              materialTitle: materialTitles,
-              teacherName: teacherNames,
-              scheduleId: schedule.id,
-              magicToken: parentDedupKey,
-              recipientUserId: parent.id,
-            });
-
-            if (res.success) {
-              sentCount++;
-              processLogs.push(`[H-1 Ortu] ${parent.fullName} (Ananda ${student.fullName})`);
-            }
-          } else if (isCountdownReminder) {
-            const res = await sendScheduleReminderCountdown({
-              recipientPhone: parent.phoneNumber,
-              recipientName: `Bpk/Ibu ${parent.fullName}`,
-              studentName: student.fullName,
-              scheduleTitle: schedule.title,
-              startTime: startTimeStr,
-              venueName,
-              materialTitle: materialTitles,
-              teacherName: teacherNames,
-              scheduleId: schedule.id,
-              recipientUserId: parent.id,
-            });
-
-            if (res.success) {
-              sentCount++;
-              processLogs.push(`[Countdown Ortu] ${parent.fullName} (Ananda ${student.fullName})`);
-            }
-          }
+          dispatchQueue.push({
+            type: 'ORANG_TUA',
+            name: `Bpk/Ibu ${parent.fullName} (Ananda ${student.fullName})`,
+            phone: parent.phoneNumber,
+            execute: async () => {
+              let res;
+              if (isH1Reminder) {
+                res = await sendScheduleReminderH1ToStudent({
+                  recipientPhone: parent.phoneNumber!,
+                  recipientName: `Bpk/Ibu ${parent.fullName}`,
+                  studentName: student.fullName,
+                  generationName: genName,
+                  scheduleTitle: schedule.title,
+                  dayDate: dayDateStr,
+                  startTime: startTimeStr,
+                  endTime: endTimeStr,
+                  venueName,
+                  organizationName: orgName,
+                  materialTitle: materialTitles,
+                  teacherName: teacherNames,
+                  scheduleId: schedule.id,
+                  magicToken: parentDedupKey,
+                  recipientUserId: parent.id,
+                });
+              } else {
+                res = await sendScheduleReminderCountdown({
+                  recipientPhone: parent.phoneNumber!,
+                  recipientName: `Bpk/Ibu ${parent.fullName}`,
+                  studentName: student.fullName,
+                  scheduleTitle: schedule.title,
+                  startTime: startTimeStr,
+                  venueName,
+                  materialTitle: materialTitles,
+                  teacherName: teacherNames,
+                  scheduleId: schedule.id,
+                  recipientUserId: parent.id,
+                });
+              }
+              return {
+                success: Boolean(res.success),
+                log: `[${reminderType} Ortu] ${parent.fullName} (Ananda ${student.fullName})`,
+                error: res.error,
+              };
+            },
+          });
         }
 
-        // B. Kirim langsung ke Santri jika memiliki nomor WhatsApp terdaftar (terutama Remaja / Mandiri)
+        // Santri
         if (student.phoneNumber) {
           const studentDedupKey = `SCHED_REMINDER_${schedule.id}_STUDENT_${student.id}_${reminderType}`;
 
@@ -333,48 +345,88 @@ async function handleScheduleReminders(request: NextRequest) {
             continue;
           }
 
-          if (isH1Reminder) {
-            const res = await sendScheduleReminderH1ToStudent({
-              recipientPhone: student.phoneNumber,
-              recipientName: student.fullName,
-              studentName: student.fullName,
-              generationName: genName,
-              scheduleTitle: schedule.title,
-              dayDate: dayDateStr,
-              startTime: startTimeStr,
-              endTime: endTimeStr,
-              venueName,
-              organizationName: orgName,
-              materialTitle: materialTitles,
-              teacherName: teacherNames,
-              scheduleId: schedule.id,
-              magicToken: studentDedupKey,
-              recipientUserId: student.id,
-            });
+          dispatchQueue.push({
+            type: 'SANTRI',
+            name: student.fullName,
+            phone: student.phoneNumber,
+            execute: async () => {
+              let res;
+              if (isH1Reminder) {
+                res = await sendScheduleReminderH1ToStudent({
+                  recipientPhone: student.phoneNumber!,
+                  recipientName: student.fullName,
+                  studentName: student.fullName,
+                  generationName: genName,
+                  scheduleTitle: schedule.title,
+                  dayDate: dayDateStr,
+                  startTime: startTimeStr,
+                  endTime: endTimeStr,
+                  venueName,
+                  organizationName: orgName,
+                  materialTitle: materialTitles,
+                  teacherName: teacherNames,
+                  scheduleId: schedule.id,
+                  magicToken: studentDedupKey,
+                  recipientUserId: student.id,
+                });
+              } else {
+                res = await sendScheduleReminderCountdown({
+                  recipientPhone: student.phoneNumber!,
+                  recipientName: student.fullName,
+                  studentName: student.fullName,
+                  scheduleTitle: schedule.title,
+                  startTime: startTimeStr,
+                  venueName,
+                  materialTitle: materialTitles,
+                  teacherName: teacherNames,
+                  scheduleId: schedule.id,
+                  recipientUserId: student.id,
+                });
+              }
+              return {
+                success: Boolean(res.success),
+                log: `[${reminderType} Santri] ${student.fullName}`,
+                error: res.error,
+              };
+            },
+          });
+        }
+      }
+    }
 
-            if (res.success) {
-              sentCount++;
-              processLogs.push(`[H-1 Santri] ${student.fullName}`);
-            }
-          } else if (isCountdownReminder) {
-            const res = await sendScheduleReminderCountdown({
-              recipientPhone: student.phoneNumber,
-              recipientName: student.fullName,
-              studentName: student.fullName,
-              scheduleTitle: schedule.title,
-              startTime: startTimeStr,
-              venueName,
-              materialTitle: materialTitles,
-              teacherName: teacherNames,
-              scheduleId: schedule.id,
-              recipientUserId: student.id,
-            });
+    // Eksekusi antrean pesan dengan batching dan batas waktu
+    const startTimeMs = Date.now();
+    const MAX_EXECUTION_TIME_MS = 20000; // Maksimal 20 detik agar Cron-Job.org & Vercel tidak timeout
+    const BATCH_SIZE = 4;
+    let consecutiveErrors = 0;
 
-            if (res.success) {
-              sentCount++;
-              processLogs.push(`[Countdown Santri] ${student.fullName}`);
-            }
+    for (let i = 0; i < dispatchQueue.length; i += BATCH_SIZE) {
+      if (Date.now() - startTimeMs > MAX_EXECUTION_TIME_MS) {
+        processLogs.push(`[Peringatan] Batas waktu pemrosesan tercapai. Sisa ${dispatchQueue.length - i} pesan akan dilanjutkan pada putaran cron berikutnya.`);
+        break;
+      }
+
+      if (consecutiveErrors >= 3) {
+        processLogs.push(`[Circuit Breaker] Gateway WhatsApp tidak merespons (Offline/Timeout berulang). Menghentikan sisa antrean.`);
+        break;
+      }
+
+      const batch = dispatchQueue.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map((item) => item.execute()));
+
+      for (const res of results) {
+        if (res.status === 'fulfilled') {
+          if (res.value.success) {
+            sentCount++;
+            consecutiveErrors = 0;
+            processLogs.push(res.value.log);
+          } else {
+            consecutiveErrors++;
+            processLogs.push(`[Gagal] ${res.value.log}: ${res.value.error || 'Unknown'}`);
           }
+        } else {
+          consecutiveErrors++;
+          processLogs.push(`[Error] Eksekusi pesan gagal: ${res.reason?.message || 'Error'}`);
         }
       }
     }
@@ -406,6 +458,7 @@ async function handleScheduleReminders(request: NextRequest) {
       processedSchedules: upcomingSchedules.length,
       sentCount,
       skippedCount,
+      totalQueued: dispatchQueue.length,
       logs: processLogs.slice(0, 50),
     });
   } catch (error: any) {

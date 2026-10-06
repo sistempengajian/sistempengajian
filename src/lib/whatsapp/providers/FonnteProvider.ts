@@ -56,6 +56,7 @@ export class FonnteProvider implements IWhatsAppGateway {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000),
       });
 
       const data = await response.json();
@@ -78,7 +79,9 @@ export class FonnteProvider implements IWhatsAppGateway {
       return {
         success: false,
         status: 'FAILED',
-        error: err.message || 'Kesalahan jaringan saat menghubungi Fonnte API',
+        error: err.name === 'TimeoutError' || err.name === 'AbortError'
+          ? 'Fonnte Gateway Timeout (5s)'
+          : err.message || 'Kesalahan jaringan saat menghubungi Fonnte API',
       };
     }
   }
@@ -97,6 +100,7 @@ export class FonnteProvider implements IWhatsAppGateway {
         headers: {
           Authorization: this.apiKey,
         },
+        signal: AbortSignal.timeout(4000),
       });
 
       const data = await response.json();
