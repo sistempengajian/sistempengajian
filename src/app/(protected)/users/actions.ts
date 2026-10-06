@@ -67,22 +67,16 @@ export async function syncUserSupabaseAuth(params: {
       username: params.username?.trim().toLowerCase() || undefined,
     };
 
-    // Ambil daftar akun auth dari Supabase
-    const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
-      perPage: 1000,
-    });
+    // Cek keberadaan akun auth secara langsung (O(1) lookup, bukan O(N) list semua)
+    const { data: authByIdData } = await supabaseAdmin.auth.admin.getUserById(params.userId);
+    const authById = authByIdData?.user || null;
 
-    if (listErr) {
-      console.warn('[syncUserSupabaseAuth] listUsers warning:', listErr.message);
-    }
-
-    const allAuthUsers = listData?.users || [];
-    const authByTargetEmail = allAuthUsers.find(
-      (u) => u.email?.toLowerCase() === targetEmail.toLowerCase()
-    );
-    const authById = allAuthUsers.find((u) => u.id === params.userId);
-    const authByOldEmail = params.oldEmail?.trim()
-      ? allAuthUsers.find((u) => u.email?.toLowerCase() === params.oldEmail!.trim().toLowerCase())
+    // Cek apakah email target sudah cocok dengan akun yang ditemukan berdasarkan ID
+    const authByTargetEmail = authById?.email?.toLowerCase() === targetEmail.toLowerCase()
+      ? authById
+      : null;
+    const authByOldEmail = params.oldEmail?.trim() && authById?.email?.toLowerCase() === params.oldEmail.trim().toLowerCase()
+      ? authById
       : null;
 
     // KASUS 1: targetEmail sudah ada di Supabase Auth -> update password & metadata pada akun tersebut

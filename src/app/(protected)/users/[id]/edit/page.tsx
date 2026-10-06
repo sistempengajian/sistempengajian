@@ -2,7 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 import { getUserById, getFormReferenceData } from '../../queries';
 import { getManageableRoles } from '@/lib/scoped-access';
 import EditUserForm from '@/components/users/form/EditUserForm';

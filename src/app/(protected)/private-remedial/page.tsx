@@ -17,7 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function PrivateRemedialPage() {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();

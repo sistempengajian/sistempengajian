@@ -34,16 +34,19 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/forgot-password');
 
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/santri') ||
     request.nextUrl.pathname.startsWith('/kelas') ||
     request.nextUrl.pathname.startsWith('/jadwal') ||
     request.nextUrl.pathname.startsWith('/kurikulum') ||
     request.nextUrl.pathname.startsWith('/private-remedial') ||
     request.nextUrl.pathname.startsWith('/presensi') ||
     (request.nextUrl.pathname.startsWith('/tugas') && !request.nextUrl.pathname.startsWith('/tugas/paraf')) ||
-    request.nextUrl.pathname.startsWith('/admin') ||
-    request.nextUrl.pathname.startsWith('/pengurus') ||
-    request.nextUrl.pathname.startsWith('/settings') ||
+    request.nextUrl.pathname.startsWith('/analisis') ||
+    request.nextUrl.pathname.startsWith('/gamifikasi') ||
+    request.nextUrl.pathname.startsWith('/generasi') ||
+    request.nextUrl.pathname.startsWith('/organisasi') ||
+    request.nextUrl.pathname.startsWith('/laporan') ||
+    request.nextUrl.pathname.startsWith('/leaderboard') ||
+    request.nextUrl.pathname.startsWith('/users') ||
     request.nextUrl.pathname.startsWith('/profil');
 
   // Fast path 1: Unauthenticated request with no cookies targeting protected route -> redirect immediately without cloud roundtrip

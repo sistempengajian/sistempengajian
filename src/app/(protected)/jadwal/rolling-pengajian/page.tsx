@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Blueprint terpadu kegiatan pengajian bergulir memadukan silabus materi dan dewan pengajar.',
 };
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function RollingPengajianPage() {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();

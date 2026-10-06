@@ -498,14 +498,10 @@ export async function login(formData: FormData) {
   // 3. Jika user ada di Prisma tapi sign in gagal karena belum ada di Supabase Auth atau mismatch
   if (signInErr && dbUser) {
     try {
-      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      const allAuthUsers = listData?.users || [];
-      const authByTargetEmail = allAuthUsers.find(
-        (u) => u.email?.toLowerCase() === targetEmail.toLowerCase()
-      );
-      const authById = allAuthUsers.find((u) => u.id === dbUser.id);
+      // Cek keberadaan user secara langsung (O(1)), bukan list semua (O(N))
+      const { data: authByIdData } = await supabaseAdmin.auth.admin.getUserById(dbUser.id);
 
-      if (!authByTargetEmail && !authById) {
+      if (!authByIdData?.user) {
         // Buat akun baru jika sama sekali belum ada
         await supabaseAdmin.auth.admin.createUser({
           id: dbUser.id,

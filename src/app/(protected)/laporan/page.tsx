@@ -11,7 +11,7 @@ import { UserX, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { RoleTabId, RoleTabItem } from '@/components/navigation/RoleNavTabs';
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export const metadata = {
   title: 'Laporan Perkembangan Santri | Sistem Pengajian',

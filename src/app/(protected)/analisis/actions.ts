@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import {
   AnalyticsScopeType,
   AnalyticsPeriod,
@@ -152,23 +153,50 @@ function getPeriodDateRange(period: AnalyticsPeriod): {
 
 // 1. Ambil opsi filter sesuai hak akses user (RBAC)
 export async function getAnalyticsFilterOptions(
-  userId: string
+  userId?: string
 ): Promise<AnalyticsFilterOptions> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      roles: true,
-      organization: {
-        include: {
-          parent: {
-            include: { parent: true },
+  let targetUserId = userId;
+  let user = null;
+
+  if (targetUserId) {
+    user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        roles: true,
+        organization: {
+          include: {
+            parent: {
+              include: { parent: true },
+            },
+            children: true,
           },
-          children: true,
         },
+        homeroomClasses: true,
       },
-      homeroomClasses: true,
-    },
-  });
+    });
+  }
+
+  // Fallback: Jika tidak ditemukan dengan targetUserId (misal yang diteruskan adalah UUID auth Supabase), cari via getEffectiveAuthUser
+  if (!user) {
+    const { dbUser } = await getEffectiveAuthUser();
+    if (dbUser) {
+      user = await prisma.user.findUnique({
+        where: { id: dbUser.id },
+        include: {
+          roles: true,
+          organization: {
+            include: {
+              parent: {
+                include: { parent: true },
+              },
+              children: true,
+            },
+          },
+          homeroomClasses: true,
+        },
+      });
+    }
+  }
 
   if (!user) {
     throw new Error('Pengguna tidak ditemukan.');
@@ -234,7 +262,7 @@ export async function getAnalyticsFilterOptions(
       where: {
         ...(allowedOrgIds.length > 0 ? { organizationId: { in: allowedOrgIds } } : {}),
         ...(isWaliKelas && !isAdmin && !isPjDaerah && !isPjDesa && !isPjKelompok
-          ? { homeroomTeacherId: userId }
+          ? { homeroomTeacherId: user.id }
           : {}),
       },
       include: {

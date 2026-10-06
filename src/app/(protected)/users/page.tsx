@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 import { getUsersOverview, getFormReferenceData } from './queries';
 import UserManagementView from '@/components/users/UserManagementView';
 

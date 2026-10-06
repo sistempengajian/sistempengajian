@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { normalizePhoneNumber, displayPhoneNumber, whatsAppClient } from '@/lib/whatsapp';
 import crypto from 'crypto';
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 const OTP_COOLDOWN_SECONDS = 60; // 60 detik jeda kirim ulang OTP
 const OTP_EXPIRY_MINUTES = 5; // 5 menit kedaluwarsa
@@ -85,7 +85,7 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
     });
 
     revalidatePath('/profil');
-    revalidatePath('/', 'layout');
+    revalidatePath('/dashboard');
 
     return {
       success: true,
@@ -294,7 +294,7 @@ export async function verifyPhoneChangeOtp(
     });
 
     revalidatePath('/profil');
-    revalidatePath('/', 'layout');
+    revalidatePath('/dashboard');
 
     return {
       success: true,
@@ -348,7 +348,7 @@ export async function updateUserEmail(emailInput: string): Promise<{
     });
 
     revalidatePath('/profil');
-    revalidatePath('/', 'layout');
+    revalidatePath('/dashboard');
 
     return {
       success: true,
@@ -384,7 +384,7 @@ export async function unlinkUserEmail(): Promise<{
     });
 
     revalidatePath('/profil');
-    revalidatePath('/', 'layout');
+    revalidatePath('/dashboard');
 
     return {
       success: true,

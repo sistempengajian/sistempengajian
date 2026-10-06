@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Konfigurasi antrean materi bergulir per pengajian, mingguan, dan bulanan.',
 };
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function RollingMateriPage() {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();

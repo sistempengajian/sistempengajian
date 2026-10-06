@@ -2,20 +2,19 @@ import React from 'react';
 import AppHeader from '@/components/navigation/AppHeader';
 import BottomNav from '@/components/navigation/BottomNav';
 import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
 
 import { getRoleTheme } from '@/lib/theme';
 
 import { redirect } from 'next/navigation';
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean } from '@/lib/auth';
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { authUser, dbUser } = await getEffectiveAuthUser();
+  const { authUser, dbUser } = await getAuthUserLean();
 
   if (!authUser) {
     redirect('/login');

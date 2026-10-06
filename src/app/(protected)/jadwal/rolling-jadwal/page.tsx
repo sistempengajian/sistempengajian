@@ -12,7 +12,7 @@ export const metadata = {
   description: 'Kelola riwayat batch jadwal rolling yang telah dibuat dari blueprint Pengajian Rolling.',
 };
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function RollingJadwalPage() {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();

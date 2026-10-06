@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Pengaturan hierarki wilayah pengajian: Daerah, Desa, dan Kelompok binaan.',
 };
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function OrganisasiPage() {
   const { authUser: user, effectiveUserId } = await getEffectiveAuthUser();

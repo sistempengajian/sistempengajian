@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Konfigurasi antrean dewan pengajar/ustadz bergulir per pengajian, mingguan, dan bulanan.',
 };
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export default async function RollingPengajarPage() {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();

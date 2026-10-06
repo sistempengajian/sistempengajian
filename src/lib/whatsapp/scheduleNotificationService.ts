@@ -81,11 +81,28 @@ export async function getScheduleDetailForNotification(scheduleId: string) {
  * Mengambil daftar santri dan orang tua yang menjadi target audiens sesi pengajian
  */
 export async function getTargetStudentsForSchedule(schedule: NonNullable<Awaited<ReturnType<typeof getScheduleDetailForNotification>>>) {
-  const targetClassIds = [
-    ...(schedule.classId ? [schedule.classId] : []),
-    ...schedule.targetClasses.map((tc) => tc.classId),
-  ];
-  const targetGenerationIds = schedule.targetGenerations.map((tg) => tg.generationId);
+  const rawTargetClasses: Array<{
+    organizationId: string;
+    generationId: string;
+  }> = [];
+
+  if (schedule.targetClasses && schedule.targetClasses.length > 0) {
+    schedule.targetClasses.forEach((tc) => {
+      if (tc.class) {
+        rawTargetClasses.push({
+          organizationId: tc.class.organizationId,
+          generationId: tc.class.generationId,
+        });
+      }
+    });
+  } else if (schedule.class) {
+    rawTargetClasses.push({
+      organizationId: schedule.class.organizationId,
+      generationId: schedule.class.generationId,
+    });
+  }
+
+  const targetGenerationIds = schedule.targetGenerations?.map((tg) => tg.generationId) || [];
 
   const studentWhere: any = {
     status: 'ACTIVE',
@@ -94,13 +111,28 @@ export async function getTargetStudentsForSchedule(schedule: NonNullable<Awaited
     },
   };
 
-  if (targetClassIds.length > 0) {
-    studentWhere.classId = { in: targetClassIds };
+  if (rawTargetClasses.length > 0) {
+    studentWhere.OR = rawTargetClasses.map((cls) => ({
+      organizationId: cls.organizationId,
+      generationId: cls.generationId,
+    }));
   } else if (targetGenerationIds.length > 0) {
     studentWhere.generationId = { in: targetGenerationIds };
     studentWhere.organizationId = schedule.organizationId;
   } else {
-    studentWhere.organizationId = schedule.organizationId;
+    // WILAYAH_UMUM / fallback
+    const orgId = schedule.organizationId;
+    if (orgId) {
+      if (schedule.organization?.type === 'DESA') {
+        const childOrgs = await prisma.organization.findMany({
+          where: { parentId: orgId },
+          select: { id: true },
+        });
+        studentWhere.organizationId = { in: [orgId, ...childOrgs.map((c) => c.id)] };
+      } else {
+        studentWhere.organizationId = orgId;
+      }
+    }
   }
 
   return prisma.user.findMany({

@@ -1,14 +1,12 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
 import { getAnalyticsFilterOptions, getAnalyticsDashboardData } from './actions';
 import { AnalyticsPeriod, AnalyticsScopeType } from './types';
 import AnalisisClientWrapper from '@/components/analisis/AnalisisClientWrapper';
 import { UserX, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 
 export const metadata = {
   title: 'Analitika & Presentasi Eksekutif | Sistem Pengajian',
@@ -36,6 +34,8 @@ export default async function AnalisisPage({
   if (!user) {
     redirect('/login');
   }
+
+  const currentUserId = effectiveUserId || user.id;
 
   const roleCodes = user.roles.map((r) => r.role);
   const canAccess =
@@ -69,7 +69,7 @@ export default async function AnalisisPage({
   }
 
   // 2. Ambil opsi filter yang diizinkan untuk pengguna ini
-  const filterOptions = await getAnalyticsFilterOptions(authUser.id);
+  const filterOptions = await getAnalyticsFilterOptions(currentUserId);
 
   // Jika tidak ada kelas atau santri yang terhubung
   if (
@@ -117,7 +117,7 @@ export default async function AnalisisPage({
   }
 
   // 4. Ambil data analitika awal
-  const initialData = await getAnalyticsDashboardData(authUser.id, {
+  const initialData = await getAnalyticsDashboardData(currentUserId, {
     scopeType: targetScopeType,
     scopeId: targetScopeId,
     period: targetPeriod,
@@ -125,7 +125,7 @@ export default async function AnalisisPage({
 
   return (
     <AnalisisClientWrapper
-      userId={authUser.id}
+      userId={currentUserId}
       filterOptions={filterOptions}
       initialData={initialData}
     />
