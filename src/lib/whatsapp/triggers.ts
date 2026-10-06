@@ -188,3 +188,188 @@ export async function sendStudentDevelopmentReport(params: {
     referenceId: params.studentId,
   });
 }
+
+/**
+ * 5. Pemicu Pengingat Jadwal H-1 untuk Santri & Wali Santri
+ */
+export async function sendScheduleReminderH1ToStudent(params: {
+  recipientPhone: string;
+  recipientName: string;
+  studentName: string;
+  generationName: string;
+  scheduleTitle: string;
+  dayDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  organizationName: string;
+  materialTitle: string;
+  teacherName: string;
+  scheduleId: string;
+  magicToken?: string;
+  recipientUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const scheduleUrl = `${baseUrl}/jadwal`;
+  const magicLinkIzin = params.magicToken
+    ? `${baseUrl}/izin/ajukan/${params.magicToken}`
+    : `${baseUrl}/jadwal`;
+
+  return whatsAppClient.sendMessage({
+    to: params.recipientPhone,
+    recipientName: params.recipientName,
+    recipientUserId: params.recipientUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'SCHEDULE_REMINDER_H1_STUDENT',
+    message: '',
+    templateVariables: {
+      nama_penerima: params.recipientName,
+      nama_santri: params.studentName,
+      jenjang_santri: params.generationName,
+      hari_tanggal: params.dayDate,
+      waktu_mulai: params.startTime,
+      waktu_selesai: params.endTime,
+      nama_tempat: params.venueName,
+      nama_kelompok: params.organizationName,
+      judul_materi: params.materialTitle,
+      nama_ustadz: params.teacherName,
+      url_jadwal: scheduleUrl,
+      magic_link_izin: magicLinkIzin,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 6. Pemicu Pengingat Jadwal H-1 untuk Ustadz Pengajar Terjadwal
+ */
+export async function sendScheduleReminderH1ToTeacher(params: {
+  teacherPhone: string;
+  teacherName: string;
+  dayDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  organizationName: string;
+  generationName: string;
+  className?: string;
+  materialTitle: string;
+  isBadal?: boolean;
+  scheduleId: string;
+  teacherUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const scheduleUrl = `${baseUrl}/jadwal`;
+  const requestBadalUrl = `${baseUrl}/jadwal?request_badal=${params.scheduleId}`;
+
+  const isBadalText = params.isBadal
+    ? '\n⚠️ *Status: Ustadz ditugaskan sebagai Guru Badal (Pengganti) untuk sesi ini.*\n'
+    : '';
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'SCHEDULE_REMINDER_H1_TEACHER',
+    message: '',
+    templateVariables: {
+      nama_ustadz: params.teacherName,
+      hari_tanggal: params.dayDate,
+      waktu_mulai: params.startTime,
+      waktu_selesai: params.endTime,
+      nama_tempat: params.venueName,
+      nama_kelompok: params.organizationName,
+      jenjang_santri: params.generationName,
+      nama_kelas: params.className ? `(${params.className})` : '',
+      judul_materi: params.materialTitle,
+      is_badal_text: isBadalText,
+      url_jadwal: scheduleUrl,
+      url_request_badal: requestBadalUrl,
+    },
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 7. Pemicu Pengingat Jadwal Hari-H (Countdown 2 Jam Sebelum Sesi)
+ */
+export async function sendScheduleReminderCountdown(params: {
+  recipientPhone: string;
+  recipientName: string;
+  studentName: string;
+  scheduleTitle: string;
+  startTime: string;
+  venueName: string;
+  materialTitle: string;
+  teacherName: string;
+  scheduleId: string;
+  recipientUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const scheduleUrl = `${baseUrl}/jadwal`;
+
+  return whatsAppClient.sendMessage({
+    to: params.recipientPhone,
+    recipientName: params.recipientName,
+    recipientUserId: params.recipientUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'SCHEDULE_REMINDER_COUNTDOWN',
+    message: '',
+    templateVariables: {
+      nama_penerima: params.recipientName,
+      nama_santri: params.studentName,
+      judul_sesi: params.scheduleTitle,
+      waktu_mulai: params.startTime,
+      nama_tempat: params.venueName,
+      judul_materi: params.materialTitle,
+      nama_ustadz: params.teacherName,
+      url_jadwal: scheduleUrl,
+    },
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 8. Pemicu Pemberitahuan Perubahan Jadwal Darurat di Hari-H
+ */
+export async function sendScheduleChangeEmergencyAlert(params: {
+  recipientPhone: string;
+  recipientName: string;
+  organizationName: string;
+  scheduleTitle: string;
+  changeDescription: string;
+  dayDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  teacherName: string;
+  scheduleId: string;
+  recipientUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const scheduleUrl = `${baseUrl}/jadwal`;
+
+  return whatsAppClient.sendMessage({
+    to: params.recipientPhone,
+    recipientName: params.recipientName,
+    recipientUserId: params.recipientUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'SCHEDULE_CHANGE_EMERGENCY',
+    message: '',
+    templateVariables: {
+      nama_penerima: params.recipientName,
+      nama_kelompok: params.organizationName,
+      judul_sesi: params.scheduleTitle,
+      status_perubahan_keterangan: params.changeDescription,
+      hari_tanggal: params.dayDate,
+      waktu_mulai: params.startTime,
+      waktu_selesai: params.endTime,
+      nama_tempat: params.venueName,
+      nama_ustadz: params.teacherName,
+      url_jadwal: scheduleUrl,
+    },
+    referenceId: params.scheduleId,
+  });
+}

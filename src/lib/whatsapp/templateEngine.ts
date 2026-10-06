@@ -75,6 +75,159 @@ Mohon konfirmasi kehadiran atau buka ruang absensi digital melalui dashboard:
 Alhamdulillah Jazakumullahu Khairan Katsiran.`,
   },
 
+  SCHEDULE_REMINDER_H1_STUDENT: {
+    code: 'SCHEDULE_REMINDER_H1_STUDENT',
+    name: 'Pengingat Jadwal H-1 (Santri & Wali Santri)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_penerima',
+      'nama_santri',
+      'jenjang_santri',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'judul_materi',
+      'nama_ustadz',
+      'url_jadwal',
+      'magic_link_izin',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{nama_penerima}}* (Ananda {{nama_santri}} - {{jenjang_santri}}).
+
+Mengingatkan agenda pengajian rutin *Sistem Generasi Qur'ani* untuk esok hari:
+
+📅 *Hari / Tgl:* {{hari_tanggal}}
+⏰ *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
+🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
+📖 *Materi:* {{judul_materi}}
+👳‍♂️ *Pengajar:* {{nama_ustadz}}
+
+🎒 *Perlengkapan yang Wajib Dibawa:*
+1. Al-Qur'an & Kitab Materi
+2. Buku Catatan & Alat Tulis
+3. Memakai busana rapi, sopan, dan menutup aurat
+
+👉 *Buka Portal Belajar & Materi:*
+{{url_jadwal}}
+
+⚠️ *Berhalangan Hadir?*
+Konfirmasi izin lebih awal agar tercatat di sistem:
+👉 {{magic_link_izin}}
+
+Alhamdulillah Jazakumullahu Khairan Katsiran.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  SCHEDULE_REMINDER_H1_TEACHER: {
+    code: 'SCHEDULE_REMINDER_H1_TEACHER',
+    name: 'Pengingat Jadwal H-1 (Pengajar / Ustadz)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_ustadz',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'jenjang_santri',
+      'nama_kelas',
+      'judul_materi',
+      'is_badal_text',
+      'url_jadwal',
+      'url_request_badal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *Ustadz {{nama_ustadz}}*.
+
+Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk esok hari:
+
+📅 *Hari / Tgl:* {{hari_tanggal}}
+⏰ *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
+🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
+👥 *Target Peserta:* {{jenjang_santri}} {{nama_kelas}}
+📖 *Materi:* {{judul_materi}}
+{{is_badal_text}}
+
+👉 *Buka Rincian Jadwal & Materi Ajar:*
+{{url_jadwal}}
+
+⚠️ *Berhalangan Mengajar?*
+Mohon segera ajukan permohonan Guru Badal (Pengganti) melalui sistem agar PJ kelompok dapat menugaskan pengganti tepat waktu:
+👉 {{url_request_badal}}
+
+Alhamdulillah Jazakumullahu Khairan Katsiran atas keikhlasan dan dedikasi Ustadz.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  SCHEDULE_REMINDER_COUNTDOWN: {
+    code: 'SCHEDULE_REMINDER_COUNTDOWN',
+    name: 'Pengingat Hari-H (Countdown 2 Jam)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_penerima',
+      'nama_santri',
+      'judul_sesi',
+      'waktu_mulai',
+      'nama_tempat',
+      'judul_materi',
+      'nama_ustadz',
+      'url_jadwal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{nama_penerima}}* ({{nama_santri}}).
+
+Pengajian sesi *{{judul_sesi}}* akan dimulai dalam *2 jam ke depan*:
+
+⏰ *Jam Mulai:* {{waktu_mulai}} WIB (Tepat Waktu)
+📍 *Lokasi:* {{nama_tempat}}
+📖 *Materi:* {{judul_materi}}
+👳 *Ustadz Pengampu:* {{nama_ustadz}}
+
+Mohon segera bersiap, berwudhu dari rumah, dan hadir 10 menit sebelum pengajian dimulai untuk presensi kehadiran tepat waktu ⭐.
+
+👉 *Lihat Jadwal:* {{url_jadwal}}
+
+Alhamdulillah Jazakumullahu Khairan.`,
+  },
+
+  SCHEDULE_CHANGE_EMERGENCY: {
+    code: 'SCHEDULE_CHANGE_EMERGENCY',
+    name: 'Pemberitahuan Perubahan Jadwal Darurat (Hari-H)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_penerima',
+      'nama_kelompok',
+      'judul_sesi',
+      'status_perubahan_keterangan',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_ustadz',
+      'url_jadwal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. Jamaah Pengajian *{{nama_kelompok}}* ({{nama_penerima}}).
+
+Terdapat PEMBARUAN JADWAL DARURAT HARI INI untuk sesi *{{judul_sesi}}*:
+
+⚠️ *STATUS PERUBAHAN:*
+{{status_perubahan_keterangan}}
+
+📌 *Detail Jadwal Terbaru:*
+• *Hari / Tgl:* {{hari_tanggal}}
+• *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
+• *Tempat:* {{nama_tempat}}
+• *Pengajar:* {{nama_ustadz}}
+
+👉 *Lihat Jadwal Terupdate:* {{url_jadwal}}
+
+Mohon maklum dan atas perhatiannya disampaikan Alhamdulillah Jazakumullahu Khairan Katsiran.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
   REPORT_CARD: {
     code: 'REPORT_CARD',
     name: 'Laporan Progres Belajar & Rapor Santri',

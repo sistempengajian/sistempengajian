@@ -5,7 +5,7 @@ import { BaileysProvider } from './providers/BaileysProvider';
 import { WahaProvider } from './providers/WahaProvider';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from './types';
 import { renderTemplate, DEFAULT_TEMPLATES } from './templateEngine';
-import { normalizePhoneNumber } from './utils';
+import { normalizePhoneNumber, sanitizeUuid } from './utils';
 
 export class WhatsAppClient {
   private static instance: WhatsAppClient;
@@ -70,21 +70,36 @@ export class WhatsAppClient {
       }
     }
 
-    // 2. Buat log awal di database dengan status QUEUED / SENDING
+    // 2. Cek Mode Simulasi (Mock Mode) & Pengalihan Nomor Testing (Test Phone Override)
+    const isMockMode = process.env.WA_MOCK_MODE === 'true';
+    const overridePhoneRaw = process.env.WA_TEST_OVERRIDE_PHONE;
+    const overridePhone = overridePhoneRaw ? normalizePhoneNumber(overridePhoneRaw) : null;
+
+    let targetPhoneToSend = normalizedPhone;
+    let actualMessageToSend = finalMessageBody;
+
+    if (overridePhone) {
+      targetPhoneToSend = overridePhone;
+      actualMessageToSend = `🧪 *[MODE TESTING: Pengalihan Pesan]*\n👤 *Penerima Asli:* ${options.recipientName || 'Santri/Wali'} (${normalizedPhone})\n----------------------------------------\n\n${finalMessageBody}`;
+      console.log(`[WhatsAppClient] 🔀 Pesan dialihkan dari ${normalizedPhone} ke Nomor Testing: ${overridePhone}`);
+    }
+
+    // 3. Buat log awal di database dengan status QUEUED / SENDING
     let logId: string | null = null;
     try {
       const createdLog = await prisma.whatsAppMessageLog.create({
         data: {
-          recipientPhone: normalizedPhone,
-          recipientName: options.recipientName || null,
-          recipientUserId: options.recipientUserId || null,
+          recipientPhone: targetPhoneToSend,
+          recipientName: options.recipientName ? `${options.recipientName}${overridePhone ? ' (Test Mode)' : ''}` : null,
+          recipientUserId: sanitizeUuid(options.recipientUserId),
           messageType: options.messageType || 'CUSTOM_DIRECT',
-          templateId: templateId || null,
-          messageBody: finalMessageBody,
+          templateId: sanitizeUuid(templateId),
+          messageBody: actualMessageToSend,
           mediaUrl: options.mediaUrl || null,
-          status: 'SENDING',
+          status: isMockMode ? 'SENT' : 'SENDING',
           magicToken: options.magicToken || null,
           referenceId: options.referenceId || null,
+          sentAt: isMockMode ? new Date() : null,
         },
       });
       logId = createdLog.id;
@@ -92,14 +107,30 @@ export class WhatsAppClient {
       console.error('[WhatsAppClient] Gagal membuat initial log di database:', dbErr);
     }
 
-    // 3. Eksekusi pengiriman via gateway provider
+    // 4. Jika Mock Mode aktif: Simulasikan tanpa memanggil gateway WA eksternal
+    if (isMockMode) {
+      console.log('\n================== 📱 [WA_MOCK_MODE: SIMULASI PESAN] ==================');
+      console.log(`Penerima  : ${options.recipientName || '-'} (${targetPhoneToSend})`);
+      console.log(`Tipe      : ${options.messageType || 'CUSTOM'}`);
+      console.log(`Template  : ${options.templateCode || 'DIRECT'}`);
+      console.log(`Isi Pesan :\n${actualMessageToSend}`);
+      console.log('========================================================================\n');
+
+      return {
+        success: true,
+        status: 'SENT',
+        gatewayMessageId: `mock-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      };
+    }
+
+    // 5. Eksekusi pengiriman via gateway provider nyata
     const sendResult = await this.provider.sendMessage({
       ...options,
-      to: normalizedPhone,
-      message: finalMessageBody,
+      to: targetPhoneToSend,
+      message: actualMessageToSend,
     });
 
-    // 4. Update status log di database
+    // 6. Update status log di database
     if (logId) {
       try {
         await prisma.whatsAppMessageLog.update({

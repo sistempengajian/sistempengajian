@@ -51,3 +51,13 @@ export function formatWhatsAppUrl(
 ): string | null {
   return formatWhatsAppDirectUrl(phone, message);
 }
+
+export function isValidUuid(id: string | null | undefined): boolean {
+  if (!id) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
+
+export function sanitizeUuid(id: string | null | undefined): string | null {
+  return isValidUuid(id) ? (id as string) : null;
+}

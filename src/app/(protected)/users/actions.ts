@@ -42,11 +42,13 @@ async function getAuthenticatedManager() {
 
 /**
  * Helper sinkronisasi kredensial pengguna ke Supabase Auth (auth.users)
- * Menjamin email custom dan password baru tersimpan dan dapat digunakan untuk login email/password.
+ * Menggunakan pencocokan cerdas (by target email, by old email, dan by userId)
+ * untuk menjamin kata sandi baru dan email custom langsung aktif dan dapat digunakan untuk login.
  */
 export async function syncUserSupabaseAuth(params: {
   userId: string;
   email?: string | null;
+  oldEmail?: string | null;
   password?: string | null;
   fullName?: string | null;
   username?: string | null;
@@ -60,21 +62,35 @@ export async function syncUserSupabaseAuth(params: {
         ? `${params.username.trim().toLowerCase()}@pengajian.app`
         : `${params.userId}@pengajian.app`);
 
-    // 1. Coba cari apakah akun auth dengan userId sudah ada
-    const { data: existingUserById } = await supabaseAdmin.auth.admin.getUserById(params.userId);
-
     const userMetadata = {
       full_name: params.fullName?.trim() || undefined,
       username: params.username?.trim().toLowerCase() || undefined,
     };
 
-    if (existingUserById?.user) {
-      // User sudah ada di Supabase Auth -> Update Email & Password & Metadata
+    // Ambil daftar akun auth dari Supabase
+    const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000,
+    });
+
+    if (listErr) {
+      console.warn('[syncUserSupabaseAuth] listUsers warning:', listErr.message);
+    }
+
+    const allAuthUsers = listData?.users || [];
+    const authByTargetEmail = allAuthUsers.find(
+      (u) => u.email?.toLowerCase() === targetEmail.toLowerCase()
+    );
+    const authById = allAuthUsers.find((u) => u.id === params.userId);
+    const authByOldEmail = params.oldEmail?.trim()
+      ? allAuthUsers.find((u) => u.email?.toLowerCase() === params.oldEmail!.trim().toLowerCase())
+      : null;
+
+    // KASUS 1: targetEmail sudah ada di Supabase Auth -> update password & metadata pada akun tersebut
+    if (authByTargetEmail) {
       const updatePayload: any = {
-        email: targetEmail,
         email_confirm: true,
         user_metadata: {
-          ...existingUserById.user.user_metadata,
+          ...authByTargetEmail.user_metadata,
           ...userMetadata,
         },
       };
@@ -84,31 +100,58 @@ export async function syncUserSupabaseAuth(params: {
       }
 
       const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
-        params.userId,
+        authByTargetEmail.id,
         updatePayload
       );
 
       if (updateErr) {
-        console.warn(`[syncUserSupabaseAuth] Gagal update akun auth ${params.userId}:`, updateErr.message);
+        console.warn(`[syncUserSupabaseAuth] Gagal update authByTargetEmail ${authByTargetEmail.id}:`, updateErr.message);
         return { success: false, error: updateErr.message };
       }
 
       return { success: true };
     }
 
-    // 2. Jika user belum ada di Supabase Auth, buatkan akun baru dengan ID Prisma yang sama
-    const createPayload: any = {
+    // KASUS 2: Akun auth ditemukan berdasarkan ID atau Email Lama -> update email menjadi targetEmail dan update password
+    const candidateAuth = authById || authByOldEmail;
+    if (candidateAuth) {
+      const updatePayload: any = {
+        email: targetEmail,
+        email_confirm: true,
+        user_metadata: {
+          ...candidateAuth.user_metadata,
+          ...userMetadata,
+        },
+      };
+
+      if (params.password && params.password.length >= 6) {
+        updatePayload.password = params.password;
+      }
+
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
+        candidateAuth.id,
+        updatePayload
+      );
+
+      if (updateErr) {
+        console.warn(`[syncUserSupabaseAuth] Gagal update candidateAuth ${candidateAuth.id}:`, updateErr.message);
+        return { success: false, error: updateErr.message };
+      }
+
+      return { success: true };
+    }
+
+    // KASUS 3: Akun auth belum pernah ada sama sekali -> Buat akun baru di Supabase Auth
+    const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
       id: params.userId,
       email: targetEmail,
       password: (params.password && params.password.length >= 6) ? params.password : 'DemoPassword2026!',
       email_confirm: true,
       user_metadata: userMetadata,
-    };
-
-    const { error: createErr } = await supabaseAdmin.auth.admin.createUser(createPayload);
+    });
 
     if (createErr) {
-      console.warn(`[syncUserSupabaseAuth] Gagal create akun auth ${params.userId}:`, createErr.message);
+      console.warn(`[syncUserSupabaseAuth] Gagal createUser ${params.userId}:`, createErr.message);
       return { success: false, error: createErr.message };
     }
 
@@ -440,6 +483,7 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
     const authSync = await syncUserSupabaseAuth({
       userId,
       email: trimmedEmail,
+      oldEmail: existingUser.email,
       password: input.password?.trim() || null,
       fullName: trimmedName,
       username: trimmedUsername,

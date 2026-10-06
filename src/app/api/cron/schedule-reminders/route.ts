@@ -1,0 +1,421 @@
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  sendScheduleReminderH1ToStudent,
+  sendScheduleReminderH1ToTeacher,
+  sendScheduleReminderCountdown,
+} from '@/lib/whatsapp/triggers';
+import {
+  formatIndonesianDate,
+  formatTime,
+  getTargetStudentsForSchedule,
+} from '@/lib/whatsapp/scheduleNotificationService';
+import { ScheduleStatus } from '@prisma/client';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Max 60s execution
+
+/**
+ * Endpoint Cron Scheduler: Pengingat Jadwal Pengajian Otomatis via WhatsApp
+ * Mendukung mode ?dry_run=true untuk simulasi pengujian tanpa mengirim pesan riil
+ */
+export async function GET(request: NextRequest) {
+  return handleScheduleReminders(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleScheduleReminders(request);
+}
+
+async function handleScheduleReminders(request: NextRequest) {
+  try {
+    // 1. Validasi Keamanan Token Cron
+    const authHeader = request.headers.get('authorization');
+    const secretParam = request.nextUrl.searchParams.get('key');
+    const isDryRun = request.nextUrl.searchParams.get('dry_run') === 'true';
+    const expectedSecret = process.env.CRON_SECRET || 'pengajian-cron-secret-2026';
+
+    const isAuthorized =
+      authHeader === `Bearer ${expectedSecret}` ||
+      secretParam === expectedSecret ||
+      process.env.NODE_ENV === 'development';
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, message: 'Akses ditolak: Token otorisasi cron tidak valid.' },
+        { status: 401 }
+      );
+    }
+
+    const now = new Date();
+    console.log(
+      `[Cron ScheduleReminders] Mulai pemindaian jadwal pada ${now.toISOString()} ${
+        isDryRun ? '(MODE DRY-RUN: SIMULASI AMAN)' : ''
+      }`
+    );
+
+    // Rentang Waktu Pemindaian:
+    // A. Jendela H-1 (Pengingat malam hari untuk pengajian besok):
+    //    Jadwal yang dimulai dalam rentang 18 jam s/d 30 jam ke depan
+    const h1Start = new Date(now.getTime() + 18 * 60 * 60 * 1000);
+    const h1End = new Date(now.getTime() + 30 * 60 * 60 * 1000);
+
+    // B. Jendela Hari-H (Countdown 2 jam sebelum mulai):
+    //    Jadwal yang dimulai dalam rentang 100 menit s/d 140 menit ke depan
+    const countdownStart = new Date(now.getTime() + 100 * 60 * 1000);
+    const countdownEnd = new Date(now.getTime() + 140 * 60 * 1000);
+
+    // 2. Query Jadwal Mendatang yang Terjadwal & Disetujui
+    const upcomingSchedules = await prisma.schedule.findMany({
+      where: {
+        status: {
+          in: [ScheduleStatus.SCHEDULED, ScheduleStatus.ACTIVE],
+        },
+        OR: [
+          // Match H-1 Window
+          { startTime: { gte: h1Start, lte: h1End } },
+          // Match Countdown 2 Hours Window
+          { startTime: { gte: countdownStart, lte: countdownEnd } },
+        ],
+        AND: [
+          {
+            OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+          },
+        ],
+      },
+      include: {
+        organization: true,
+        class: {
+          include: {
+            generation: true,
+          },
+        },
+        targetClasses: {
+          include: {
+            class: {
+              include: {
+                generation: true,
+              },
+            },
+          },
+        },
+        targetGenerations: {
+          include: {
+            generation: true,
+          },
+        },
+        teachers: {
+          include: {
+            teacher: true,
+          },
+          orderBy: [{ isPrimary: 'desc' }, { isSubstitute: 'asc' }],
+        },
+        scheduleMaterials: {
+          include: {
+            material: true,
+          },
+          orderBy: {
+            slotIndex: 'asc',
+          },
+        },
+      },
+    });
+
+    console.log(`[Cron ScheduleReminders] Ditemukan ${upcomingSchedules.length} jadwal dalam jendela pengingat.`);
+
+    let sentCount = 0;
+    let skippedCount = 0;
+    const processLogs: string[] = [];
+    const dryRunRecipients: any[] = [];
+
+    for (const schedule of upcomingSchedules) {
+      const scheduleTimeMs = schedule.startTime.getTime();
+      const diffHours = (scheduleTimeMs - now.getTime()) / (1000 * 60 * 60);
+
+      const isH1Reminder = diffHours >= 18 && diffHours <= 30;
+      const isCountdownReminder = diffHours >= 1.6 && diffHours <= 2.4;
+
+      const reminderType = isH1Reminder ? 'H1' : isCountdownReminder ? 'COUNTDOWN_2H' : 'GENERAL';
+      const dayDateStr = formatIndonesianDate(schedule.startTime);
+      const startTimeStr = formatTime(schedule.startTime);
+      const endTimeStr = formatTime(schedule.endTime);
+      const orgName = schedule.organization.name;
+      const venueName = schedule.venuePlaceName || 'Masjid Kelompok';
+
+      // Rangkum nama ustadz dan materi
+      const teacherNames = schedule.teachers.map((t) => t.teacher.fullName).join(', ') || 'Dewan Pengajar';
+      const materialTitles =
+        schedule.scheduleMaterials.map((sm) => sm.material.title).join(', ') ||
+        schedule.title ||
+        'Materi Pengajian Rutin';
+
+      // Tentukan Jenjang / Kelas Target
+      const genNames = [
+        ...(schedule.class?.generation ? [schedule.class.generation.name] : []),
+        ...schedule.targetGenerations.map((tg) => tg.generation.name),
+        ...schedule.targetClasses.map((tc) => tc.class.generation?.name).filter(Boolean),
+      ];
+      const uniqueGenNames = Array.from(new Set(genNames)).join(', ') || 'Seluruh Jenjang';
+
+      // -------------------------------------------------------------
+      // 3. PENGIRIMAN PENGINGAT H-1 KE PENGAJAR / USTADZ (Termasuk Badal)
+      // -------------------------------------------------------------
+      if (isH1Reminder) {
+        for (const st of schedule.teachers) {
+          const teacher = st.teacher;
+          if (!teacher.phoneNumber) continue;
+
+          const teacherDedupKey = `SCHED_REMINDER_${schedule.id}_TEACHER_${teacher.id}_H1`;
+
+          if (isDryRun) {
+            dryRunRecipients.push({
+              target: 'USTADZ',
+              name: teacher.fullName,
+              phone: teacher.phoneNumber,
+              type: 'H1_REMINDER',
+              scheduleTitle: schedule.title,
+              sessionTime: `${dayDateStr}, ${startTimeStr} - ${endTimeStr} WIB`,
+              venue: venueName,
+            });
+            continue;
+          }
+
+          // Cek apakah pengingat H-1 sudah pernah dikirim ke ustadz ini
+          const alreadySent = await prisma.whatsAppMessageLog.findFirst({
+            where: {
+              recipientPhone: teacher.phoneNumber,
+              magicToken: teacherDedupKey,
+              createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+            },
+          });
+
+          if (alreadySent) {
+            skippedCount++;
+            continue;
+          }
+
+          const sendTeacherRes = await sendScheduleReminderH1ToTeacher({
+            teacherPhone: teacher.phoneNumber,
+            teacherName: teacher.fullName,
+            dayDate: dayDateStr,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            venueName,
+            organizationName: orgName,
+            generationName: uniqueGenNames,
+            className: schedule.class?.name,
+            materialTitle: materialTitles,
+            isBadal: st.isSubstitute,
+            scheduleId: schedule.id,
+            teacherUserId: teacher.id,
+          });
+
+          if (sendTeacherRes.success) {
+            sentCount++;
+            processLogs.push(`[H-1 Ustadz] ${teacher.fullName} (${schedule.title})`);
+          }
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 4. CARI DAFTAR SANTRI & ORANG TUA TARGET PENERIMA PENGINGAT
+      // -------------------------------------------------------------
+      const targetStudents = await getTargetStudentsForSchedule(schedule);
+
+      // -------------------------------------------------------------
+      // 5. DISPATCH PESAN KE SANTRI & ORANG TUA
+      // -------------------------------------------------------------
+      for (const student of targetStudents) {
+        const genName = student.generation?.name || 'Santri';
+
+        // A. Kirim ke Orang Tua Santri jika tersedia
+        for (const rel of student.parents) {
+          const parent = rel.parent;
+          if (!parent || !parent.phoneNumber) continue;
+
+          const parentDedupKey = `SCHED_REMINDER_${schedule.id}_PARENT_${parent.id}_${student.id}_${reminderType}`;
+
+          if (isDryRun) {
+            dryRunRecipients.push({
+              target: 'ORANG_TUA',
+              name: `Bpk/Ibu ${parent.fullName} (Ananda ${student.fullName})`,
+              phone: parent.phoneNumber,
+              type: reminderType,
+              scheduleTitle: schedule.title,
+              sessionTime: `${dayDateStr}, ${startTimeStr} - ${endTimeStr} WIB`,
+            });
+            continue;
+          }
+
+          const parentSent = await prisma.whatsAppMessageLog.findFirst({
+            where: {
+              recipientPhone: parent.phoneNumber,
+              magicToken: parentDedupKey,
+              createdAt: { gte: new Date(now.getTime() - 12 * 60 * 60 * 1000) },
+            },
+          });
+
+          if (parentSent) {
+            skippedCount++;
+            continue;
+          }
+
+          if (isH1Reminder) {
+            const res = await sendScheduleReminderH1ToStudent({
+              recipientPhone: parent.phoneNumber,
+              recipientName: `Bpk/Ibu ${parent.fullName}`,
+              studentName: student.fullName,
+              generationName: genName,
+              scheduleTitle: schedule.title,
+              dayDate: dayDateStr,
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              venueName,
+              organizationName: orgName,
+              materialTitle: materialTitles,
+              teacherName: teacherNames,
+              scheduleId: schedule.id,
+              magicToken: parentDedupKey,
+              recipientUserId: parent.id,
+            });
+
+            if (res.success) {
+              sentCount++;
+              processLogs.push(`[H-1 Ortu] ${parent.fullName} (Ananda ${student.fullName})`);
+            }
+          } else if (isCountdownReminder) {
+            const res = await sendScheduleReminderCountdown({
+              recipientPhone: parent.phoneNumber,
+              recipientName: `Bpk/Ibu ${parent.fullName}`,
+              studentName: student.fullName,
+              scheduleTitle: schedule.title,
+              startTime: startTimeStr,
+              venueName,
+              materialTitle: materialTitles,
+              teacherName: teacherNames,
+              scheduleId: schedule.id,
+              recipientUserId: parent.id,
+            });
+
+            if (res.success) {
+              sentCount++;
+              processLogs.push(`[Countdown Ortu] ${parent.fullName} (Ananda ${student.fullName})`);
+            }
+          }
+        }
+
+        // B. Kirim langsung ke Santri jika memiliki nomor WhatsApp terdaftar (terutama Remaja / Mandiri)
+        if (student.phoneNumber) {
+          const studentDedupKey = `SCHED_REMINDER_${schedule.id}_STUDENT_${student.id}_${reminderType}`;
+
+          if (isDryRun) {
+            dryRunRecipients.push({
+              target: 'SANTRI',
+              name: student.fullName,
+              phone: student.phoneNumber,
+              type: reminderType,
+              scheduleTitle: schedule.title,
+              sessionTime: `${dayDateStr}, ${startTimeStr} - ${endTimeStr} WIB`,
+            });
+            continue;
+          }
+
+          const studentSent = await prisma.whatsAppMessageLog.findFirst({
+            where: {
+              recipientPhone: student.phoneNumber,
+              magicToken: studentDedupKey,
+              createdAt: { gte: new Date(now.getTime() - 12 * 60 * 60 * 1000) },
+            },
+          });
+
+          if (studentSent) {
+            skippedCount++;
+            continue;
+          }
+
+          if (isH1Reminder) {
+            const res = await sendScheduleReminderH1ToStudent({
+              recipientPhone: student.phoneNumber,
+              recipientName: student.fullName,
+              studentName: student.fullName,
+              generationName: genName,
+              scheduleTitle: schedule.title,
+              dayDate: dayDateStr,
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              venueName,
+              organizationName: orgName,
+              materialTitle: materialTitles,
+              teacherName: teacherNames,
+              scheduleId: schedule.id,
+              magicToken: studentDedupKey,
+              recipientUserId: student.id,
+            });
+
+            if (res.success) {
+              sentCount++;
+              processLogs.push(`[H-1 Santri] ${student.fullName}`);
+            }
+          } else if (isCountdownReminder) {
+            const res = await sendScheduleReminderCountdown({
+              recipientPhone: student.phoneNumber,
+              recipientName: student.fullName,
+              studentName: student.fullName,
+              scheduleTitle: schedule.title,
+              startTime: startTimeStr,
+              venueName,
+              materialTitle: materialTitles,
+              teacherName: teacherNames,
+              scheduleId: schedule.id,
+              recipientUserId: student.id,
+            });
+
+            if (res.success) {
+              sentCount++;
+              processLogs.push(`[Countdown Santri] ${student.fullName}`);
+            }
+          }
+        }
+      }
+    }
+
+    if (isDryRun) {
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        mode: 'SIMULATION_PREVIEW',
+        timestamp: new Date().toISOString(),
+        totalSchedulesMatched: upcomingSchedules.length,
+        totalRecipientsCalculated: dryRunRecipients.length,
+        schedules: upcomingSchedules.map((s) => ({
+          id: s.id,
+          title: s.title,
+          startTime: s.startTime,
+          venue: s.venuePlaceName,
+          organization: s.organization.name,
+        })),
+        recipientsPreview: dryRunRecipients.slice(0, 50),
+      });
+    }
+
+    console.log(`[Cron ScheduleReminders] Selesai: ${sentCount} terkirim, ${skippedCount} dilewati.`);
+
+    return NextResponse.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      processedSchedules: upcomingSchedules.length,
+      sentCount,
+      skippedCount,
+      logs: processLogs.slice(0, 50),
+    });
+  } catch (error: any) {
+    console.error('[Cron ScheduleReminders Error]:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Terjadi kesalahan sistem saat menjalankan cron pengingat jadwal.',
+      },
+      { status: 500 }
+    );
+  }
+}

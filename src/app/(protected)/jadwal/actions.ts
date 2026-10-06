@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, RollingTargetScope, UserRole, ApprovalStatus } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
+import { notifyScheduleChangeIfHariH, broadcastScheduleReminder } from '@/lib/whatsapp/scheduleNotificationService';
 
 function parseArrayField(formData: FormData, fieldName: string): string[] {
   const val = formData.get(fieldName) as string;
@@ -438,7 +439,20 @@ export async function updateSchedule(formData: FormData) {
     });
 
     revalidatePath('/jadwal');
+    revalidatePath(`/jadwal/${scheduleId}`);
     revalidatePath('/dashboard');
+
+    // Pemicu Notifikasi Darurat jika jadwal diubah pada Hari-H
+    try {
+      const changeDesc = `Pembaruan jadwal: Waktu ${startDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB di ${venuePlaceName}. ${notes ? `Catatan: ${notes}` : ''}`;
+      await notifyScheduleChangeIfHariH({
+        scheduleId,
+        changeDescription: changeDesc,
+      });
+    } catch (notifErr) {
+      console.error('Non-blocking error dispatching Hari-H schedule change notification:', notifErr);
+    }
+
     return { success: true, message: 'Jadwal pengajian berhasil diperbarui.' };
   } catch (err: any) {
     console.error('Error in updateSchedule:', err);
@@ -564,6 +578,18 @@ export async function updateScheduleStatus(scheduleId: string, status: ScheduleS
         where: { scheduleId, isActive: true },
         data: { isActive: false, closedAt: new Date() },
       });
+    }
+
+    // Jika sesi diliburkan / dibatalkan pada Hari-H, kirim notifikasi darurat
+    if (status === 'CANCELLED') {
+      try {
+        await notifyScheduleChangeIfHariH({
+          scheduleId,
+          changeDescription: 'PENGUMUMAN: Sesi pengajian pada hari ini DILIBURKAN / DIBATALKAN.',
+        });
+      } catch (notifErr) {
+        console.error('Non-blocking error sending cancel notification:', notifErr);
+      }
     }
 
     revalidatePath('/jadwal');
@@ -850,6 +876,41 @@ export async function rejectScheduleProposal(scheduleId: string, rejectionReason
   } catch (err: any) {
     console.error('Error in rejectScheduleProposal:', err);
     return { error: err.message || 'Gagal menolak pengajuan jadwal.' };
+  }
+}
+
+/**
+ * Server Action: Siaran / Broadcast Pengingat WhatsApp On-Demand oleh PJ / Pengajar
+ */
+export async function broadcastScheduleReminderAction(scheduleId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Anda harus masuk untuk mengirimkan siaran pengingat.' };
+  }
+
+  const userProfile = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { roles: true },
+  });
+
+  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
+  const isTeacher = roleCodes.includes('PENGAJAR') || roleCodes.includes('WALI_KELAS');
+
+  if (!isManager && !isTeacher) {
+    return { error: 'Hanya Pengurus Wilayah atau Pengajar yang berwenang mengirim siaran pengingat WhatsApp.' };
+  }
+
+  try {
+    const result = await broadcastScheduleReminder(scheduleId);
+    return result;
+  } catch (err: any) {
+    console.error('Error in broadcastScheduleReminderAction:', err);
+    return { error: err.message || 'Gagal mengirimkan siaran pengingat WhatsApp.' };
   }
 }
 
