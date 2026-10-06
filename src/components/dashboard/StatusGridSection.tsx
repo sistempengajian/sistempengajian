@@ -38,12 +38,17 @@ export interface StatusData {
     generationName?: string;
     points?: number;
     relationshipType?: string;
+    curriculumProgressPercent?: number;
   }>;
   homeroomClassesCount?: number;
   pendingApprovalsCount?: number;
   nextScheduleTitle?: string;
   nextScheduleTime?: string;
   nextScheduleVenue?: string;
+  hafalanProgressPercent?: number;
+  recentPassedMaterials?: Array<{ title: string; isCompleted: boolean }>;
+  alpaCount?: number;
+  badgesList?: Array<{ name: string; category?: string }>;
 }
 
 interface StatusGridSectionProps {
@@ -306,23 +311,27 @@ export default function StatusGridSection({
                         Target Kurikulum Jenjang {data.generationName || 'Caberawit'}
                       </div>
                       <p className="text-slate-600 text-[11px] leading-relaxed">
-                        Fokus saat ini adalah memantapkan makharijul huruf, tajwid dasar, serta hafalan surat Al-Mulk dan surat-surat pendek Juz 30.
+                        Fokus saat ini adalah memantapkan makharijul huruf, tajwid dasar, serta hafalan materi kurikulum berjenjang.
                       </p>
                     </div>
-                    <ProgressCircle percentage={78} size={46} />
+                    <ProgressCircle percentage={data.hafalanProgressPercent ?? 0} size={46} />
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="p-2.5 rounded-xl border border-slate-200/60 bg-white flex items-center justify-between">
-                      <span className="font-medium text-slate-700">Surat Al-Mulk (Ayat 1-15)</span>
-                      <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Lulus
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl border border-slate-200/60 bg-white flex items-center justify-between">
-                      <span className="font-medium text-slate-700">Surat Al-Mulk (Ayat 16-30)</span>
-                      <span className="text-[11px] font-semibold text-amber-700">Sedang Berjalan</span>
-                    </div>
+                    {data.recentPassedMaterials && data.recentPassedMaterials.length > 0 ? (
+                      data.recentPassedMaterials.map((mat, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl border border-slate-200/60 bg-white flex items-center justify-between">
+                          <span className="font-medium text-slate-700 truncate pr-2">{mat.title}</span>
+                          <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 shrink-0">
+                            <Check className="w-3.5 h-3.5" /> Lulus
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2.5 rounded-xl border border-slate-200/60 bg-white text-center text-slate-500 text-[11px]">
+                        Belum ada checklist hafalan yang selesai dievaluasi.
+                      </div>
+                    )}
                   </div>
 
                   <Link
@@ -346,10 +355,10 @@ export default function StatusGridSection({
                           ? `${data.gamification.currentStreakDays} Hari`
                           : '100%'}
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Kehadiran Rutin</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">Streak Kehadiran</div>
                     </div>
                     <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
-                      <div className="text-lg font-bold text-slate-800">0</div>
+                      <div className="text-lg font-bold text-slate-800">{data.alpaCount ?? 0}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">Alpa / Tanpa Keterangan</div>
                     </div>
                   </div>
@@ -389,14 +398,27 @@ export default function StatusGridSection({
                   <div className="space-y-1.5">
                     <span className="font-bold text-slate-800 text-[11px] block">Lencana Penghargaan:</span>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="p-2.5 rounded-xl border border-slate-200/70 bg-white flex items-center gap-2">
-                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-                        <span className="font-medium text-slate-800 truncate">Streak 7 Hari</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl border border-slate-200/70 bg-white flex items-center gap-2">
-                        <Award className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-medium text-slate-800 truncate">Hafiz Cilik</span>
-                      </div>
+                      {data.badgesList && data.badgesList.length > 0 ? (
+                        data.badgesList.map((b, idx) => (
+                          <div key={idx} className="p-2.5 rounded-xl border border-slate-200/70 bg-white flex items-center gap-2">
+                            <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-medium text-slate-800 truncate">{b.name}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div className="p-2.5 rounded-xl border border-slate-200/70 bg-white flex items-center gap-2">
+                            <Flame className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                            <span className="font-medium text-slate-800 truncate">
+                              {data.gamification?.currentStreakDays ? `Streak ${data.gamification.currentStreakDays} Hari` : 'Santri Aktif'}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-xl border border-slate-200/70 bg-white flex items-center gap-2">
+                            <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-medium text-slate-800 truncate">Generasi Qurani</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -427,10 +449,12 @@ export default function StatusGridSection({
                 <div className="space-y-3 text-xs">
                   <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-100 space-y-1.5">
                     <div className="font-bold text-slate-900 text-sm">
-                      {data.homeroomClassesCount || 1} Kelas Binaan Aktif
+                      {data.homeroomClassesCount ?? 0} Kelas Binaan Aktif
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Bertanggung jawab memonitor kehadiran, evaluasi hafalan, serta jurnal penilaian santri di halaqah masing-masing.
+                      {(data.homeroomClassesCount ?? 0) > 0
+                        ? 'Bertanggung jawab memonitor kehadiran, evaluasi hafalan, serta jurnal penilaian santri di halaqah masing-masing.'
+                        : 'Belum ada kelas binaan yang ditugaskan kepada Anda. Hubungi pengurus wilayah untuk penugasan wali kelas.'}
                     </p>
                   </div>
                   <Link
@@ -466,16 +490,20 @@ export default function StatusGridSection({
                 <div className="space-y-3 text-xs">
                   <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100 space-y-1.5">
                     <div className="font-bold text-slate-900">
-                      {data.nextScheduleTitle || 'Sesi Pengajian Rutin Terjadwal'}
+                      {data.nextScheduleTitle || 'Belum Ada Jadwal Aktif Terdekat'}
                     </div>
-                    <div className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{data.nextScheduleTime || 'Rabu • 16:30 WIB'}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{data.nextScheduleVenue || 'Masjid Baitul Makmur'}</span>
-                    </div>
+                    {data.nextScheduleTime && (
+                      <div className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{data.nextScheduleTime}</span>
+                      </div>
+                    )}
+                    {data.nextScheduleVenue && (
+                      <div className="text-[11px] text-slate-600 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{data.nextScheduleVenue}</span>
+                      </div>
+                    )}
                   </div>
                   <Link
                     href="/jadwal"

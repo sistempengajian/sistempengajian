@@ -38,6 +38,13 @@ import StatusGridSection from '@/components/dashboard/StatusGridSection';
 import ProgressCircle from '@/components/dashboard/ProgressCircle';
 
 import { getEffectiveAuthUser } from '@/lib/auth';
+import {
+  getUpcomingScheduleForUser,
+  getStudentCurriculumMetrics,
+  getChildrenProgressMetrics,
+  getPjTerritoryMetrics,
+  getAdminGlobalMetrics,
+} from './queries';
 
 export default async function DashboardPage() {
   const { authUser, dbUser: profile } = await getEffectiveAuthUser();
@@ -49,55 +56,13 @@ export default async function DashboardPage() {
   if (!profile) {
     const supabase = await createClient();
     await supabase.auth.signOut();
-    redirect('/login?auth_error=' + encodeURIComponent('Profil pengguna tidak ditemukan di database. Silakan masuk kembali.'));
+    redirect(
+      '/login?auth_error=' +
+        encodeURIComponent(
+          'Profil pengguna tidak ditemukan di database. Silakan masuk kembali.'
+        )
+    );
   }
-
-  // Fetch upcoming schedule and pending approvals concurrently
-  const [nextSchedule, rawPendingApprovalsCount] = await Promise.all([
-    prisma.schedule.findFirst({
-      where: {
-        status: { in: ['SCHEDULED', 'ACTIVE'] },
-      },
-      orderBy: { startTime: 'asc' },
-      include: {
-        organization: true,
-        class: {
-          include: {
-            generation: true,
-          },
-        },
-        teachers: {
-          include: {
-            teacher: true,
-          },
-        },
-      },
-    }),
-    prisma.schedule.count({
-      where: {
-        scheduleType: 'PRIVATE_REMEDIAL',
-        approvalStatus: 'PENDING',
-      },
-    }),
-  ]);
-
-  // Fetch materi kurikulum yang akan disampaikan sesuai jadwal / jenjang pengguna
-  const targetGenId = nextSchedule?.class?.generationId || profile.generationId;
-  const scheduledMaterial = await prisma.material.findFirst({
-    where: {
-      isActive: true,
-      ...(targetGenId ? { targetGenerationId: targetGenId } : {}),
-    },
-    include: {
-      targetGeneration: true,
-    },
-    orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
-  });
-
-  const targetMaterialGenCode = scheduledMaterial?.targetGeneration?.code || profile.generation?.code || 'CABERAWIT';
-  const targetMaterialUrl = scheduledMaterial
-    ? `/kurikulum?gen=${targetMaterialGenCode}#material-${scheduledMaterial.id}`
-    : `/kurikulum?gen=${targetMaterialGenCode}`;
 
   // Determine user role flags
   const roleCodes = profile.roles.map((r) => r.role);
@@ -111,18 +76,86 @@ export default async function DashboardPage() {
     roleCodes.includes('PJ_DAERAH');
   const isAdmin = roleCodes.includes('ADMIN_MASTER');
 
+  const childrenGenerationIds = profile.children
+    .map((c) => c.student.generationId)
+    .filter(Boolean) as string[];
+
+  const homeroomClassIds = profile.homeroomClasses.map((c) => c.id);
+
+  // Fetch upcoming schedule and role-specific metrics concurrently
+  const [
+    nextSchedule,
+    studentMetrics,
+    childrenMetricsMap,
+    pjMetrics,
+    adminMetrics,
+  ] = await Promise.all([
+    getUpcomingScheduleForUser({
+      userId: profile.id,
+      roles: roleCodes,
+      organizationId: profile.organizationId,
+      generationId: profile.generationId,
+      childrenGenerationIds,
+      homeroomClassIds,
+    }),
+    isSantri
+      ? getStudentCurriculumMetrics(profile.id, profile.generationId)
+      : Promise.resolve(null),
+    isOrangTua
+      ? getChildrenProgressMetrics(profile.children)
+      : Promise.resolve<Record<string, import('./queries').ChildProgressMetric>>({}),
+    isPj
+      ? getPjTerritoryMetrics(roleCodes, profile.organizationId)
+      : Promise.resolve(null),
+    isAdmin
+      ? getAdminGlobalMetrics()
+      : Promise.resolve(null),
+  ]);
+
+  // Fetch target material from schedule or fallback to generation syllabus
+  const targetGenId = nextSchedule?.class?.generationId || profile.generationId;
+  const scheduledMaterial =
+    nextSchedule?.scheduleMaterials?.[0]?.material ||
+    (await prisma.material.findFirst({
+      where: {
+        isActive: true,
+        ...(targetGenId ? { targetGenerationId: targetGenId } : {}),
+      },
+      include: {
+        targetGeneration: true,
+      },
+      orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
+    }));
+
+  const targetMaterialGenCode =
+    scheduledMaterial?.targetGeneration?.code ||
+    profile.generation?.code ||
+    'CABERAWIT';
+  const targetMaterialUrl = scheduledMaterial
+    ? `/kurikulum?gen=${targetMaterialGenCode}#material-${scheduledMaterial.id}`
+    : `/kurikulum?gen=${targetMaterialGenCode}`;
+
   const defaultRoleParam = isSantri
     ? 'role=student'
     : isOrangTua
       ? 'role=parent'
-      : (isPengajar || isWaliKelas)
+      : isPengajar || isWaliKelas
         ? 'role=teacher'
         : 'role=manage';
 
   const defaultScheduleHref = `/jadwal?${defaultRoleParam}`;
   const defaultKurikulumHref = `/kurikulum?${defaultRoleParam}`;
 
-  const pendingApprovalsCount = isPj || isAdmin ? rawPendingApprovalsCount : 0;
+  const pendingApprovalsCount = isPj
+    ? pjMetrics?.pendingApprovals ?? 0
+    : isAdmin
+      ? await prisma.schedule.count({
+          where: {
+            scheduleType: 'PRIVATE_REMEDIAL',
+            approvalStatus: 'PENDING',
+          },
+        })
+      : 0;
 
   // Nama wilayah (kelompoknya saja)
   const kelompokName = profile.organization?.name || 'Kelompok Binaan';
@@ -196,100 +229,161 @@ export default async function DashboardPage() {
             generationName: student.generation?.name,
             points: student.gamification?.totalPoints,
             relationshipType,
+            curriculumProgressPercent:
+              childrenMetricsMap[student.id]?.curriculumPercentage,
           })),
           homeroomClassesCount: profile.homeroomClasses.length,
           pendingApprovalsCount,
           nextScheduleTitle: nextSchedule?.title,
           nextScheduleTime: nextSchedule
             ? `${new Date(nextSchedule.startTime).toLocaleDateString('id-ID', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })} • ${new Date(nextSchedule.startTime).toLocaleTimeString('id-ID', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })} WIB`
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              })} • ${new Date(nextSchedule.startTime).toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })} WIB`
             : undefined,
           nextScheduleVenue: nextSchedule?.venuePlaceName,
+          hafalanProgressPercent: studentMetrics?.overallPercentage,
+          recentPassedMaterials: studentMetrics?.recentPassedMaterials,
+          alpaCount: studentMetrics?.alpaCount,
+          badgesList: studentMetrics?.badgesList,
         }}
       />
 
       {/* 3. Sesi Pengajian Terdekat: Clean & Modern Glassmorphic Card */}
       <section className="bg-white/30 backdrop-blur-md border border-slate-200/50 rounded-2xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-800 border border-emerald-500/20">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+        {nextSchedule ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-800 border border-emerald-500/20">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  <span>Sesi Pengajian Terdekat</span>
                 </span>
-                <span>Sesi Pengajian Terdekat</span>
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">
-                {nextSchedule ? 'Jadwal Aktif' : 'Terjadwal'}
-              </span>
-            </div>
-
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              {nextSchedule ? nextSchedule.title : 'Pengajian Rutin Terjadwal'}
-            </h2>
-
-            <div className="flex flex-col items-start gap-2 text-xs text-slate-600">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
-                <Clock className={`w-3.5 h-3.5 ${theme.accentColor}`} />
-                <span>
-                  {nextSchedule
-                    ? `${new Date(nextSchedule.startTime).toLocaleDateString('id-ID', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                    })} • ${new Date(nextSchedule.startTime).toLocaleTimeString('id-ID', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })} WIB`
-                    : 'Rabu, 09 Sep • 16:30 WIB'}
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Jadwal Aktif
                 </span>
-              </span>
+              </div>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
-                <MapPin className={`w-3.5 h-3.5 ${theme.accentColor}`} />
-                <span>{nextSchedule?.venuePlaceName || 'Masjid Baitul Makmur'}</span>
-              </span>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                {nextSchedule.title}
+              </h2>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
-                <UserCheck className={`w-3.5 h-3.5 ${theme.accentColor}`} />
-                <span>{nextSchedule?.teachers[0]?.teacher.fullName || 'Ustadz Abdullah S.Pd.I'}</span>
-              </span>
+              <div className="flex flex-col items-start gap-2 text-xs text-slate-600">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
+                  <Clock className={`w-3.5 h-3.5 ${theme.accentColor}`} />
+                  <span>
+                    {new Date(nextSchedule.startTime).toLocaleDateString(
+                      'id-ID',
+                      {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                      }
+                    )}{' '}
+                    •{' '}
+                    {new Date(nextSchedule.startTime).toLocaleTimeString(
+                      'id-ID',
+                      {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }
+                    )}{' '}
+                    WIB
+                  </span>
+                </span>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
-                <BookOpen className={`w-3.5 h-3.5 ${theme.accentColor}`} />
-                <span>{scheduledMaterial?.title || 'Tafsir Al-Qur\'an & Praktik Tajwid Terpadu'}</span>
-              </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
+                  <MapPin className={`w-3.5 h-3.5 ${theme.accentColor}`} />
+                  <span>
+                    {nextSchedule.venuePlaceName || 'Tempat belum ditentukan'}
+                  </span>
+                </span>
+
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
+                  <UserCheck className={`w-3.5 h-3.5 ${theme.accentColor}`} />
+                  <span>
+                    {nextSchedule.teachers[0]?.teacher?.fullName ||
+                      'Ustadz belum ditugaskan'}
+                  </span>
+                </span>
+
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/40 border border-slate-200/10 font-medium text-slate-800">
+                  <BookOpen className={`w-3.5 h-3.5 ${theme.accentColor}`} />
+                  <span>
+                    {scheduledMaterial?.title ||
+                      'Materi target belum ditentukan'}
+                  </span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 sm:pt-0 self-start sm:self-center shrink-0">
+                <Link
+                  href={defaultScheduleHref}
+                  prefetch={true}
+                  className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Lihat Jadwal</span>
+                </Link>
+                <Link
+                  href={targetMaterialUrl}
+                  prefetch={true}
+                  className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Target Materi</span>
+                </Link>
+              </div>
             </div>
-
-            <div className="flex items-center gap-2 pt-1 sm:pt-0 self-start sm:self-center shrink-0">
-              <Link
-                href={defaultScheduleHref}
-                prefetch={true}
-                className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Lihat Jadwal</span>
-              </Link>
-              <Link
-                href={targetMaterialUrl}
-                prefetch={true}
-                className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Target Materi</span>
-              </Link>
-            </div>
-
           </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-slate-500/10 text-slate-700 border border-slate-300/50">
+                  <span>Kalender Pengajian</span>
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Belum Ada Sesi Aktif
+                </span>
+              </div>
 
-        </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                Belum Ada Sesi Pengajian Terjadwal
+              </h2>
+
+              <p className="text-xs text-slate-500 font-normal leading-relaxed max-w-xl">
+                Jadwal sesi pengajian rutin akan tampil otomatis di sini setelah diagendakan oleh pengurus wilayah.
+              </p>
+
+              <div className="flex items-center gap-2 pt-1 sm:pt-0 self-start sm:self-center shrink-0">
+                <Link
+                  href={defaultScheduleHref}
+                  prefetch={true}
+                  className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Buka Kalender Jadwal</span>
+                </Link>
+                <Link
+                  href={targetMaterialUrl}
+                  prefetch={true}
+                  className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Silabus Kurikulum</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 4. Tampilan Khusus Peran */}
@@ -327,64 +421,94 @@ export default async function DashboardPage() {
 
 
           <div className="space-y-3">
-            {/* Item 1: Kurikulum Wajib (Belum Full -> Line & Checklist Kuning) */}
+            {/* Item 1: Kurikulum Wajib (Syarat Kelulusan) */}
             <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
                     Kurikulum Wajib (Syarat Kelulusan)
                   </h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">
-                    85% Selesai
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      (studentMetrics?.mandatory.percentage ?? 0) >= 100
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
+                        : 'bg-amber-50 text-amber-700 border-amber-200/70'
+                    }`}
+                  >
+                    {studentMetrics?.mandatory.percentage ?? 0}% Selesai
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-500">
-                  17 dari 20 checklist standar kelulusan materi baku telah terpenuhi
+                  {studentMetrics?.mandatory.completed ?? 0} dari{' '}
+                  {studentMetrics?.mandatory.total ?? 0} checklist standar kelulusan materi baku telah terpenuhi
                 </p>
               </div>
 
-              {/* Circle Line Bar di sisi kanan progress (Kuning saat belum full) */}
-              <ProgressCircle percentage={85} size={48} />
+              {/* Circle Line Bar di sisi kanan progress */}
+              <ProgressCircle
+                percentage={studentMetrics?.mandatory.percentage ?? 0}
+                size={48}
+              />
             </div>
 
-            {/* Item 2: Modul Tambahan & Pengayaan (Belum Full -> Line & Checklist Kuning) */}
+            {/* Item 2: Modul Tambahan & Pengayaan */}
             <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
                     Modul Tambahan &amp; Pengayaan
                   </h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">
-                    65% Selesai
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      (studentMetrics?.enrichment.percentage ?? 0) >= 100
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
+                        : 'bg-amber-50 text-amber-700 border-amber-200/70'
+                    }`}
+                  >
+                    {studentMetrics?.enrichment.percentage ?? 0}% Selesai
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-500">
-                  13 dari 20 checklist materi pilihan &amp; pengayaan halaqah
+                  {studentMetrics?.enrichment.completed ?? 0} dari{' '}
+                  {studentMetrics?.enrichment.total ?? 0} checklist materi pilihan &amp; pengayaan halaqah
                 </p>
               </div>
 
-              {/* Circle Line Bar di sisi kanan progress (Kuning saat belum full) */}
-              <ProgressCircle percentage={65} size={48} />
+              {/* Circle Line Bar di sisi kanan progress */}
+              <ProgressCircle
+                percentage={studentMetrics?.enrichment.percentage ?? 0}
+                size={48}
+              />
             </div>
 
-            {/* Item 3: Adab & Pembiasaan Harian (Penuh 100% -> Line & Checklist Hijau) */}
+            {/* Item 3: Adab & Pembiasaan Harian */}
             <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
                     Adab &amp; Pembiasaan Harian
                   </h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                    100% Tuntas
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      (studentMetrics?.adab.percentage ?? 100) >= 100
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
+                        : 'bg-amber-50 text-amber-700 border-amber-200/70'
+                    }`}
+                  >
+                    {studentMetrics?.adab.percentage ?? 100}% Tuntas
                   </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-500">
-                  10 dari 10 target kedisiplinan sholat &amp; adab harian tuntas sempurna
+                  {studentMetrics?.adab.completed ?? 0} dari{' '}
+                  {studentMetrics?.adab.total ?? 0} target kehadiran &amp; kedisiplinan adab halaqah
                 </p>
               </div>
 
-              {/* Circle Line Bar di sisi kanan progress (Hijau saat penuh) */}
-              <ProgressCircle percentage={100} size={48} />
+              {/* Circle Line Bar di sisi kanan progress */}
+              <ProgressCircle
+                percentage={studentMetrics?.adab.percentage ?? 100}
+                size={48}
+              />
             </div>
           </div>
         </section>
@@ -409,43 +533,51 @@ export default async function DashboardPage() {
           </div>
 
           <div className="space-y-2.5">
-            {profile.children.map(({ student, relationshipType }) => (
-              <div
-                key={student.id}
-                className="p-3.5 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs"
-              >
-                <div className="flex items-center gap-3">
-                  <div>
-                    <div className="font-bold text-sm text-slate-900 leading-tight">
-                      {student.fullName}
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                      {student.generation?.name || 'Caberawit'} <Star className="size-3 text-[#ffaf29] fill-[#ffaf29]" />
-                      {student.gamification?.totalPoints || 0} Poin
+            {profile.children.map(({ student, relationshipType }) => {
+              const childMetric = childrenMetricsMap[student.id];
+              const pct = childMetric?.curriculumPercentage ?? 0;
+              return (
+                <div
+                  key={student.id}
+                  className="p-3.5 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <div className="font-bold text-sm text-slate-900 leading-tight">
+                        {student.fullName}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                        {student.generation?.name || 'Caberawit'}{' '}
+                        <Star className="size-3 text-[#ffaf29] fill-[#ffaf29]" />
+                        {student.gamification?.totalPoints || 0} Poin
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <Link
-                    href={`/laporan?childId=${student.id}`}
-                    prefetch={true}
-                    className="px-3 py-1.5 rounded-xl bg-white/0 hover:bg-slate-50 text-indigo-600 font-semibold text-xs transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer ml-1"
-                  >
-
-                    <div className="hidden sm:flex flex-col items-end text-right">
-                      <span className="text-[11px] font-semibold text-slate-700">Rapor Ananda</span>
-                      <span className="text-[10px] text-slate-400">80% Tercapai</span>
-                    </div>
-                    <ProgressCircle percentage={80} size={42} />
-                  </Link>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Link
+                      href={`/laporan?childId=${student.id}`}
+                      prefetch={true}
+                      className="px-3 py-1.5 rounded-xl bg-white/0 hover:bg-slate-50 text-indigo-600 font-semibold text-xs transition-all flex items-center gap-1 shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer ml-1"
+                    >
+                      <div className="hidden sm:flex flex-col items-end text-right">
+                        <span className="text-[11px] font-semibold text-slate-700">
+                          Rapor Ananda
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {pct}% Tercapai
+                        </span>
+                      </div>
+                      <ProgressCircle percentage={pct} size={42} />
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Banner Cepat Ajukan Izin Sakit */}
-          < div
+          <div
             id="izin"
             className="mt-3.5 p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
           >
@@ -459,12 +591,13 @@ export default async function DashboardPage() {
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shrink-0 self-end sm:self-center cursor-pointer"
+            <Link
+              href="/presensi?role=parent"
+              prefetch={true}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shrink-0 self-end sm:self-center cursor-pointer inline-flex items-center"
             >
-              Kirim Izin
-            </button>
+              Ajukan Izin
+            </Link>
           </div>
         </section>
       )}
@@ -545,13 +678,17 @@ export default async function DashboardPage() {
 
           <div className="grid grid-cols-3 divide-x divide-slate-150 rounded-2xl border border-slate-200/50 bg-white/40 backdrop-blur-sm py-3 text-center shadow-2xs">
             <div>
-              <div className="text-lg sm:text-xl font-black text-slate-900">48</div>
+              <div className="text-lg sm:text-xl font-black text-slate-900">
+                {pjMetrics?.totalSantri ?? 0}
+              </div>
               <div className="text-[11px] text-slate-500 font-medium mt-0.5">
                 Santri Binaan
               </div>
             </div>
             <div>
-              <div className="text-lg sm:text-xl font-black text-emerald-600">92.4%</div>
+              <div className="text-lg sm:text-xl font-black text-emerald-600">
+                {pjMetrics?.attendanceRate ?? 0}%
+              </div>
               <div className="text-[11px] text-slate-500 font-medium mt-0.5">
                 Rata-rata Hadir
               </div>
@@ -590,7 +727,6 @@ export default async function DashboardPage() {
       {isAdmin && (
         <section className={COMMON_THEME.cardClassPadded}>
           <div className="flex items-center gap-3 mb-4">
-
             <div>
               <div className="flex items-center gap-2">
                 <h3 className={COMMON_THEME.sectionTitleClass}>
@@ -605,19 +741,27 @@ export default async function DashboardPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-150 rounded-2xl border border-slate-200/50 bg-white/40 backdrop-blur-sm py-3 text-center shadow-2xs">
             <div className="py-1">
-              <div className="text-base sm:text-lg font-black text-slate-900">12</div>
+              <div className="text-base sm:text-lg font-black text-slate-900">
+                {adminMetrics?.totalWilayah ?? 0}
+              </div>
               <div className="text-[11px] text-slate-500 font-medium">Wilayah Binaan</div>
             </div>
             <div className="py-1">
-              <div className="text-base sm:text-lg font-black text-slate-900">18</div>
+              <div className="text-base sm:text-lg font-black text-slate-900">
+                {adminMetrics?.totalDewanGuru ?? 0}
+              </div>
               <div className="text-[11px] text-slate-500 font-medium">Dewan Guru</div>
             </div>
             <div className="py-1">
-              <div className="text-base sm:text-lg font-black text-slate-900">120</div>
+              <div className="text-base sm:text-lg font-black text-slate-900">
+                {adminMetrics?.totalSantri ?? 0}
+              </div>
               <div className="text-[11px] text-slate-500 font-medium">Total Santri</div>
             </div>
             <div className="py-1">
-              <div className="text-base sm:text-lg font-black text-emerald-600">Normal</div>
+              <div className="text-base sm:text-lg font-black text-emerald-600">
+                {adminMetrics?.dbHealth ?? 'Normal'}
+              </div>
               <div className="text-[11px] text-slate-500 font-medium">Status Database</div>
             </div>
           </div>
@@ -1290,7 +1434,11 @@ export default async function DashboardPage() {
               </span>
             </Link>
 
-            <div className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center">
+            <Link
+              href="/analisis"
+              prefetch={true}
+              className="group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-95 hover:-translate-y-0.5 cursor-pointer text-center"
+            >
               <div
                 className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${theme.menuIconClass} flex items-center justify-center shadow-xs transition-all duration-200 group-hover:scale-105 shrink-0`}
               >
@@ -1299,7 +1447,7 @@ export default async function DashboardPage() {
               <span className="text-xs sm:text-[13px] font-medium text-slate-700 group-hover:text-slate-900 transition-colors mt-2 text-center leading-tight">
                 Audit Log
               </span>
-            </div>
+            </Link>
           </div>
         )}
       </section>

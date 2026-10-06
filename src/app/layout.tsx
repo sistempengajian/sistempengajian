@@ -1,5 +1,7 @@
+import React, { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import TopProgressBar from "@/components/navigation/TopProgressBar";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -64,6 +66,9 @@ export default function RootLayout({
         )}
       </head>
       <body className="antialiased min-h-screen bg-white text-slate-700 flex flex-col selection:bg-emerald-100 selection:text-emerald-900">
+        <Suspense fallback={null}>
+          <TopProgressBar />
+        </Suspense>
         {children}
       </body>
     </html>
