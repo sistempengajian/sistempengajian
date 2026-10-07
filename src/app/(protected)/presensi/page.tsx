@@ -28,6 +28,7 @@ import { resolveMaterialsForSchedule } from '@/lib/curriculumVersionResolver';
 import { getParentAbsenceHistory, populateDefaultAbsenceForSession } from '@/app/(protected)/presensi/actions';
 
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { getScopedOrganizationIds } from '@/lib/scoped-access';
 
 export default async function PresensiPage({
   searchParams,
@@ -92,6 +93,25 @@ export default async function PresensiPage({
         teacher: true,
       },
     },
+    attendanceSessions: {
+      take: 1,
+      orderBy: {
+        createdAt: 'desc' as const,
+      },
+      include: {
+        records: {
+          include: {
+            absenceConfirmation: {
+              include: {
+                parent: {
+                  select: { fullName: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   };
 
   // Fetch jadwal spesifik jika scheduleId disediakan
@@ -122,25 +142,17 @@ export default async function PresensiPage({
     let activeSchedule = directSchedule;
 
     if (!activeSchedule && isPengajar) {
-      activeSchedule =
-        (await prisma.schedule.findFirst({
-          where: {
-            status: { in: ['ACTIVE', 'SCHEDULED'] },
-            teachers: {
-              some: { teacherId: userProfile.id },
-            },
-          },
-          orderBy: { startTime: 'asc' },
-          include: scheduleInclude,
-        })) ||
-        (await prisma.schedule.findFirst({
-          where: {
-            status: { in: ['ACTIVE', 'SCHEDULED'] },
-            ...(userProfile.organizationId ? { organizationId: userProfile.organizationId } : {}),
-          },
-          orderBy: { startTime: 'asc' },
-          include: scheduleInclude,
-        }));
+      activeSchedule = await prisma.schedule.findFirst({
+        where: {
+          status: { in: ['ACTIVE', 'SCHEDULED'] },
+          OR: [
+            { teachers: { some: { teacherId: userProfile.id } } },
+            ...(userProfile.organizationId ? [{ organizationId: userProfile.organizationId }] : []),
+          ],
+        },
+        orderBy: { startTime: 'asc' },
+        include: scheduleInclude,
+      });
     }
 
     if (!activeSchedule) {
@@ -167,26 +179,30 @@ export default async function PresensiPage({
 
     const isScheduleCompleted = activeSchedule.status === 'COMPLETED';
 
-    // Ambil sesi presensi yang ada (utamakan sesi terakhir)
-    let session = await prisma.attendanceSession.findFirst({
-      where: {
-        scheduleId: activeSchedule.id,
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        records: {
-          include: {
-            absenceConfirmation: {
-              include: {
-                parent: {
-                  select: { fullName: true },
+    // Ambil sesi presensi yang ada (utamakan yang sudah di-load eager di relasi scheduleInclude)
+    let session: any = (activeSchedule as any).attendanceSessions?.[0] || null;
+
+    if (!session) {
+      session = await prisma.attendanceSession.findFirst({
+        where: {
+          scheduleId: activeSchedule.id,
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          records: {
+            include: {
+              absenceConfirmation: {
+                include: {
+                  parent: {
+                    select: { fullName: true },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      });
+    }
 
     // HANYA buat sesi baru jika jadwal BELUM COMPLETED dan sesi memang belum pernah ada
     if (!session && !isScheduleCompleted) {
@@ -246,24 +262,6 @@ export default async function PresensiPage({
           },
         },
       });
-    }
-
-    // Pastikan seluruh santri target jadwal terdaftar di database dengan status default ALPA (Opsi B)
-    if (session) {
-      await populateDefaultAbsenceForSession(session.id);
-      const refreshedRecords = await prisma.attendanceRecord.findMany({
-        where: { sessionId: session.id },
-        include: {
-          absenceConfirmation: {
-            include: {
-              parent: {
-                select: { fullName: true },
-              },
-            },
-          },
-        },
-      });
-      session.records = refreshedRecords;
     }
 
     const isSessionActive = Boolean(session.isActive && !isScheduleCompleted);
@@ -349,44 +347,6 @@ export default async function PresensiPage({
       }
     }
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    // Ambil daftar santri, sesi pengajian hari ini, dan seluruh jenjang secara paralel
-    const [classStudents, todaySchedules, allGenerations] = await Promise.all([
-      prisma.user.findMany({
-        where: studentWhere,
-        select: {
-          id: true,
-          fullName: true,
-          organizationId: true,
-          generationId: true,
-          generation: { select: { id: true, name: true, code: true } },
-        },
-        orderBy: { fullName: 'asc' },
-      }),
-      prisma.schedule.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'SCHEDULED'] },
-          startTime: { gte: startOfToday, lte: endOfToday },
-          OR: [
-            { teachers: { some: { teacherId: authUser.id } } },
-            ...(userProfile.organizationId ? [{ organizationId: userProfile.organizationId }] : []),
-          ],
-        },
-        orderBy: { startTime: 'asc' },
-        include: {
-          class: { select: { name: true } },
-        },
-      }),
-      prisma.generation.findMany({
-        select: { id: true, name: true, code: true },
-        orderBy: { code: 'asc' },
-      }),
-    ]);
-
     // Kumpulkan generasi target yang relevan dengan jadwal ini
     const relevantGenerationIds = new Set<string>();
     if (activeSchedule.targetGenerations && activeSchedule.targetGenerations.length > 0) {
@@ -394,9 +354,6 @@ export default async function PresensiPage({
     }
     targetClassesList.forEach((c) => {
       if (c.generationId) relevantGenerationIds.add(c.generationId);
-    });
-    classStudents.forEach((s) => {
-      if (s.generationId) relevantGenerationIds.add(s.generationId);
     });
 
     // Organisasi yang relevan dengan jadwal pengajian ini (Kelompok & Desa induk)
@@ -442,40 +399,108 @@ export default async function PresensiPage({
       };
     }
 
-    // Ambil total materi & materi kurikulum awal (prioritas jadwal penuh, jika mode jenjang/umum cukup 5 materi awal)
-    const [totalMaterialsCount, rawMaterials] = await Promise.all([
-      hasScheduledMaterials
-        ? Promise.resolve(scheduledMaterialIds.length)
-        : prisma.material.count({ where: materialWhere }),
-      prisma.material.findMany({
-        where: materialWhere,
-        take: hasScheduledMaterials ? undefined : 5,
-        include: {
-          targetGeneration: {
-            select: { id: true, name: true, code: true },
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // Ambil daftar santri, sesi pengajian hari ini, seluruh jenjang, & materi kurikulum secara paralel
+    const [classStudents, todaySchedules, allGenerations, totalMaterialsCount, rawMaterials] =
+      await Promise.all([
+        prisma.user.findMany({
+          where: studentWhere,
+          select: {
+            id: true,
+            fullName: true,
+            organizationId: true,
+            generationId: true,
+            generation: { select: { id: true, name: true, code: true } },
           },
-          checklistItems: {
-            where: {
-              OR: [
-                { organizationId: null },
-                { tierLevel: 'DAERAH' },
-                ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
-              ],
+          orderBy: { fullName: 'asc' },
+        }),
+        prisma.schedule.findMany({
+          where: {
+            status: { in: ['ACTIVE', 'SCHEDULED'] },
+            startTime: { gte: startOfToday, lte: endOfToday },
+            OR: [
+              { teachers: { some: { teacherId: authUser.id } } },
+              ...(userProfile.organizationId ? [{ organizationId: userProfile.organizationId }] : []),
+            ],
+          },
+          orderBy: { startTime: 'asc' },
+          include: {
+            class: { select: { name: true } },
+          },
+        }),
+        prisma.generation.findMany({
+          select: { id: true, name: true, code: true },
+          orderBy: { code: 'asc' },
+        }),
+        hasScheduledMaterials
+          ? Promise.resolve(scheduledMaterialIds.length)
+          : prisma.material.count({ where: materialWhere }),
+        prisma.material.findMany({
+          where: materialWhere,
+          take: hasScheduledMaterials ? undefined : 5,
+          include: {
+            targetGeneration: {
+              select: { id: true, name: true, code: true },
             },
-            orderBy: { orderIndex: 'asc' },
+            checklistItems: {
+              where: {
+                OR: [
+                  { organizationId: null },
+                  { tierLevel: 'DAERAH' },
+                  ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
+                ],
+              },
+              orderBy: { orderIndex: 'asc' },
+            },
+            customizations: {
+              where:
+                relevantOrgIds.length > 0
+                  ? {
+                      organizationId: { in: relevantOrgIds },
+                    }
+                  : undefined,
+            },
           },
-          customizations: {
-            where:
-              relevantOrgIds.length > 0
-                ? {
-                    organizationId: { in: relevantOrgIds },
-                  }
-                : undefined,
+          orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
+        }),
+      ]);
+
+    // Smart default absence: Hanya tambahkan santri yang belum memiliki attendanceRecord (Zero extra queries jika sudah lengkap)
+    if (session) {
+      const existingStudentIdSet = new Set((session.records || []).map((r: any) => r.studentId));
+      const missingStudents = classStudents.filter((s) => !existingStudentIdSet.has(s.id));
+
+      if (missingStudents.length > 0) {
+        await prisma.attendanceRecord.createMany({
+          data: missingStudents.map((s) => ({
+            sessionId: session.id,
+            studentId: s.id,
+            method: AttendanceMethod.MANUAL_TEACHER,
+            status: AttendanceStatus.ALPA,
+            notes: 'Status awal presensi sesi (Belum hadir)',
+          })),
+          skipDuplicates: true,
+        });
+
+        const refreshedRecords = await prisma.attendanceRecord.findMany({
+          where: { sessionId: session.id },
+          include: {
+            absenceConfirmation: {
+              include: {
+                parent: {
+                  select: { fullName: true },
+                },
+              },
+            },
           },
-        },
-        orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
-      }),
-    ]);
+        });
+        session.records = refreshedRecords;
+      }
+    }
 
     const initialHasMore = hasScheduledMaterials ? false : totalMaterialsCount > rawMaterials.length;
 
@@ -606,7 +631,7 @@ export default async function PresensiPage({
       : undefined;
 
     const studentItems = classStudents.map((s) => {
-      const record = session?.records.find((r) => r.studentId === s.id);
+      const record = session?.records.find((r: any) => r.studentId === s.id);
       const matchedClass = targetClassesList.find(
         (c) => c.organizationId === s.organizationId && c.generationId === s.generationId
       );
@@ -694,70 +719,79 @@ export default async function PresensiPage({
       userProfile.organization?.parentId,
     ].filter(Boolean) as string[];
 
-    const studentClasses = await prisma.class.findMany({
-      where: {
-        generationId: userProfile.generationId || undefined,
-        OR: [
-          { organizationId: userProfile.organizationId || undefined },
-          { organizationId: userProfile.organization?.parentId || undefined },
-        ],
-      },
-      select: { id: true },
-    });
-    const studentClassIds = studentClasses.map((c) => c.id);
-
-    // Cari jadwal aktif hari ini (utamakan requestedScheduleId, lalu jadwal kelas/jenjang/umum santri)
-    const activeSchedule = requestedScheduleId
-      ? await prisma.schedule.findUnique({
-          where: { id: requestedScheduleId },
-        })
-      : await prisma.schedule.findFirst({
-          where: {
-            status: { in: ['ACTIVE', 'SCHEDULED'] },
-            organizationId: { in: userOrgIds },
-            OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
-            AND: [
-              {
-                OR: [
-                  ...(studentClassIds.length > 0
-                    ? [
-                        { classId: { in: studentClassIds } },
-                        { targetClasses: { some: { classId: { in: studentClassIds } } } },
-                      ]
-                    : []),
-                  ...(userProfile.generationId
-                    ? [
-                        { targetGenerations: { some: { generationId: userProfile.generationId } } },
-                        { class: { generationId: userProfile.generationId } },
-                      ]
-                    : []),
-                  {
-                    classId: null,
-                    targetClasses: { none: {} },
-                    targetGenerations: { none: {} },
-                  },
-                ],
-              },
-            ],
+    const sessionInclude = {
+      attendanceSessions: {
+        take: 1,
+        orderBy: { createdAt: 'desc' as const },
+        include: {
+          records: {
+            where: { studentId: userProfile.id },
           },
-          orderBy: { startTime: 'asc' },
-        });
+        },
+      },
+    };
+
+    let activeSchedule: any = null;
+
+    if (requestedScheduleId) {
+      activeSchedule = await prisma.schedule.findUnique({
+        where: { id: requestedScheduleId },
+        include: sessionInclude,
+      });
+    } else {
+      const studentClasses = await prisma.class.findMany({
+        where: {
+          generationId: userProfile.generationId || undefined,
+          OR: [
+            { organizationId: userProfile.organizationId || undefined },
+            { organizationId: userProfile.organization?.parentId || undefined },
+          ],
+        },
+        select: { id: true },
+      });
+      const studentClassIds = studentClasses.map((c) => c.id);
+
+      activeSchedule = await prisma.schedule.findFirst({
+        where: {
+          status: { in: ['ACTIVE', 'SCHEDULED'] },
+          organizationId: { in: userOrgIds },
+          OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+          AND: [
+            {
+              OR: [
+                ...(studentClassIds.length > 0
+                  ? [
+                      { classId: { in: studentClassIds } },
+                      { targetClasses: { some: { classId: { in: studentClassIds } } } },
+                    ]
+                  : []),
+                ...(userProfile.generationId
+                  ? [
+                      { targetGenerations: { some: { generationId: userProfile.generationId } } },
+                      { class: { generationId: userProfile.generationId } },
+                    ]
+                  : []),
+                {
+                  classId: null,
+                  targetClasses: { none: {} },
+                  targetGenerations: { none: {} },
+                },
+              ],
+            },
+          ],
+        },
+        orderBy: { startTime: 'asc' },
+        include: sessionInclude,
+      });
+    }
 
     // Cek apakah santri sudah diabsen pada jadwal aktif ini
     let isAlreadyPresent = false;
     let checkInTimeStr: string | null = null;
 
     if (activeSchedule) {
-      const session = await prisma.attendanceSession.findFirst({
-        where: { scheduleId: activeSchedule.id },
-        include: {
-          records: {
-            where: { studentId: userProfile.id },
-          },
-        },
-      });
-
-      const myRecord = session?.records[0];
+      const session = activeSchedule.attendanceSessions?.[0];
+      const myRecord = session?.records?.[0];
       if (myRecord && (myRecord.status === 'HADIR' || myRecord.status === 'TERLAMBAT')) {
         isAlreadyPresent = true;
         checkInTimeStr = myRecord.checkInTime
@@ -798,34 +832,69 @@ export default async function PresensiPage({
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    const children = userProfile.children || [];
+    const childStudentIds = children.map((c) => c.student.id);
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Kueri batch paralel untuk semua anak (Zero N+1):
+    // 1. Batch seluruh catatan presensi 30 hari untuk seluruh anak
+    // 2. Kueri riwayat surat izin orang tua langsung (bypassing redundant Supabase auth)
+    // 3. Batch kelas untuk seluruh anak
+    const [allPastRecords, absenceHistory, allClasses] = await Promise.all([
+      childStudentIds.length > 0
+        ? prisma.attendanceRecord.findMany({
+            where: {
+              studentId: { in: childStudentIds },
+              createdAt: { gte: thirtyDaysAgo },
+            },
+            select: {
+              studentId: true,
+              status: true,
+            },
+          })
+        : Promise.resolve([]),
+      getParentAbsenceHistory(undefined, userProfile.id),
+      children.length > 0
+        ? prisma.class.findMany({
+            where: {
+              OR: children.map((c) => ({
+                generationId: c.student.generationId || undefined,
+                organizationId: {
+                  in: [c.student.organizationId, c.student.organization?.parentId].filter(Boolean) as string[],
+                },
+              })),
+            },
+            select: { id: true, name: true, generationId: true, organizationId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Grouping past records by studentId in memory (O(1) fast lookup)
+    const pastRecordsByStudent = new Map<string, Array<{ status: string }>>();
+    for (const rec of allPastRecords) {
+      const list = pastRecordsByStudent.get(rec.studentId) || [];
+      list.push(rec);
+      pastRecordsByStudent.set(rec.studentId, list);
+    }
+
     const childrenDataList: ChildAttendanceSummary[] = await Promise.all(
-      userProfile.children.map(async (c) => {
+      children.map(async (c) => {
         const student = c.student;
 
-        // 1. Cari kelas santri
-        const studentClasses = await prisma.class.findMany({
-          where: {
-            generationId: student.generationId || undefined,
-            OR: [
-              { organizationId: student.organizationId || undefined },
-              { organizationId: student.organization?.parentId || undefined },
-            ],
-          },
-          select: { id: true, name: true },
-        });
+        // Ambil kelas santri dari allClasses di memory
+        const studentOrgIds = [student.organizationId, student.organization?.parentId].filter(Boolean) as string[];
+        const studentClasses = allClasses.filter(
+          (cls) =>
+            (!cls.generationId || cls.generationId === student.generationId) &&
+            cls.organizationId &&
+            studentOrgIds.includes(cls.organizationId)
+        );
         const studentClass = studentClasses[0];
-        const studentClassIds = studentClasses.map((c) => c.id);
-
-        // 2. Cari jadwal hari ini yang relevan dengan santri
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date();
-        endOfDay.setHours(23, 59, 59, 999);
-
-        const studentOrgIds = [
-          student.organizationId,
-          student.organization?.parentId,
-        ].filter(Boolean) as string[];
+        const studentClassIds = studentClasses.map((cls) => cls.id);
 
         const scheduleWhere: any = {
           status: { in: ['ACTIVE', 'SCHEDULED', 'COMPLETED'] },
@@ -871,15 +940,23 @@ export default async function PresensiPage({
                 material: { select: { title: true } },
               },
             },
+            attendanceSessions: {
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                records: {
+                  where: { studentId: student.id },
+                },
+              },
+            },
           },
         });
 
-        // 3. Catatan kehadiran hari ini pada sesi aktif/terjadwal tersebut
+        // Catatan kehadiran hari ini pada sesi aktif/terjadwal tersebut
         let todayAttendanceStatus: 'HADIR' | 'TERLAMBAT' | 'IZIN' | 'SAKIT' | 'ALPA' | 'NOT_STARTED' =
           'NOT_STARTED';
         let todayCheckInTime: string | null = null;
         let todayNotes: string | null = null;
-
         let childScheduleInfo: ChildScheduleInfo | null = null;
 
         if (todaySchedule) {
@@ -904,18 +981,10 @@ export default async function PresensiPage({
             materialTitles: todaySchedule.scheduleMaterials.map((sm) => sm.material.title),
           };
 
-          const session = await prisma.attendanceSession.findFirst({
-            where: { scheduleId: todaySchedule.id },
-            include: {
-              records: {
-                where: { studentId: student.id },
-              },
-            },
-          });
-
-          const record = session?.records[0];
+          const session = todaySchedule.attendanceSessions?.[0];
+          const record = session?.records?.[0];
           if (record) {
-            todayAttendanceStatus = record.status;
+            todayAttendanceStatus = record.status as any;
             todayNotes = record.notes;
             todayCheckInTime = record.checkInTime
               ? new Date(record.checkInTime).toLocaleTimeString('id-ID', {
@@ -928,17 +997,8 @@ export default async function PresensiPage({
           }
         }
 
-        // 4. Statistik 30 hari terakhir
-        const pastRecords = await prisma.attendanceRecord.findMany({
-          where: {
-            studentId: student.id,
-            createdAt: { gte: thirtyDaysAgo },
-          },
-          select: {
-            status: true,
-          },
-        });
-
+        // Statistik 30 hari dari in-memory group
+        const pastRecords = pastRecordsByStudent.get(student.id) || [];
         const totalSessions = pastRecords.length;
         const hadirCount = pastRecords.filter(
           (r) => r.status === 'HADIR' || r.status === 'TERLAMBAT'
@@ -970,7 +1030,6 @@ export default async function PresensiPage({
       })
     );
 
-    const absenceHistory = await getParentAbsenceHistory();
     const preselectedScheduleId = typeof resolvedParams.scheduleId === 'string' ? resolvedParams.scheduleId : undefined;
     const preselectedStudentId = typeof resolvedParams.studentId === 'string' ? resolvedParams.studentId : undefined;
     const initialActiveTab = resolvedParams.tab === 'leave' ? 'leave' : 'monitor';
@@ -991,13 +1050,19 @@ export default async function PresensiPage({
   // =========================================================================
   // VIEW 4: PJ WILAYAH / ADMIN -> AGREGAT KEHADIRAN WILAYAH
   // =========================================================================
+  const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile.organizationId);
+
   const activeSessions = await prisma.attendanceSession.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      ...(scopedOrgIds ? { schedule: { organizationId: { in: scopedOrgIds } } } : {}),
+    },
     include: {
       schedule: true,
       records: true,
     },
-    take: 5,
+    take: 10,
+    orderBy: { createdAt: 'desc' },
   });
 
   return (

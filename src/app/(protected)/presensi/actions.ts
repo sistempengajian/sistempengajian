@@ -1630,17 +1630,21 @@ export async function getChildUpcomingSchedules(studentId: string) {
 /**
  * Mengambil riwayat pengajuan surat izin ananda oleh orang tua
  */
-export async function getParentAbsenceHistory(studentId?: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+export async function getParentAbsenceHistory(studentId?: string, overrideParentUserId?: string) {
+  let effectiveParentId = overrideParentUserId;
+  if (!effectiveParentId) {
+    const supabase = await createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
 
-  if (!authUser) throw new Error('Tidak terautentikasi');
+    if (!authUser) throw new Error('Tidak terautentikasi');
+    effectiveParentId = authUser.id;
+  }
 
   const confirmations = await prisma.absenceConfirmation.findMany({
     where: {
-      parentUserId: authUser.id,
+      parentUserId: effectiveParentId,
       ...(studentId ? { studentId } : {}),
     },
     include: {

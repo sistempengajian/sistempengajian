@@ -24,6 +24,15 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
     ],
+    screenshots: [
+      {
+        src: "/splash-screen.png",
+        sizes: "1080x1920",
+        type: "image/png",
+        form_factor: "narrow",
+        label: "Sistem Pengajian SiPanji",
+      },
+    ],
     categories: ["education", "lifestyle", "productivity"],
   };
 }

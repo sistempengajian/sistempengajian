@@ -2,6 +2,8 @@ import React, { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import TopProgressBar from "@/components/navigation/TopProgressBar";
+import InitialAppSplash from "@/components/navigation/InitialAppSplash";
+import PwaFloatingBanner from "@/components/pwa/PwaFloatingBanner";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -64,12 +66,16 @@ export default function RootLayout({
             }}
           />
         )}
+        <link rel="apple-touch-startup-image" href="/splash-screen.png" />
+        <link rel="preload" as="image" href="/splash-screen.png" fetchPriority="high" />
       </head>
       <body className="antialiased min-h-screen bg-white text-slate-700 flex flex-col selection:bg-emerald-100 selection:text-emerald-900">
+        <InitialAppSplash />
         <Suspense fallback={null}>
           <TopProgressBar />
         </Suspense>
         {children}
+        <PwaFloatingBanner />
       </body>
     </html>
   );

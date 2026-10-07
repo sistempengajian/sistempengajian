@@ -511,72 +511,75 @@ function LoginForm() {
         </button>
       </div>
 
-      {/* Demo Account Quick Selector */}
-      <div className="mt-8 pt-6 border-t border-slate-200/80">
-        <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-700 mb-3">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Pilih Akun Demo Uji Coba:</span>
+      {/* Security Note */}
+      <p className="text-[11px] text-slate-400 text-center mt-6">
+        Otentikasi dilindungi pembatasan 1x pakai &amp; sinkronisasi database pengguna
+      </p>
+
+      {/* Demo Account Quick Selector (Hanya aktif di mode pengembangan / development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-8 pt-6 border-t border-slate-200/80">
+          <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-700 mb-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Pilih Akun Demo Uji Coba:</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-normal">Klik Masuk Cepat untuk demo instan</span>
           </div>
-          <span className="text-[10px] text-slate-400 font-normal">Klik Masuk Cepat untuk demo instan</span>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {DEMO_ACCOUNTS.map((account) => {
-            const isSelected = phone === account.phone;
-            const isLoading = instantLoadingRole === account.role;
-            return (
-              <div
-                key={account.role}
-                onClick={() => handleSelectDemo(account)}
-                className={`p-3 rounded-2xl border transition-all text-xs flex flex-col justify-between gap-2.5 cursor-pointer ${
-                  isSelected
-                    ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs'
-                    : 'border-slate-200/80 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-200 shadow-2xs'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="font-bold text-slate-900 leading-tight">
-                      {account.role}
-                    </span>
-                    <span className="text-[10px] text-emerald-700 font-mono flex items-center gap-0.5">
-                      <Phone className="w-2.5 h-2.5" />
-                      <span>{displayPhoneNumber(account.phone)}</span>
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
-                    {account.name}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => handleInstantDemoLogin(e, account)}
-                  disabled={isPending}
-                  className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {DEMO_ACCOUNTS.map((account) => {
+              const isSelected = phone === account.phone;
+              const isLoading = instantLoadingRole === account.role;
+              return (
+                <div
+                  key={account.role}
+                  onClick={() => handleSelectDemo(account)}
+                  className={`p-3 rounded-2xl border transition-all text-xs flex flex-col justify-between gap-2.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs'
+                      : 'border-slate-200/80 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-200 shadow-2xs'
+                  }`}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Masuk Demo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-3 h-3 fill-amber-300 text-amber-300" />
-                      <span>Masuk Cepat (Demo)</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-900 leading-tight">
+                        {account.role}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-mono flex items-center gap-0.5">
+                        <Phone className="w-2.5 h-2.5" />
+                        <span>{displayPhoneNumber(account.phone)}</span>
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
+                      {account.name}
+                    </div>
+                  </div>
 
-        <p className="text-[11px] text-slate-400 text-center mt-4">
-          Otentikasi dilindungi pembatasan 1x pakai &amp; sinkronisasi database pengguna
-        </p>
-      </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleInstantDemoLogin(e, account)}
+                    disabled={isPending}
+                    className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Masuk Demo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3 h-3 fill-amber-300 text-amber-300" />
+                        <span>Masuk Cepat (Demo)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

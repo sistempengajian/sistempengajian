@@ -5,10 +5,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import prisma from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { normalizePhoneNumber, displayPhoneNumber, whatsAppClient } from '@/lib/whatsapp';
+import {
+  normalizePhoneNumber,
+  displayPhoneNumber,
+  whatsAppClient,
+  getCanonicalPhoneVariants,
+} from '@/lib/whatsapp';
 import crypto from 'crypto';
 
 const LOGIN_COOLDOWN_SECONDS = 300; // 5 Menit Cooldown
+
 
 /**
  * Memeriksa sisa waktu jeda (cooldown) pengiriman link masuk WhatsApp
@@ -17,18 +23,14 @@ export async function getWhatsAppLoginCooldown(phoneInput: string): Promise<{
   cooldownRemaining: number;
 }> {
   try {
-    const normalized = normalizePhoneNumber(phoneInput);
-    if (!normalized) return { cooldownRemaining: 0 };
+    const phoneVariants = getCanonicalPhoneVariants(phoneInput);
+    if (phoneVariants.length === 0) return { cooldownRemaining: 0 };
 
-    const localFormat = normalized.startsWith('62') ? '0' + normalized.slice(2) : normalized;
     const fiveMinutesAgo = new Date(Date.now() - LOGIN_COOLDOWN_SECONDS * 1000);
 
     const recentToken = await prisma.whatsAppLoginToken.findFirst({
       where: {
-        OR: [
-          { phoneNumber: normalized },
-          { phoneNumber: localFormat },
-        ],
+        phoneNumber: { in: phoneVariants },
         createdAt: { gte: fiveMinutesAgo },
       },
       orderBy: { createdAt: 'desc' },
@@ -69,17 +71,12 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
       };
     }
 
-    const localFormat = normalized.startsWith('62') ? '0' + normalized.slice(2) : normalized;
+    const phoneVariants = getCanonicalPhoneVariants(phoneInput);
 
-    // 1. Cari pengguna berdasarkan nomor telepon (format lokal / internasional)
+    // 1. Cari pengguna berdasarkan variasi nomor telepon kanonikal yang eksak (bebas false-positive)
     const user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { phoneNumber: normalized },
-          { phoneNumber: localFormat },
-          { phoneNumber: `+${normalized}` },
-          { phoneNumber: { contains: localFormat.slice(1) } },
-        ],
+        phoneNumber: { in: phoneVariants },
       },
       include: {
         roles: true,
@@ -105,8 +102,7 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
     const recentToken = await prisma.whatsAppLoginToken.findFirst({
       where: {
         OR: [
-          { phoneNumber: normalized },
-          { phoneNumber: localFormat },
+          { phoneNumber: { in: phoneVariants } },
           { userId: user.id },
         ],
         createdAt: { gte: fiveMinutesAgo },
@@ -337,15 +333,19 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
  * Server Action: Masuk Instan Akun Demo (1-Klik untuk Pengujian Sistem)
  */
 export async function loginAsDemoUser(identifier: string): Promise<{ success: boolean; error?: string }> {
+  // Keamanan: Akses demo dinonaktifkan secara ketat pada versi rilis / production
+  if (process.env.NODE_ENV === 'production') {
+    return { success: false, error: 'Fitur akun demo dinonaktifkan pada versi rilis (production).' };
+  }
+
   try {
-    const normalized = normalizePhoneNumber(identifier);
-    const localFormat = normalized?.startsWith('62') ? '0' + normalized.slice(2) : normalized;
+    const phoneVariants = getCanonicalPhoneVariants(identifier);
 
     // Cari pengguna demo di Prisma berdasarkan nomor HP, email, atau username
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          ...(normalized ? [{ phoneNumber: normalized }, { phoneNumber: localFormat }] : []),
+          ...(phoneVariants.length > 0 ? [{ phoneNumber: { in: phoneVariants } }] : []),
           { email: identifier },
           { username: identifier },
         ],
@@ -438,22 +438,16 @@ export async function login(formData: FormData) {
   }
 
   const lowerInput = rawIdentifier.toLowerCase();
-  const phoneNormalized = normalizePhoneNumber(rawIdentifier);
-  const phoneLocal = phoneNormalized?.startsWith('62') ? '0' + phoneNormalized.slice(2) : phoneNormalized;
+  const phoneVariants = getCanonicalPhoneVariants(rawIdentifier);
 
-  // 1. Cari user di database Prisma berdasarkan email, username, atau no HP
+  // 1. Cari user di database Prisma berdasarkan email, username, atau no HP (kanonikal eksak bebas false-positive)
   const dbUser = await prisma.user.findFirst({
     where: {
       OR: [
         { email: { equals: lowerInput, mode: 'insensitive' } },
         { username: { equals: lowerInput, mode: 'insensitive' } },
-        ...(phoneNormalized
-          ? [
-              { phoneNumber: phoneNormalized },
-              { phoneNumber: phoneLocal! },
-              { phoneNumber: `+${phoneNormalized}` },
-              { phoneNumber: { contains: phoneLocal ? phoneLocal.slice(1) : phoneNormalized } },
-            ]
+        ...(phoneVariants.length > 0
+          ? [{ phoneNumber: { in: phoneVariants } }]
           : []),
       ],
     },

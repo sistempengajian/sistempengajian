@@ -30,6 +30,7 @@ import LogoutCard from './LogoutCard';
 import EditProfileModal from './EditProfileModal';
 import EditPhoneModal from './EditPhoneModal';
 import GoogleAuthButton from './GoogleAuthButton';
+import PwaProfileInstallCard from '@/components/pwa/PwaProfileInstallCard';
 
 export interface UserProfileData {
   id: string;
@@ -553,7 +554,10 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
         </div>
       </div>
 
-      {/* 5. Zona Keluar (Logout Card) */}
+      {/* 5. Aplikasi PWA SiPanji Mobile */}
+      <PwaProfileInstallCard />
+
+      {/* 6. Zona Keluar (Logout Card) */}
       <LogoutCard userName={currentUser.fullName} userEmail={currentUser.email} />
 
       {/* Modals */}

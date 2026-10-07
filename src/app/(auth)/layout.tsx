@@ -24,9 +24,6 @@ export default function AuthLayout({
             <div className="text-left">
               <h1 className="text-lg font-bold text-slate-800 leading-tight flex items-center gap-1.5">
                 Sistem Pengajian
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  <Sparkles className="w-2.5 h-2.5" /> PWA
-                </span>
               </h1>
               <p className="text-xs text-slate-500">Pembinaan Generasi Qur&apos;ani</p>
             </div>

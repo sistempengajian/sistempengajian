@@ -185,7 +185,7 @@ Pengajian sesi *{{judul_sesi}}* akan dimulai dalam *2 jam ke depan*:
 📖 *Materi:* {{judul_materi}}
 👳 *Pengampu:* {{nama_ustadz}}
 {{catatan_tambahan}}
-Mohon segera bersiap, berwudhu dari rumah, dan hadir 10 menit sebelum pengajian dimulai untuk presensi kehadiran tepat waktu ⭐.
+Mohon segera bersiap untuk hadir 10 menit sebelum pengajian dimulai untuk presensi kehadiran tepat waktu ⭐.
 
 👉 *Lihat Detail Jadwal & Materi:*
 {{url_jadwal}}
