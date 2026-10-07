@@ -60,10 +60,10 @@ async function handleScheduleReminders(request: NextRequest) {
     const h1Start = new Date(now.getTime() + 18 * 60 * 60 * 1000);
     const h1End = new Date(now.getTime() + 30 * 60 * 60 * 1000);
 
-    // B. Jendela Hari-H (Countdown 2 jam sebelum mulai):
-    //    Jadwal yang dimulai dalam rentang 100 menit s/d 140 menit ke depan
-    const countdownStart = new Date(now.getTime() + 100 * 60 * 1000);
-    const countdownEnd = new Date(now.getTime() + 140 * 60 * 1000);
+    // B. Jendela Hari-H (Countdown 1-3 jam sebelum mulai):
+    //    Jadwal yang dimulai dalam rentang 45 menit s/d 180 menit (3 jam) ke depan
+    const countdownStart = new Date(now.getTime() + 45 * 60 * 1000);
+    const countdownEnd = new Date(now.getTime() + 180 * 60 * 1000);
 
     // 2. Query Jadwal Mendatang yang Terjadwal & Disetujui
     const upcomingSchedules = await prisma.schedule.findMany({
@@ -153,7 +153,7 @@ async function handleScheduleReminders(request: NextRequest) {
       const diffHours = (scheduleTimeMs - now.getTime()) / (1000 * 60 * 60);
 
       const isH1Reminder = diffHours >= 18 && diffHours <= 30;
-      const isCountdownReminder = diffHours >= 1.6 && diffHours <= 2.4;
+      const isCountdownReminder = diffHours >= 0.75 && diffHours <= 3.0;
 
       const reminderType = isH1Reminder ? 'H1' : isCountdownReminder ? 'COUNTDOWN_2H' : 'GENERAL';
       const dayDateStr = formatIndonesianDate(schedule.startTime);
