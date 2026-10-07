@@ -435,11 +435,30 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
 
   // Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak
   try {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const earlierAttendanceToday = await prisma.attendanceRecord.findFirst({
+      where: {
+        studentId: effectiveUserId,
+        status: AttendanceStatus.HADIR,
+        id: { not: attendance.id },
+        createdAt: { gte: startOfToday },
+      },
+    });
+
+    const currentGamification = await prisma.userGamification.findUnique({
+      where: { userId: effectiveUserId },
+    });
+
+    const currentStreak = currentGamification?.currentStreakDays || 0;
+    const newStreak = earlierAttendanceToday ? currentStreak : currentStreak + 1;
+    const newHighest = Math.max(currentGamification?.highestStreakDays || 0, newStreak);
+
     await prisma.userGamification.upsert({
       where: { userId: effectiveUserId },
       update: {
         totalPoints: { increment: 10 },
-        currentStreakDays: { increment: 1 },
+        currentStreakDays: newStreak,
+        highestStreakDays: newHighest,
         updatedAt: now,
       },
       create: {
@@ -524,7 +543,7 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
 
   // 5. Catat kehadiran santri menjadi HADIR
   const now = new Date();
-  await prisma.attendanceRecord.upsert({
+  const attendance = await prisma.attendanceRecord.upsert({
     where: {
       sessionId_studentId: {
         sessionId: session.id,
@@ -551,11 +570,30 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
 
   // 6. Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak
   try {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const earlierAttendanceToday = await prisma.attendanceRecord.findFirst({
+      where: {
+        studentId,
+        status: AttendanceStatus.HADIR,
+        id: { not: attendance.id },
+        createdAt: { gte: startOfToday },
+      },
+    });
+
+    const currentGamification = await prisma.userGamification.findUnique({
+      where: { userId: studentId },
+    });
+
+    const currentStreak = currentGamification?.currentStreakDays || 0;
+    const newStreak = earlierAttendanceToday ? currentStreak : currentStreak + 1;
+    const newHighest = Math.max(currentGamification?.highestStreakDays || 0, newStreak);
+
     await prisma.userGamification.upsert({
       where: { userId: studentId },
       update: {
         totalPoints: { increment: 10 },
-        currentStreakDays: { increment: 1 },
+        currentStreakDays: newStreak,
+        highestStreakDays: newHighest,
         updatedAt: now,
       },
       create: {

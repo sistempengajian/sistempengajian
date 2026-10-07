@@ -249,6 +249,7 @@ model User {
   auditLogs                AuditLog[]                 @relation("UserAuditLogs")
   gamification             UserGamification?
   badges                   StudentBadge[]             @relation("StudentBadges")
+  missionClaims            UserMissionClaim[]         @relation("StudentMissionClaims")
   parentVerifications      AssignmentParentVerification[] @relation("ParentVerifications")
   absenceConfirmations     AbsenceConfirmation[]     @relation("ParentAbsenceConfirmations")
   rollingPrimaryAssignments   TeacherRollingQueueItem[] @relation("RollingPrimaryTeachers")
@@ -701,6 +702,22 @@ model StudentBadge {
   @@unique([studentId, badgeId])
   @@index([studentId])
   @@map("student_badges")
+}
+
+model UserMissionClaim {
+  id          String   @id @default(uuid()) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  missionCode String   @map("mission_code") @db.VarChar(100)
+  periodKey   String   @map("period_key") @db.VarChar(50)
+  rewardXp    Int      @map("reward_xp")
+  claimedAt   DateTime @default(now()) @map("claimed_at") @db.Timestamptz(6)
+
+  student User @relation("StudentMissionClaims", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, missionCode, periodKey])
+  @@index([studentId])
+  @@index([claimedAt])
+  @@map("user_mission_claims")
 }
 
 // ==============================================================================

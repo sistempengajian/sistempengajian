@@ -15,10 +15,157 @@ import {
   StudentGamificationDashboardData,
   LeaderboardRegionTier,
   OrganizationOption,
+  MissionCategory,
 } from './types';
 import { SEED_BADGES } from '@/lib/constants';
 
-// Level thresholds calculation helper (Internal non-exported helper for server action)
+// ==============================================================================
+// MISSION DEFINITIONS
+// ==============================================================================
+export const MISSION_DEFINITIONS = [
+  {
+    id: 'daily_presensi_tepat_waktu',
+    code: 'DAILY_ATTENDANCE',
+    title: 'Hadir Tepat Waktu Hari Ini',
+    description: 'Presensi pengajian sebelum ustadz memulai kajian dengan status Hadir.',
+    category: 'DAILY' as MissionCategory,
+    iconName: 'Clock',
+    rewardXp: 15,
+    targetGoal: 1,
+    expiresInLabel: 'Berakhir 23:59',
+  },
+  {
+    id: 'daily_checklist_materi',
+    code: 'DAILY_CHECKLIST',
+    title: 'Tuntaskan 1 Checklist Materi',
+    description: 'Selesaikan dan setorkan minimal 1 poin materi tilawah/hafalan hari ini.',
+    category: 'DAILY' as MissionCategory,
+    iconName: 'BookCheck',
+    rewardXp: 20,
+    targetGoal: 1,
+    expiresInLabel: 'Berakhir 23:59',
+  },
+  {
+    id: 'daily_paraf_ortu',
+    code: 'DAILY_PARAF',
+    title: 'Dapatkan Paraf Tugas dari Orang Tua',
+    description: 'Mintakan paraf atau verifikasi tugas rumah kepada ayah/bunda di rumah hari ini.',
+    category: 'DAILY' as MissionCategory,
+    iconName: 'HeartHandshake',
+    rewardXp: 25,
+    targetGoal: 1,
+    expiresInLabel: 'Berakhir 23:59',
+  },
+  {
+    id: 'weekly_perfect_attendance',
+    code: 'WEEKLY_ATTENDANCE',
+    title: 'Presensi Sempurna 1 Pekan',
+    description: 'Hadir pada sesi pengajian kelasmu pekan ini tanpa alpa (minimal 3 sesi).',
+    category: 'WEEKLY' as MissionCategory,
+    iconName: 'CalendarCheck',
+    rewardXp: 50,
+    targetGoal: 3,
+    expiresInLabel: 'Reset Hari Minggu',
+  },
+  {
+    id: 'weekly_assignment_master',
+    code: 'WEEKLY_ASSIGNMENTS',
+    title: 'Koleksi 2 Tugas Berpredikat Baik',
+    description: 'Selesaikan minimal 2 tugas rumah pekan ini dan raih penilaian dari Ustadz.',
+    category: 'WEEKLY' as MissionCategory,
+    iconName: 'FileCheck',
+    rewardXp: 60,
+    targetGoal: 2,
+    expiresInLabel: 'Reset Hari Minggu',
+  },
+  {
+    id: 'weekly_streak_5_days',
+    code: 'WEEKLY_STREAK',
+    title: 'Pertahankan Streak 5 Hari',
+    description: 'Jaga keistiqomahan hadir pengajian selama minimal 5 hari.',
+    category: 'WEEKLY' as MissionCategory,
+    iconName: 'Flame',
+    rewardXp: 40,
+    targetGoal: 5,
+    expiresInLabel: 'Reset Hari Minggu',
+  },
+  {
+    id: 'milestone_hafalan_10',
+    code: 'MILESTONE_HAFALAN',
+    title: 'Tuntaskan 10 Checklist Materi',
+    description: 'Mencapai kemajuan kurikulum dengan menyelesaikan 10 materi pengajian.',
+    category: 'MILESTONE' as MissionCategory,
+    iconName: 'Award',
+    rewardXp: 100,
+    targetGoal: 10,
+    expiresInLabel: 'Permanen',
+  },
+  {
+    id: 'milestone_badge_collector',
+    code: 'MILESTONE_BADGES',
+    title: 'Kolektor 3 Lencana Prestasi',
+    description: 'Buka dan dapatkan minimal 3 trofi lencana penghargaan kehormatan.',
+    category: 'MILESTONE' as MissionCategory,
+    iconName: 'Trophy',
+    rewardXp: 150,
+    targetGoal: 3,
+    expiresInLabel: 'Permanen',
+  },
+  {
+    id: 'milestone_sinergi_ortu',
+    code: 'MILESTONE_SINERGI',
+    title: 'Sinergi Keluarga Teladan',
+    description: 'Tuntaskan 5 tugas dengan verifikasi/paraf lengkap dari orang tua di rumah.',
+    category: 'MILESTONE' as MissionCategory,
+    iconName: 'Home',
+    rewardXp: 120,
+    targetGoal: 5,
+    expiresInLabel: 'Permanen',
+  },
+];
+
+// Helper: Period keys
+export function getTodayDateKey(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function getWeekKey(date: Date = new Date()): string {
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+  }
+  const weekNumber = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+  return `${target.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
+}
+
+export function getPeriodKeyForMission(category: MissionCategory, date: Date = new Date()): string {
+  if (category === 'DAILY') return getTodayDateKey(date);
+  if (category === 'WEEKLY') return getWeekKey(date);
+  return 'PERMANENT';
+}
+
+export function getStartAndEndOfWeek(date: Date = new Date()): { startOfWeek: Date; endOfWeek: Date } {
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const startOfWeek = new Date(date);
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  return { startOfWeek, endOfWeek };
+}
+
+// Level thresholds calculation helper
 function calculateLevelInfo(totalPoints: number): {
   level: number;
   levelTitle: string;
@@ -71,18 +218,10 @@ function getGamifikasiPeriodDates(period: LeaderboardFilterOptions['period']): {
   const month = now.getMonth();
 
   if (period === 'THIS_WEEK') {
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-    const monday = new Date(now.setDate(diff));
-    monday.setHours(0, 0, 0, 0);
-
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-
+    const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(now);
     return {
-      startDate: monday,
-      endDate: sunday,
+      startDate: startOfWeek,
+      endDate: endOfWeek,
       periodLabel: 'Pekan Ini',
     };
   }
@@ -118,7 +257,7 @@ function getGamifikasiPeriodDates(period: LeaderboardFilterOptions['period']): {
   };
 }
 
-// Ensure Badges Seeded
+// Ensure Badges Seeded in Database
 async function ensureSeedBadges() {
   const count = await prisma.badge.count();
   if (count === 0) {
@@ -139,6 +278,92 @@ async function ensureSeedBadges() {
   }
 }
 
+// Automatically evaluate & unlock badges for a student
+export async function evaluateAndAwardBadges(studentId: string): Promise<number> {
+  await ensureSeedBadges();
+
+  const [student, allBadges] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: studentId },
+      include: {
+        gamification: true,
+        badges: true,
+        materialProgress: { where: { isCompleted: true } },
+        assignmentSubmissions: {
+          include: { parentVerification: true },
+        },
+      },
+    }),
+    prisma.badge.findMany(),
+  ]);
+
+  if (!student) return 0;
+
+  const unlockedBadgeIds = new Set(student.badges.map((b) => b.badgeId));
+  const currentStreak = student.gamification?.currentStreakDays || 0;
+  const highestStreak = student.gamification?.highestStreakDays || currentStreak;
+  const completedChecklistCount = student.materialProgress.length;
+  const parentVerifiedCount = student.assignmentSubmissions.filter(
+    (s) => s.parentVerification?.isVerifiedByParent
+  ).length;
+
+  let newlyUnlockedCount = 0;
+
+  for (const badge of allBadges) {
+    if (unlockedBadgeIds.has(badge.id)) continue;
+
+    let qualifies = false;
+    if (badge.codeName === 'TAHFIDZ_STARTER' && completedChecklistCount >= 5) {
+      qualifies = true;
+    } else if (badge.codeName === 'PEJUANG_SHUBUH' && (currentStreak >= 7 || highestStreak >= 7)) {
+      qualifies = true;
+    } else if (badge.codeName === 'JUARA_ISTIQOMAH' && (currentStreak >= 30 || highestStreak >= 30)) {
+      qualifies = true;
+    } else if (badge.codeName === 'KELUARGA_QURANI' && parentVerifiedCount >= 5) {
+      qualifies = true;
+    }
+
+    if (qualifies) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.studentBadge.create({
+            data: {
+              studentId,
+              badgeId: badge.id,
+            },
+          });
+
+          const currentGamification = await tx.userGamification.findUnique({
+            where: { userId: studentId },
+          });
+          const newPoints = (currentGamification?.totalPoints || 0) + badge.pointBonus;
+          const newLevel = calculateLevelInfo(newPoints).level;
+
+          await tx.userGamification.upsert({
+            where: { userId: studentId },
+            update: {
+              totalPoints: newPoints,
+              level: newLevel,
+            },
+            create: {
+              userId: studentId,
+              totalPoints: badge.pointBonus,
+              level: newLevel,
+              currentStreakDays: 1,
+              highestStreakDays: 1,
+            },
+          });
+        });
+        newlyUnlockedCount++;
+      } catch (err) {
+        // Ignore duplicate key collision
+      }
+    }
+  }
+
+  return newlyUnlockedCount;
+}
+
 // ==============================================================================
 // 1. ACTION: LEADERBOARD WILAYAH (KELOMPOK, DESA, DAERAH)
 // ==============================================================================
@@ -147,9 +372,17 @@ export async function getLeaderboardData(
 ): Promise<LeaderboardDashboardData> {
   await ensureSeedBadges();
 
-  const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
+  let currentUser: any = null;
+  let effectiveUserId: string | null = null;
+  try {
+    const authResult = await getEffectiveAuthUser();
+    currentUser = authResult.dbUser;
+    effectiveUserId = authResult.effectiveUserId;
+  } catch {
+    // Graceful fallback if called outside request scope
+  }
 
-  const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
+  const isParent = Boolean(currentUser?.roles?.some((r: any) => r.role === 'ORANG_TUA'));
   const activeStudentId = isParent && currentUser?.children && currentUser.children.length > 0
     ? currentUser.children[0].studentUserId
     : (currentUser?.id || effectiveUserId);
@@ -177,7 +410,7 @@ export async function getLeaderboardData(
     .filter((o) => o.type === 'DAERAH')
     .map((o) => ({ id: o.id, name: o.name, type: 'DAERAH' as const, parentId: o.parentId }));
 
-  // Determine user's default regional IDs (Kelompok, Desa, Daerah)
+  // Determine user's default regional IDs
   let userOrgId = currentUser?.organizationId;
   if (!userOrgId && isParent && currentUser?.children && currentUser.children.length > 0) {
     const child = await prisma.user.findUnique({
@@ -223,8 +456,6 @@ export async function getLeaderboardData(
 
   let selectedOrgId = filterParams?.organizationId;
   let tierLabel = '';
-
-  // Determine org filter based on tier
   let matchingOrgIds: string[] = [];
 
   if (currentTier === 'KELOMPOK') {
@@ -246,7 +477,6 @@ export async function getLeaderboardData(
     const org = availableDesa.find((d) => d.id === selectedOrgId) || availableDesa[0];
     if (org) {
       selectedOrgId = org.id;
-      // Get all kelompok under this desa + desa itself
       const childKelompokIds = availableKelompok.filter((k) => k.parentId === org.id).map((k) => k.id);
       matchingOrgIds = [org.id, ...childKelompokIds];
       tierLabel = `Desa ${org.name}`;
@@ -261,7 +491,11 @@ export async function getLeaderboardData(
     const org = availableDaerah.find((d) => d.id === selectedOrgId) || availableDaerah[0];
     if (org) {
       selectedOrgId = org.id;
-      matchingOrgIds = allOrganizations.map((o) => o.id);
+      const matchingDesaIds = availableDesa.filter((d) => d.parentId === org.id).map((d) => d.id);
+      const matchingKelompokIds = availableKelompok
+        .filter((k) => k.parentId && matchingDesaIds.includes(k.parentId))
+        .map((k) => k.id);
+      matchingOrgIds = [org.id, ...matchingDesaIds, ...matchingKelompokIds];
       tierLabel = `Daerah ${org.name}`;
     } else {
       matchingOrgIds = allOrganizations.map((o) => o.id);
@@ -283,7 +517,7 @@ export async function getLeaderboardData(
     userWhere.organizationId = { in: matchingOrgIds };
   }
 
-  // Query Students with attendances, submissions, progress, badges
+  // Query Students with attendances, submissions, progress, badges, and mission claims
   const students = await prisma.user.findMany({
     where: userWhere,
     include: {
@@ -292,6 +526,14 @@ export async function getLeaderboardData(
       gamification: true,
       badges: {
         include: { badge: true },
+        where: startDate && endDate
+          ? {
+              unlockedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+            }
+          : undefined,
       },
       attendanceRecords: startDate && endDate
         ? {
@@ -303,31 +545,49 @@ export async function getLeaderboardData(
             },
           }
         : true,
-      assignmentSubmissions: startDate && endDate
+      assignmentSubmissions: {
+        where: startDate && endDate
+          ? {
+              submittedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+              status: { in: ['SUBMITTED', 'GRADED'] },
+            }
+          : {
+              status: { in: ['SUBMITTED', 'GRADED'] },
+            },
+        include: {
+          assignment: true,
+          parentVerification: true,
+        },
+      },
+      materialProgress: {
+        where: startDate && endDate
+          ? {
+              evaluatedAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+              isCompleted: true,
+            }
+          : {
+              isCompleted: true,
+            },
+        include: {
+          checklistItem: true,
+        },
+      },
+      missionClaims: startDate && endDate
         ? {
             where: {
-              submittedAt: {
+              claimedAt: {
                 gte: startDate,
                 lte: endDate,
               },
             },
           }
         : true,
-      materialProgress: startDate && endDate
-        ? {
-            where: {
-              evaluatedAt: {
-                gte: startDate,
-                lte: endDate,
-              },
-              isCompleted: true,
-            },
-          }
-        : {
-            where: {
-              isCompleted: true,
-            },
-          },
     },
   });
 
@@ -337,11 +597,11 @@ export async function getLeaderboardData(
     const currentStreak = std.gamification?.currentStreakDays || 0;
     const highestStreak = std.gamification?.highestStreakDays || currentStreak;
 
-    // Hitung poin periode aktif
     let periodPoints = 0;
     let hadirCount = 0;
-    let totalAttendance = std.attendanceRecords.length;
+    const totalAttendance = std.attendanceRecords.length;
 
+    // Presensi
     std.attendanceRecords.forEach((att) => {
       if (att.status === 'HADIR') {
         hadirCount++;
@@ -355,29 +615,39 @@ export async function getLeaderboardData(
     // Poin dari Tugas
     let completedAssignmentsCount = 0;
     std.assignmentSubmissions.forEach((sub) => {
-      if (sub.status === 'GRADED' || sub.status === 'SUBMITTED') {
-        completedAssignmentsCount++;
-        periodPoints += (sub.score || 20);
-      }
+      completedAssignmentsCount++;
+      const basePoints = sub.assignment?.pointsReward || 20;
+      const bonus = sub.parentVerification?.isVerifiedByParent
+        ? (sub.assignment?.parentBonusPoints || 10)
+        : 0;
+      periodPoints += (basePoints + bonus);
     });
 
     // Poin dari Checklist Materi
-    const completedChecklistsCount = std.materialProgress.length;
-    periodPoints += (completedChecklistsCount * 5);
+    std.materialProgress.forEach((prog) => {
+      const weight = prog.checklistItem?.pointsWeight || 10;
+      periodPoints += weight;
+    });
 
-    // Poin dari Lencana
-    const badgesCount = std.badges.length;
-    if (!startDate) {
-      periodPoints = Math.max(totalLifetimePoints, periodPoints + (badgesCount * 50));
-    } else {
-      periodPoints = Math.max(periodPoints, Math.min(totalLifetimePoints, 50));
-    }
+    // Poin dari Klaim Misi
+    std.missionClaims.forEach((claim) => {
+      periodPoints += claim.rewardXp;
+    });
+
+    // Poin dari Lencana Baru
+    std.badges.forEach((b) => {
+      periodPoints += (b.badge?.pointBonus || 50);
+    });
 
     const attendanceRate =
       totalAttendance > 0 ? Math.round((hadirCount / totalAttendance) * 100) : 100;
 
-    const levelInfo = calculateLevelInfo(periodPoints > 0 ? periodPoints : totalLifetimePoints);
+    // For ALL_TIME, use lifetime points directly. For periods, use calculated period points.
+    const finalPoints = (!startDate && !endDate)
+      ? totalLifetimePoints
+      : periodPoints;
 
+    const levelInfo = calculateLevelInfo(totalLifetimePoints);
     const genName = std.generation?.name || 'Santri';
     const orgName = std.organization?.name || 'Kelompok';
 
@@ -389,18 +659,18 @@ export async function getLeaderboardData(
       className: `${genName} • ${orgName}`,
       organizationName: orgName,
       rank: 0,
-      totalPoints: periodPoints > 0 ? periodPoints : (totalLifetimePoints > 0 ? totalLifetimePoints : 50),
+      totalPoints: finalPoints,
       level: levelInfo.level,
       currentStreakDays: currentStreak,
       highestStreakDays: highestStreak,
       attendanceRate,
       completedAssignmentsCount,
-      badgesCount,
+      badgesCount: std.badges.length,
       isCurrentUser: std.id === activeStudentId,
     };
   });
 
-  // Sort Leaderboard
+  // Sort Leaderboard: Total Points desc, Streak desc, Attendance Rate desc
   leaderboardEntries.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.currentStreakDays !== a.currentStreakDays) return b.currentStreakDays - a.currentStreakDays;
@@ -412,14 +682,14 @@ export async function getLeaderboardData(
     entry.rank = idx + 1;
   });
 
-  // Podium (Ranks 1, 2, 3) & List (Ranks 4-10)
+  // Podium (Ranks 1, 2, 3) & List (Ranks 4-25)
   const podium: GamificationPodium = {
     rank1: leaderboardEntries[0],
     rank2: leaderboardEntries[1],
     rank3: leaderboardEntries[2],
   };
 
-  const rankingsList = leaderboardEntries.slice(3, 10);
+  const rankingsList = leaderboardEntries.slice(3, 25);
   const currentUserRank = leaderboardEntries.find((e) => e.studentId === activeStudentId);
 
   return {
@@ -449,17 +719,30 @@ export async function getStudentGamificationData(
 ): Promise<StudentGamificationDashboardData> {
   await ensureSeedBadges();
 
-  const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
+  let currentUser: any = null;
+  let effectiveUserId: string | null = null;
+  try {
+    const authResult = await getEffectiveAuthUser();
+    currentUser = authResult.dbUser;
+    effectiveUserId = authResult.effectiveUserId;
+  } catch {
+    // Graceful fallback if called outside request scope
+  }
 
-  const isParent = Boolean(currentUser?.roles.some((r) => r.role === 'ORANG_TUA'));
-  const isStudent = Boolean(currentUser?.roles.some((r) => r.role === 'SANTRI'));
+  const isParent = Boolean(currentUser?.roles?.some((r: any) => r.role === 'ORANG_TUA'));
+  const isStudent = Boolean(currentUser?.roles?.some((r: any) => r.role === 'SANTRI'));
 
   let activeStudentId = targetStudentId || currentUser?.id || effectiveUserId;
   if (isParent && currentUser?.children && currentUser.children.length > 0 && !targetStudentId) {
     activeStudentId = currentUser.children[0].studentUserId;
   }
 
-  const [targetStudent, allBadges, totalStudentsCount] = await Promise.all([
+  // Auto-evaluate badges before loading
+  if (activeStudentId) {
+    await evaluateAndAwardBadges(activeStudentId);
+  }
+
+  const [targetStudent, allBadges] = await Promise.all([
     prisma.user.findUnique({
       where: { id: activeStudentId || '' },
       include: {
@@ -473,18 +756,42 @@ export async function getStudentGamificationData(
       },
     }),
     prisma.badge.findMany({ orderBy: { pointBonus: 'asc' } }),
-    prisma.user.count({
-      where: {
-        roles: { some: { role: 'SANTRI' } },
-        status: 'ACTIVE',
-      },
-    }),
   ]);
 
   const totalPoints = targetStudent?.gamification?.totalPoints || 0;
   const levelInfo = calculateLevelInfo(totalPoints);
   const currentStreak = targetStudent?.gamification?.currentStreakDays || 0;
   const highestStreak = targetStudent?.gamification?.highestStreakDays || currentStreak;
+
+  // True Rank Calculation in Student Organization
+  let trueRank = 1;
+  let totalOrgStudentsCount = 0;
+  if (targetStudent) {
+    const orgCondition = targetStudent.organizationId ? { organizationId: targetStudent.organizationId } : {};
+
+    const [higherCount, totalInOrg] = await Promise.all([
+      prisma.user.count({
+        where: {
+          ...orgCondition,
+          roles: { some: { role: 'SANTRI' } },
+          status: 'ACTIVE',
+          gamification: {
+            totalPoints: { gt: totalPoints },
+          },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          ...orgCondition,
+          roles: { some: { role: 'SANTRI' } },
+          status: 'ACTIVE',
+        },
+      }),
+    ]);
+
+    trueRank = higherCount + 1;
+    totalOrgStudentsCount = totalInOrg;
+  }
 
   const userProfile: GamificationUserProfile = {
     studentId: targetStudent?.id || '',
@@ -493,8 +800,8 @@ export async function getStudentGamificationData(
     generationName: targetStudent?.generation?.name || 'Santri',
     className: targetStudent?.organization?.name,
     organizationName: targetStudent?.organization?.name,
-    rank: 1, // Akan dihitung atau di-display
-    totalStudents: totalStudentsCount,
+    rank: trueRank,
+    totalStudents: totalOrgStudentsCount,
     totalPoints,
     currentLevel: levelInfo.level,
     levelTitle: levelInfo.levelTitle,
@@ -509,16 +816,46 @@ export async function getStudentGamificationData(
     isStudentOrChild: Boolean(isStudent || isParent),
   };
 
-  // Misi Harian, Pekanan, Milestones
+  // Date Boundaries for Missions
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(now);
 
-  const [todayAttendance, todayChecklist, todayVerification] = await Promise.all([
+  const todayKey = getTodayDateKey(now);
+  const weekKey = getWeekKey(now);
+
+  // Fetch Existing Mission Claims for Student
+  const existingClaims = targetStudent
+    ? await prisma.userMissionClaim.findMany({
+        where: {
+          studentId: targetStudent.id,
+          OR: [
+            { periodKey: todayKey },
+            { periodKey: weekKey },
+            { periodKey: 'PERMANENT' },
+          ],
+        },
+        select: { missionCode: true, periodKey: true },
+      })
+    : [];
+
+  const claimedCodeSet = new Set(existingClaims.map((c) => c.missionCode));
+
+  // Query Real Student Achievements
+  const [
+    todayAttendance,
+    todayChecklist,
+    todayVerification,
+    weeklyAttendanceCount,
+    weeklySubmissionsCount,
+    totalParentVerifications,
+  ] = await Promise.all([
     targetStudent
       ? prisma.attendanceRecord.findFirst({
           where: {
             studentId: targetStudent.id,
+            status: 'HADIR',
             createdAt: { gte: startOfToday, lte: endOfToday },
           },
         })
@@ -527,26 +864,53 @@ export async function getStudentGamificationData(
       ? prisma.materialChecklistProgress.findFirst({
           where: {
             studentId: targetStudent.id,
-            evaluatedAt: { gte: startOfToday, lte: endOfToday },
             isCompleted: true,
+            evaluatedAt: { gte: startOfToday, lte: endOfToday },
           },
         })
       : null,
     targetStudent
-      ? prisma.assignmentSubmission.findFirst({
+      ? prisma.assignmentParentVerification.findFirst({
           where: {
-            studentId: targetStudent.id,
-            parentVerification: { isNot: null },
+            submission: { studentId: targetStudent.id },
+            isVerifiedByParent: true,
+            verifiedAt: { gte: startOfToday, lte: endOfToday },
           },
         })
       : null,
+    targetStudent
+      ? prisma.attendanceRecord.count({
+          where: {
+            studentId: targetStudent.id,
+            status: 'HADIR',
+            createdAt: { gte: startOfWeek, lte: endOfWeek },
+          },
+        })
+      : 0,
+    targetStudent
+      ? prisma.assignmentSubmission.count({
+          where: {
+            studentId: targetStudent.id,
+            status: { in: ['SUBMITTED', 'GRADED'] },
+            submittedAt: { gte: startOfWeek, lte: endOfWeek },
+          },
+        })
+      : 0,
+    targetStudent
+      ? prisma.assignmentParentVerification.count({
+          where: {
+            submission: { studentId: targetStudent.id },
+            isVerifiedByParent: true,
+          },
+        })
+      : 0,
   ]);
 
-  const isTodayPunctual = todayAttendance?.status === 'HADIR';
+  const isTodayPunctual = !!todayAttendance;
   const hasCompletedChecklistToday = !!todayChecklist;
-  const hasParentVerification = !!todayVerification;
-  const totalSubmissions = targetStudent?.assignmentSubmissions.length || 0;
+  const hasParentVerificationToday = !!todayVerification;
   const totalCompletedChecklist = targetStudent?.materialProgress.length || 0;
+  const totalUnlockedBadges = targetStudent?.badges.length || 0;
 
   // Daily Quests
   const dailyMissions: GamificationMission[] = [
@@ -562,7 +926,7 @@ export async function getStudentGamificationData(
       targetGoal: 1,
       progressPercent: isTodayPunctual ? 100 : 0,
       isCompleted: isTodayPunctual,
-      isClaimed: false,
+      isClaimed: claimedCodeSet.has('DAILY_ATTENDANCE'),
       expiresInLabel: 'Berakhir 23:59',
     },
     {
@@ -577,22 +941,22 @@ export async function getStudentGamificationData(
       targetGoal: 1,
       progressPercent: hasCompletedChecklistToday ? 100 : 0,
       isCompleted: hasCompletedChecklistToday,
-      isClaimed: false,
+      isClaimed: claimedCodeSet.has('DAILY_CHECKLIST'),
       expiresInLabel: 'Berakhir 23:59',
     },
     {
       id: 'daily_paraf_ortu',
       code: 'DAILY_PARAF',
       title: 'Dapatkan Paraf Tugas dari Orang Tua',
-      description: 'Mintakan paraf atau verifikasi tugas rumah kepada ayah/bunda di rumah.',
+      description: 'Mintakan paraf atau verifikasi tugas rumah kepada ayah/bunda di rumah hari ini.',
       category: 'DAILY',
       iconName: 'HeartHandshake',
       rewardXp: 25,
-      currentProgress: hasParentVerification ? 1 : 0,
+      currentProgress: hasParentVerificationToday ? 1 : 0,
       targetGoal: 1,
-      progressPercent: hasParentVerification ? 100 : 0,
-      isCompleted: hasParentVerification,
-      isClaimed: false,
+      progressPercent: hasParentVerificationToday ? 100 : 0,
+      isCompleted: hasParentVerificationToday,
+      isClaimed: claimedCodeSet.has('DAILY_PARAF'),
       expiresInLabel: 'Berakhir 23:59',
     },
   ];
@@ -603,45 +967,45 @@ export async function getStudentGamificationData(
       id: 'weekly_perfect_attendance',
       code: 'WEEKLY_ATTENDANCE',
       title: 'Presensi Sempurna 1 Pekan',
-      description: 'Hadir pada seluruh jadwal sesi pengajian kelasmu pekan ini tanpa alpa.',
+      description: 'Hadir pada sesi pengajian kelasmu pekan ini tanpa alpa (minimal 3 sesi).',
       category: 'WEEKLY',
       iconName: 'CalendarCheck',
       rewardXp: 50,
-      currentProgress: Math.min(3, currentStreak),
+      currentProgress: Math.min(3, weeklyAttendanceCount),
       targetGoal: 3,
-      progressPercent: Math.min(100, Math.round((Math.min(3, currentStreak) / 3) * 100)),
-      isCompleted: currentStreak >= 3,
-      isClaimed: false,
+      progressPercent: Math.min(100, Math.round((Math.min(3, weeklyAttendanceCount) / 3) * 100)),
+      isCompleted: weeklyAttendanceCount >= 3,
+      isClaimed: claimedCodeSet.has('WEEKLY_ATTENDANCE'),
       expiresInLabel: 'Reset Hari Minggu',
     },
     {
       id: 'weekly_assignment_master',
       code: 'WEEKLY_ASSIGNMENTS',
       title: 'Koleksi 2 Tugas Berpredikat Baik',
-      description: 'Selesaikan minimal 2 tugas rumah dan raih penilaian lulus dari Ustadz.',
+      description: 'Selesaikan minimal 2 tugas rumah pekan ini dan raih penilaian dari Ustadz.',
       category: 'WEEKLY',
       iconName: 'FileCheck',
       rewardXp: 60,
-      currentProgress: Math.min(2, totalSubmissions),
+      currentProgress: Math.min(2, weeklySubmissionsCount),
       targetGoal: 2,
-      progressPercent: Math.min(100, Math.round((Math.min(2, totalSubmissions) / 2) * 100)),
-      isCompleted: totalSubmissions >= 2,
-      isClaimed: false,
+      progressPercent: Math.min(100, Math.round((Math.min(2, weeklySubmissionsCount) / 2) * 100)),
+      isCompleted: weeklySubmissionsCount >= 2,
+      isClaimed: claimedCodeSet.has('WEEKLY_ASSIGNMENTS'),
       expiresInLabel: 'Reset Hari Minggu',
     },
     {
       id: 'weekly_streak_5_days',
       code: 'WEEKLY_STREAK',
       title: 'Pertahankan Streak 5 Hari',
-      description: 'Jaga keistiqomahan hadir pengajian selama 5 hari berturut-turut.',
+      description: 'Jaga keistiqomahan hadir pengajian selama minimal 5 hari.',
       category: 'WEEKLY',
       iconName: 'Flame',
       rewardXp: 40,
-      currentProgress: Math.min(5, currentStreak),
+      currentProgress: Math.min(5, Math.max(currentStreak, highestStreak)),
       targetGoal: 5,
-      progressPercent: Math.min(100, Math.round((Math.min(5, currentStreak) / 5) * 100)),
-      isCompleted: currentStreak >= 5,
-      isClaimed: false,
+      progressPercent: Math.min(100, Math.round((Math.min(5, Math.max(currentStreak, highestStreak)) / 5) * 100)),
+      isCompleted: Math.max(currentStreak, highestStreak) >= 5,
+      isClaimed: claimedCodeSet.has('WEEKLY_STREAK'),
       expiresInLabel: 'Reset Hari Minggu',
     },
   ];
@@ -660,7 +1024,7 @@ export async function getStudentGamificationData(
       targetGoal: 10,
       progressPercent: Math.min(100, Math.round((Math.min(10, totalCompletedChecklist) / 10) * 100)),
       isCompleted: totalCompletedChecklist >= 10,
-      isClaimed: false,
+      isClaimed: claimedCodeSet.has('MILESTONE_HAFALAN'),
       expiresInLabel: 'Permanen',
     },
     {
@@ -671,31 +1035,31 @@ export async function getStudentGamificationData(
       category: 'MILESTONE',
       iconName: 'Trophy',
       rewardXp: 150,
-      currentProgress: Math.min(3, targetStudent?.badges.length || 0),
+      currentProgress: Math.min(3, totalUnlockedBadges),
       targetGoal: 3,
-      progressPercent: Math.min(100, Math.round((Math.min(3, targetStudent?.badges.length || 0) / 3) * 100)),
-      isCompleted: (targetStudent?.badges.length || 0) >= 3,
-      isClaimed: false,
+      progressPercent: Math.min(100, Math.round((Math.min(3, totalUnlockedBadges) / 3) * 100)),
+      isCompleted: totalUnlockedBadges >= 3,
+      isClaimed: claimedCodeSet.has('MILESTONE_BADGES'),
       expiresInLabel: 'Permanen',
     },
     {
       id: 'milestone_sinergi_ortu',
       code: 'MILESTONE_SINERGI',
       title: 'Sinergi Keluarga Teladan',
-      description: 'Tuntaskan 5 tugas dengan paraf lengkap dari orang tua di rumah.',
+      description: 'Tuntaskan 5 tugas dengan verifikasi/paraf dari orang tua di rumah.',
       category: 'MILESTONE',
       iconName: 'Home',
       rewardXp: 120,
-      currentProgress: hasParentVerification ? 1 : 0,
+      currentProgress: Math.min(5, totalParentVerifications),
       targetGoal: 5,
-      progressPercent: hasParentVerification ? 20 : 0,
-      isCompleted: false,
-      isClaimed: false,
+      progressPercent: Math.min(100, Math.round((Math.min(5, totalParentVerifications) / 5) * 100)),
+      isCompleted: totalParentVerifications >= 5,
+      isClaimed: claimedCodeSet.has('MILESTONE_SINERGI'),
       expiresInLabel: 'Permanen',
     },
   ];
 
-  // Count Claimable
+  // Count Claimable Missions
   let claimableCount = 0;
   [...dailyMissions, ...weeklyMissions, ...milestoneMissions].forEach((m) => {
     if (m.isCompleted && !m.isClaimed) {
@@ -719,16 +1083,18 @@ export async function getStudentGamificationData(
 
     if (!isUnlocked) {
       if (badge.codeName === 'PEJUANG_SHUBUH') {
-        progressHint = `${currentStreak} / 7 Hari Shubuh`;
-        progressPercent = Math.min(100, Math.round((currentStreak / 7) * 100));
+        const streakVal = Math.max(currentStreak, highestStreak);
+        progressHint = `${streakVal} / 7 Hari Streak`;
+        progressPercent = Math.min(100, Math.round((streakVal / 7) * 100));
       } else if (badge.codeName === 'JUARA_ISTIQOMAH') {
-        progressHint = `${currentStreak} / 30 Hari Streak`;
-        progressPercent = Math.min(100, Math.round((currentStreak / 30) * 100));
+        const streakVal = Math.max(currentStreak, highestStreak);
+        progressHint = `${streakVal} / 30 Hari Streak`;
+        progressPercent = Math.min(100, Math.round((streakVal / 30) * 100));
       } else if (badge.codeName === 'KELUARGA_QURANI') {
-        progressHint = `${hasParentVerification ? 1 : 0} / 10 Paraf Ortu`;
-        progressPercent = hasParentVerification ? 10 : 0;
+        progressHint = `${Math.min(5, totalParentVerifications)} / 5 Paraf Ortu`;
+        progressPercent = Math.min(100, Math.round((Math.min(5, totalParentVerifications) / 5) * 100));
       } else if (badge.codeName === 'TAHFIDZ_STARTER') {
-        progressHint = `${Math.min(5, totalCompletedChecklist)} / 5 Surat Selesai`;
+        progressHint = `${Math.min(5, totalCompletedChecklist)} / 5 Materi Selesai`;
         progressPercent = Math.min(100, Math.round((Math.min(5, totalCompletedChecklist) / 5) * 100));
       } else {
         progressHint = 'Belum memenuhi kriteria';
@@ -767,53 +1133,203 @@ export async function getStudentGamificationData(
 }
 
 // ==============================================================================
-// 3. ACTION: CLAIM MISSION REWARD
+// 3. ACTION: CLAIM MISSION REWARD (IDEMPOTENT & SECURE)
 // ==============================================================================
 export async function claimMissionReward(
   studentId: string,
   missionCode: string,
-  rewardXp: number
+  requestedRewardXp: number
 ): Promise<{ success: boolean; message: string; newPoints?: number }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { dbUser: currentUser } = await getEffectiveAuthUser();
 
-    if (!authUser) {
-      return { success: false, message: 'Autentikasi diperlukan.' };
+    if (!currentUser) {
+      return { success: false, message: 'Autentikasi diperlukan untuk mengklaim reward.' };
     }
 
-    const currentGamification = await prisma.userGamification.findUnique({
-      where: { userId: studentId },
+    // Check authorization: must be student themselves, or parent of student, or authorized staff
+    const isSelf = currentUser.id === studentId;
+    const isParent = Boolean(
+      currentUser.children?.some((c) => c.studentUserId === studentId)
+    );
+    const isStaff = currentUser.roles.some((r) =>
+      ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(r.role)
+    );
+
+    if (!isSelf && !isParent && !isStaff) {
+      return { success: false, message: 'Anda tidak memiliki hak akses untuk mengklaim hadiah santri ini.' };
+    }
+
+    // Find mission specification from master definitions
+    const missionDef = MISSION_DEFINITIONS.find((m) => m.code === missionCode);
+    if (!missionDef) {
+      return { success: false, message: 'Misi tidak valid atau tidak terdaftar dalam sistem.' };
+    }
+
+    // Determine period key
+    const now = new Date();
+    const periodKey = getPeriodKeyForMission(missionDef.category, now);
+
+    // 1. Check if already claimed for this period
+    const existingClaim = await prisma.userMissionClaim.findUnique({
+      where: {
+        studentId_missionCode_periodKey: {
+          studentId,
+          missionCode,
+          periodKey,
+        },
+      },
     });
 
-    const newPoints = (currentGamification?.totalPoints || 0) + rewardXp;
-    const newLevelInfo = calculateLevelInfo(newPoints);
+    if (existingClaim) {
+      return {
+        success: false,
+        message: 'Hadiah untuk misi ini sudah pernah kamu klaim pada periode ini.',
+      };
+    }
 
-    await prisma.userGamification.upsert({
-      where: { userId: studentId },
-      update: {
-        totalPoints: newPoints,
-        level: newLevelInfo.level,
-      },
-      create: {
-        userId: studentId,
-        totalPoints: newPoints,
-        level: newLevelInfo.level,
-        currentStreakDays: 1,
-        highestStreakDays: 1,
-      },
+    // 2. Validate mission completion server-side
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(now);
+
+    let isCriteriaMet = false;
+
+    if (missionCode === 'DAILY_ATTENDANCE') {
+      const att = await prisma.attendanceRecord.findFirst({
+        where: {
+          studentId,
+          status: 'HADIR',
+          createdAt: { gte: startOfToday, lte: endOfToday },
+        },
+      });
+      isCriteriaMet = !!att;
+    } else if (missionCode === 'DAILY_CHECKLIST') {
+      const prog = await prisma.materialChecklistProgress.findFirst({
+        where: {
+          studentId,
+          isCompleted: true,
+          evaluatedAt: { gte: startOfToday, lte: endOfToday },
+        },
+      });
+      isCriteriaMet = !!prog;
+    } else if (missionCode === 'DAILY_PARAF') {
+      const paraf = await prisma.assignmentParentVerification.findFirst({
+        where: {
+          submission: { studentId },
+          isVerifiedByParent: true,
+          verifiedAt: { gte: startOfToday, lte: endOfToday },
+        },
+      });
+      isCriteriaMet = !!paraf;
+    } else if (missionCode === 'WEEKLY_ATTENDANCE') {
+      const count = await prisma.attendanceRecord.count({
+        where: {
+          studentId,
+          status: 'HADIR',
+          createdAt: { gte: startOfWeek, lte: endOfWeek },
+        },
+      });
+      isCriteriaMet = count >= 3;
+    } else if (missionCode === 'WEEKLY_ASSIGNMENTS') {
+      const count = await prisma.assignmentSubmission.count({
+        where: {
+          studentId,
+          status: { in: ['SUBMITTED', 'GRADED'] },
+          submittedAt: { gte: startOfWeek, lte: endOfWeek },
+        },
+      });
+      isCriteriaMet = count >= 2;
+    } else if (missionCode === 'WEEKLY_STREAK') {
+      const gamification = await prisma.userGamification.findUnique({
+        where: { userId: studentId },
+      });
+      const streak = Math.max(gamification?.currentStreakDays || 0, gamification?.highestStreakDays || 0);
+      isCriteriaMet = streak >= 5;
+    } else if (missionCode === 'MILESTONE_HAFALAN') {
+      const count = await prisma.materialChecklistProgress.count({
+        where: {
+          studentId,
+          isCompleted: true,
+        },
+      });
+      isCriteriaMet = count >= 10;
+    } else if (missionCode === 'MILESTONE_BADGES') {
+      const count = await prisma.studentBadge.count({
+        where: { studentId },
+      });
+      isCriteriaMet = count >= 3;
+    } else if (missionCode === 'MILESTONE_SINERGI') {
+      const count = await prisma.assignmentParentVerification.count({
+        where: {
+          submission: { studentId },
+          isVerifiedByParent: true,
+        },
+      });
+      isCriteriaMet = count >= 5;
+    }
+
+    if (!isCriteriaMet) {
+      return {
+        success: false,
+        message: 'Syarat capaian misi ini belum terpenuhi. Silakan selesaikan target terlebih dahulu.',
+      };
+    }
+
+    // 3. Atomic Transaction: Record Claim & Increment XP
+    const actualReward = missionDef.rewardXp;
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.userMissionClaim.create({
+        data: {
+          studentId,
+          missionCode,
+          periodKey,
+          rewardXp: actualReward,
+        },
+      });
+
+      const currentGamification = await tx.userGamification.findUnique({
+        where: { userId: studentId },
+      });
+
+      const newPoints = (currentGamification?.totalPoints || 0) + actualReward;
+      const newLevelInfo = calculateLevelInfo(newPoints);
+
+      const updated = await tx.userGamification.upsert({
+        where: { userId: studentId },
+        update: {
+          totalPoints: newPoints,
+          level: newLevelInfo.level,
+        },
+        create: {
+          userId: studentId,
+          totalPoints: newPoints,
+          level: newLevelInfo.level,
+          currentStreakDays: 1,
+          highestStreakDays: 1,
+        },
+      });
+
+      return { newPoints: updated.totalPoints };
     });
 
     revalidatePath('/gamifikasi');
     revalidatePath('/leaderboard');
+    revalidatePath('/dashboard');
+
     return {
       success: true,
-      message: `🎉 Selamat! Kamu berhasil mengklaim +${rewardXp} XP. Total Poin sekarang: ${newPoints} XP!`,
-      newPoints,
+      message: `🎉 Alhamdulillah! Berhasil mengklaim +${actualReward} XP. Total Poin sekarang: ${result.newPoints.toLocaleString('id-ID')} XP!`,
+      newPoints: result.newPoints,
     };
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return {
+        success: false,
+        message: 'Hadiah untuk misi ini telah berhasil diklaim sebelumnya.',
+      };
+    }
     console.error('Error claiming mission reward:', error);
     return { success: false, message: error.message || 'Gagal mengklaim hadiah.' };
   }

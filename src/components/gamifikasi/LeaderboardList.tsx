@@ -21,7 +21,7 @@ export default function LeaderboardList({
         </div>
         <h4 className="text-sm font-bold text-slate-700">Daftar Peringkat Belum Tersedia</h4>
         <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-          Belum ada data santri tambahan pada peringkat 4–10 untuk filter dan periode yang dipilih.
+          Belum ada data santri tambahan pada peringkat berikutnya untuk filter dan periode yang dipilih.
         </p>
       </div>
     );
@@ -31,7 +31,7 @@ export default function LeaderboardList({
     <div className="space-y-2.5">
       <div className="flex items-center justify-between px-1 mb-1">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-          Peringkat 4 – {Math.min(10, 3 + rankings.length)}
+          Peringkat 4 – {3 + rankings.length}
         </h4>
         {totalParticipants && (
           <span className="text-xs text-slate-400 font-medium">
