@@ -11,6 +11,7 @@ import {
   getTargetStudentsForSchedule,
 } from '@/lib/whatsapp/scheduleNotificationService';
 import { ScheduleStatus } from '@prisma/client';
+import { handleBroadcastMagicLogin } from '@/lib/whatsapp/broadcastMagicLoginService';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Max 60s execution
@@ -18,6 +19,7 @@ export const maxDuration = 60; // Max 60s execution
 /**
  * Endpoint Cron Scheduler: Pengingat Jadwal Pengajian Otomatis via WhatsApp
  * Mendukung mode ?dry_run=true untuk simulasi pengujian tanpa mengirim pesan riil
+ * Mendukung mode ?action=broadcast_login untuk broadcast tautan login ke user
  */
 export async function GET(request: NextRequest) {
   return handleScheduleReminders(request);
@@ -29,6 +31,13 @@ export async function POST(request: NextRequest) {
 
 async function handleScheduleReminders(request: NextRequest) {
   try {
+    // 0. Cek apakah dipicu untuk Broadcast Magic Login Link
+    const action = request.nextUrl.searchParams.get('action');
+    const hasBroadcast = request.nextUrl.searchParams.has('broadcast') || action === 'broadcast_login' || action === 'broadcast';
+    if (hasBroadcast) {
+      return handleBroadcastMagicLogin(request);
+    }
+
     // 1. Validasi Keamanan Token Cron
     const authHeader = request.headers.get('authorization');
     const secretParam = request.nextUrl.searchParams.get('key');
