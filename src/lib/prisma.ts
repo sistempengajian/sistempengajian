@@ -12,8 +12,9 @@ function instantiatePrisma(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? instantiatePrisma();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Cache the Prisma instance in globalThis for ALL environments (including production).
+// Without this, each Vercel serverless warm invocation may recreate the client and
+// open a new DB connection, adding 300–800 ms overhead per request.
+globalForPrisma.prisma = prisma;
 
 export default prisma;

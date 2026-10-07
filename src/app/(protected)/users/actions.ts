@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { UserRole, ParentRelationType, Gender } from '@prisma/client';
 import { CreateUserInput, UpdateUserInput } from '@/components/users/types';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { invalidateCache, cacheKey } from '@/lib/cache';
 import {
   getScopedOrganizationIds,
   getManageableRoles,
@@ -592,6 +593,9 @@ export async function toggleUserStatus(userId: string, newStatus: string) {
       data: { status: newStatus },
       select: { fullName: true, status: true },
     });
+
+    // Invalidate Redis cache for the edited user so their next request fetches fresh data
+    await invalidateCache(cacheKey.userLean(userId), cacheKey.userFull(userId));
 
     revalidatePath('/users');
     return {

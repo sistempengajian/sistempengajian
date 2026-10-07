@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { UserRole } from '@prisma/client';
+import { unstable_cache } from 'next/cache';
 
 export interface StudentCurriculumMetrics {
   mandatory: {
@@ -193,8 +194,24 @@ export async function getUpcomingScheduleForUser({
 }
 
 /**
+ * Cached version of getUpcomingScheduleForUser.
+ * Uses Next.js Data Cache with a 5-minute revalidation window.
+ * Keyed per userId so each user gets their own cache slot.
+ *
+ * Use this in the dashboard instead of calling getUpcomingScheduleForUser directly.
+ */
+export function getCachedUpcomingSchedule(args: Parameters<typeof getUpcomingScheduleForUser>[0]) {
+  return unstable_cache(
+    () => getUpcomingScheduleForUser(args),
+    [`schedule:upcoming:${args.userId}`],
+    { revalidate: 300 } // 5 minutes
+  )();
+}
+
+/**
  * 2. Query Capaian Kurikulum Santri Berdasarkan Checklist Nyata
  */
+
 export async function getStudentCurriculumMetrics(
   studentId: string,
   generationId?: string | null

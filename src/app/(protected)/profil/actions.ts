@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { normalizePhoneNumber, displayPhoneNumber, whatsAppClient } from '@/lib/whatsapp';
 import crypto from 'crypto';
 import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
+import { invalidateCache, cacheKey } from '@/lib/cache';
 
 const OTP_COOLDOWN_SECONDS = 60; // 60 detik jeda kirim ulang OTP
 const OTP_EXPIRY_MINUTES = 5; // 5 menit kedaluwarsa
@@ -83,6 +84,9 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
         birthDate: parsedBirthDate,
       },
     });
+
+    // Invalidate Redis cache so next request fetches fresh profile data
+    await invalidateCache(cacheKey.userLean(authUser.id), cacheKey.userFull(authUser.id));
 
     revalidatePath('/profil');
     revalidatePath('/dashboard');
@@ -293,6 +297,9 @@ export async function verifyPhoneChangeOtp(
       },
     });
 
+    // Invalidate Redis cache so next request fetches updated phone number
+    await invalidateCache(cacheKey.userLean(authUser.id), cacheKey.userFull(authUser.id));
+
     revalidatePath('/profil');
     revalidatePath('/dashboard');
 
@@ -347,6 +354,9 @@ export async function updateUserEmail(emailInput: string): Promise<{
       data: { email: cleanEmail },
     });
 
+    // Invalidate Redis cache so next request fetches updated email
+    await invalidateCache(cacheKey.userLean(authUser.id), cacheKey.userFull(authUser.id));
+
     revalidatePath('/profil');
     revalidatePath('/dashboard');
 
@@ -382,6 +392,9 @@ export async function unlinkUserEmail(): Promise<{
       where: { id: effectiveUserId },
       data: { email: null },
     });
+
+    // Invalidate Redis cache so next request fetches updated (unlinked) email
+    await invalidateCache(cacheKey.userLean(authUser.id), cacheKey.userFull(authUser.id));
 
     revalidatePath('/profil');
     revalidatePath('/dashboard');
