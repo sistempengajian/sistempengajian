@@ -48,7 +48,7 @@ export class WahaProvider implements IWhatsAppGateway {
           'X-Api-Key': this.apiKey,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await response.json().catch(() => null);
@@ -72,7 +72,7 @@ export class WahaProvider implements IWhatsAppGateway {
         success: false,
         status: 'FAILED',
         error: err.name === 'TimeoutError' || err.name === 'AbortError'
-          ? 'WAHA Gateway Timeout (5s)'
+          ? 'WAHA Gateway Timeout (15s)'
           : err.message || 'Kesalahan jaringan saat menghubungi WAHA Gateway',
       };
     }

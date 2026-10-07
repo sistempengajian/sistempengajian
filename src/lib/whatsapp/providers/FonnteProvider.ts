@@ -56,7 +56,7 @@ export class FonnteProvider implements IWhatsAppGateway {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await response.json();

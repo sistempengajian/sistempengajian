@@ -237,13 +237,12 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
       });
     }
 
-    // 4. Eksekusi antrean dengan batch paralel dan batas waktu aman
+    // 4. Eksekusi antrean secara berurutan (pacing) dengan batas waktu aman 50 detik
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 25000;
-    const BATCH_SIZE = 5;
+    const MAX_EXECUTION_TIME_MS = 50000;
     let consecutiveErrors = 0;
 
-    for (let i = 0; i < dispatchQueue.length; i += BATCH_SIZE) {
+    for (let i = 0; i < dispatchQueue.length; i++) {
       if (Date.now() - startTimeMs > MAX_EXECUTION_TIME_MS) {
         processLogs.push(
           `[Peringatan] Batas waktu pemrosesan tercapai. Sisa ${
@@ -253,30 +252,32 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
         break;
       }
 
-      if (consecutiveErrors >= 3) {
+      if (consecutiveErrors >= 5) {
         processLogs.push(
           `[Circuit Breaker] Gateway WhatsApp tidak merespons (Offline/Timeout berulang). Menghentikan sisa antrean.`
         );
         break;
       }
 
-      const batch = dispatchQueue.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map((item) => item.execute()));
-
-      for (const res of results) {
-        if (res.status === 'fulfilled') {
-          if (res.value.success) {
-            sentCount++;
-            consecutiveErrors = 0;
-            processLogs.push(res.value.log);
-          } else {
-            consecutiveErrors++;
-            processLogs.push(`[Gagal] ${res.value.log}: ${res.value.error || 'Unknown'}`);
-          }
+      const item = dispatchQueue[i];
+      try {
+        const res = await item.execute();
+        if (res.success) {
+          sentCount++;
+          consecutiveErrors = 0;
+          processLogs.push(res.log);
         } else {
           consecutiveErrors++;
-          processLogs.push(`[Error] Eksekusi pesan gagal: ${res.reason?.message || 'Error'}`);
+          processLogs.push(`[Gagal] ${res.log}: ${res.error || 'Unknown'}`);
         }
+      } catch (err: any) {
+        consecutiveErrors++;
+        processLogs.push(`[Error] Eksekusi pesan gagal: ${err?.message || 'Error'}`);
+      }
+
+      // Jeda 350ms antar pesan agar antrean socket WAHA tetap stabil
+      if (i < dispatchQueue.length - 1) {
+        await new Promise((r) => setTimeout(r, 350));
       }
     }
 
