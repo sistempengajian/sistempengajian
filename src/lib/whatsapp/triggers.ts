@@ -1,5 +1,11 @@
 import { whatsAppClient } from './WhatsAppClient';
 import { SendMessageResult } from './types';
+import {
+  formatParentSalutation,
+  formatTeacherSalutation,
+  formatStudentSalutation,
+  formatScheduleNotesBlock,
+} from './utils';
 
 function getBaseAppUrl(): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -17,6 +23,8 @@ function getBaseAppUrl(): string {
 export async function sendAbsenceAlertNotification(params: {
   parentPhone: string;
   parentName: string;
+  parentGender?: string | null;
+  relationshipType?: string | null;
   studentName: string;
   scheduleTitle: string;
   scheduleTime: string;
@@ -28,6 +36,7 @@ export async function sendAbsenceAlertNotification(params: {
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const magicLink = `${baseUrl}/izin/konfirmasi/${params.magicToken}`;
+  const sapaanOrtu = formatParentSalutation(params.parentName, params.parentGender, params.relationshipType);
 
   return whatsAppClient.sendMessage({
     to: params.parentPhone,
@@ -35,9 +44,9 @@ export async function sendAbsenceAlertNotification(params: {
     recipientUserId: params.parentUserId,
     messageType: 'ATTENDANCE_ALERT',
     templateCode: 'ATTENDANCE_ALPA_MAGIC',
-    message: '', // Will be resolved by template
+    message: '',
     templateVariables: {
-      nama_ortu: params.parentName,
+      sapaan_ortu: sapaanOrtu,
       nama_santri: params.studentName,
       judul_pengajian: params.scheduleTitle,
       waktu_sesi: params.scheduleTime,
@@ -56,6 +65,8 @@ export async function sendAbsenceAlertNotification(params: {
 export async function sendParentTaskVerificationNotification(params: {
   parentPhone: string;
   parentName: string;
+  parentGender?: string | null;
+  relationshipType?: string | null;
   studentName: string;
   taskTitle: string;
   pointsReward: number;
@@ -68,6 +79,7 @@ export async function sendParentTaskVerificationNotification(params: {
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const magicLink = `${baseUrl}/tugas/paraf/${params.magicToken}`;
+  const sapaanOrtu = formatParentSalutation(params.parentName, params.parentGender, params.relationshipType);
 
   return whatsAppClient.sendMessage({
     to: params.parentPhone,
@@ -77,7 +89,7 @@ export async function sendParentTaskVerificationNotification(params: {
     templateCode: 'PARENT_TASK_PARAF',
     message: '',
     templateVariables: {
-      nama_ortu: params.parentName,
+      sapaan_ortu: sapaanOrtu,
       nama_santri: params.studentName,
       judul_tugas: params.taskTitle,
       poin_tugas: params.pointsReward,
@@ -92,25 +104,28 @@ export async function sendParentTaskVerificationNotification(params: {
 }
 
 /**
- * 3. Pemicu Pengingat Jadwal Mengajar & Guru Badal ke Ustadz
+ * 3. Pemicu Pengingat Jadwal Mengajar & Guru Badal ke Ustadz/Ustadzah
  */
 export async function sendScheduleBadalNotification(params: {
   teacherPhone: string;
   teacherName: string;
+  teacherGender?: string | null;
   materialTitle: string;
   generationName: string;
   className?: string;
   venueName: string;
   scheduleTime: string;
   isBadal?: boolean;
+  notes?: string | null;
   scheduleId: string;
   teacherUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const dashboardUrl = `${baseUrl}/jadwal`;
-
+  const detailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
   const isBadalText = params.isBadal
-    ? '\n⚠️ *Status: Ustadz ditugaskan sebagai Guru Badal (Pengganti) untuk sesi ini.*\n'
+    ? `\n⚠️ *Status: ${titleUstadz} ditugaskan sebagai Guru Badal (Pengganti) untuk sesi ini.*\n`
     : '';
 
   return whatsAppClient.sendMessage({
@@ -121,14 +136,15 @@ export async function sendScheduleBadalNotification(params: {
     templateCode: 'SCHEDULE_REMINDER',
     message: '',
     templateVariables: {
-      nama_ustadz: params.teacherName,
+      sapaan_ustadz: sapaanUstadz,
       judul_materi: params.materialTitle,
       tingkat_jenjang: params.generationName,
       nama_kelas: params.className ? `(${params.className})` : '',
       tempat_pengajian: params.venueName,
       waktu_lengkap: params.scheduleTime,
       is_badal_text: isBadalText,
-      dashboard_jadwal_url: dashboardUrl,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes),
+      dashboard_jadwal_url: detailUrl,
     },
     referenceId: params.scheduleId,
   });
@@ -140,6 +156,8 @@ export async function sendScheduleBadalNotification(params: {
 export async function sendStudentDevelopmentReport(params: {
   parentPhone: string;
   parentName: string;
+  parentGender?: string | null;
+  relationshipType?: string | null;
   studentName: string;
   monthName: string;
   attendanceRate: number;
@@ -159,6 +177,7 @@ export async function sendStudentDevelopmentReport(params: {
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const reportUrl = `${baseUrl}/laporan`;
+  const sapaanOrtu = formatParentSalutation(params.parentName, params.parentGender, params.relationshipType);
 
   return whatsAppClient.sendMessage({
     to: params.parentPhone,
@@ -168,6 +187,7 @@ export async function sendStudentDevelopmentReport(params: {
     templateCode: 'REPORT_CARD',
     message: '',
     templateVariables: {
+      sapaan_ortu: sapaanOrtu,
       nama_ortu: params.parentName,
       nama_santri: params.studentName,
       nama_bulan: params.monthName,
@@ -195,6 +215,9 @@ export async function sendStudentDevelopmentReport(params: {
 export async function sendScheduleReminderH1ToStudent(params: {
   recipientPhone: string;
   recipientName: string;
+  recipientGender?: string | null;
+  relationshipType?: string | null;
+  isParent?: boolean;
   studentName: string;
   generationName: string;
   scheduleTitle: string;
@@ -205,15 +228,22 @@ export async function sendScheduleReminderH1ToStudent(params: {
   organizationName: string;
   materialTitle: string;
   teacherName: string;
+  notes?: string | null;
   scheduleId: string;
   magicToken?: string;
   recipientUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const scheduleUrl = `${baseUrl}/jadwal`;
+  // Redirect langsung ke detail jadwal
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
   const magicLinkIzin = params.magicToken
     ? `${baseUrl}/izin/ajukan/${params.magicToken}`
-    : `${baseUrl}/jadwal`;
+    : `${baseUrl}/jadwal/${params.scheduleId}`;
+
+  // Title penerima dinamis (Santri -> Kak [Nama], Ortu -> Yth. Bapak/Ibu [Nama])
+  const sapaanPenerima = params.isParent
+    ? `Yth. *${formatParentSalutation(params.recipientName, params.recipientGender, params.relationshipType)}* (Wali dari Ananda ${params.studentName} - ${params.generationName})`
+    : `${formatStudentSalutation(params.studentName)} (Santri ${params.generationName})`;
 
   return whatsAppClient.sendMessage({
     to: params.recipientPhone,
@@ -223,7 +253,7 @@ export async function sendScheduleReminderH1ToStudent(params: {
     templateCode: 'SCHEDULE_REMINDER_H1_STUDENT',
     message: '',
     templateVariables: {
-      nama_penerima: params.recipientName,
+      sapaan_penerima: sapaanPenerima,
       nama_santri: params.studentName,
       jenjang_santri: params.generationName,
       hari_tanggal: params.dayDate,
@@ -233,7 +263,8 @@ export async function sendScheduleReminderH1ToStudent(params: {
       nama_kelompok: params.organizationName,
       judul_materi: params.materialTitle,
       nama_ustadz: params.teacherName,
-      url_jadwal: scheduleUrl,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes),
+      url_jadwal: scheduleDetailUrl,
       magic_link_izin: magicLinkIzin,
     },
     magicToken: params.magicToken,
@@ -242,11 +273,12 @@ export async function sendScheduleReminderH1ToStudent(params: {
 }
 
 /**
- * 6. Pemicu Pengingat Jadwal H-1 untuk Ustadz Pengajar Terjadwal
+ * 6. Pemicu Pengingat Jadwal H-1 untuk Ustadz / Ustadzah Pengajar
  */
 export async function sendScheduleReminderH1ToTeacher(params: {
   teacherPhone: string;
   teacherName: string;
+  teacherGender?: string | null;
   dayDate: string;
   startTime: string;
   endTime: string;
@@ -256,15 +288,18 @@ export async function sendScheduleReminderH1ToTeacher(params: {
   className?: string;
   materialTitle: string;
   isBadal?: boolean;
+  notes?: string | null;
   scheduleId: string;
   teacherUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const scheduleUrl = `${baseUrl}/jadwal`;
-  const requestBadalUrl = `${baseUrl}/jadwal?request_badal=${params.scheduleId}`;
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
+  const requestBadalUrl = `${baseUrl}/jadwal/rolling-jadwal?request_badal=${params.scheduleId}`;
 
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
   const isBadalText = params.isBadal
-    ? '\n⚠️ *Status: Ustadz ditugaskan sebagai Guru Badal (Pengganti) untuk sesi ini.*\n'
+    ? `\n⚠️ *Status: ${titleUstadz} ditugaskan sebagai Guru Badal (Pengganti) untuk sesi ini.*\n`
     : '';
 
   return whatsAppClient.sendMessage({
@@ -275,7 +310,8 @@ export async function sendScheduleReminderH1ToTeacher(params: {
     templateCode: 'SCHEDULE_REMINDER_H1_TEACHER',
     message: '',
     templateVariables: {
-      nama_ustadz: params.teacherName,
+      sapaan_ustadz: sapaanUstadz,
+      title_ustadz: titleUstadz,
       hari_tanggal: params.dayDate,
       waktu_mulai: params.startTime,
       waktu_selesai: params.endTime,
@@ -285,7 +321,8 @@ export async function sendScheduleReminderH1ToTeacher(params: {
       nama_kelas: params.className ? `(${params.className})` : '',
       judul_materi: params.materialTitle,
       is_badal_text: isBadalText,
-      url_jadwal: scheduleUrl,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes),
+      url_jadwal: scheduleDetailUrl,
       url_request_badal: requestBadalUrl,
     },
     referenceId: params.scheduleId,
@@ -298,17 +335,28 @@ export async function sendScheduleReminderH1ToTeacher(params: {
 export async function sendScheduleReminderCountdown(params: {
   recipientPhone: string;
   recipientName: string;
+  recipientGender?: string | null;
+  relationshipType?: string | null;
+  isParent?: boolean;
   studentName: string;
   scheduleTitle: string;
   startTime: string;
   venueName: string;
   materialTitle: string;
   teacherName: string;
+  teacherGender?: string | null;
+  notes?: string | null;
   scheduleId: string;
   recipientUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const scheduleUrl = `${baseUrl}/jadwal`;
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
+
+  const sapaanPenerima = params.isParent
+    ? `Yth. *${formatParentSalutation(params.recipientName, params.recipientGender, params.relationshipType)}* (Wali dari Ananda ${params.studentName})`
+    : `${formatStudentSalutation(params.studentName)}`;
+
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
 
   return whatsAppClient.sendMessage({
     to: params.recipientPhone,
@@ -318,14 +366,15 @@ export async function sendScheduleReminderCountdown(params: {
     templateCode: 'SCHEDULE_REMINDER_COUNTDOWN',
     message: '',
     templateVariables: {
-      nama_penerima: params.recipientName,
+      sapaan_penerima: sapaanPenerima,
       nama_santri: params.studentName,
       judul_sesi: params.scheduleTitle,
       waktu_mulai: params.startTime,
       nama_tempat: params.venueName,
       judul_materi: params.materialTitle,
-      nama_ustadz: params.teacherName,
-      url_jadwal: scheduleUrl,
+      nama_ustadz: sapaanUstadz,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes),
+      url_jadwal: scheduleDetailUrl,
     },
     referenceId: params.scheduleId,
   });
@@ -337,6 +386,10 @@ export async function sendScheduleReminderCountdown(params: {
 export async function sendScheduleChangeEmergencyAlert(params: {
   recipientPhone: string;
   recipientName: string;
+  recipientGender?: string | null;
+  relationshipType?: string | null;
+  isParent?: boolean;
+  isStudent?: boolean;
   organizationName: string;
   scheduleTitle: string;
   changeDescription: string;
@@ -345,11 +398,19 @@ export async function sendScheduleChangeEmergencyAlert(params: {
   endTime: string;
   venueName: string;
   teacherName: string;
+  notes?: string | null;
   scheduleId: string;
   recipientUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const scheduleUrl = `${baseUrl}/jadwal`;
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
+
+  let sapaanPenerima = `Yth. Jamaah Pengajian *${params.organizationName}* (${params.recipientName})`;
+  if (params.isParent) {
+    sapaanPenerima = `Yth. Jamaah Pengajian *${params.organizationName}* (${formatParentSalutation(params.recipientName, params.recipientGender, params.relationshipType)})`;
+  } else if (params.isStudent) {
+    sapaanPenerima = `Jamaah Pengajian *${params.organizationName}* (${formatStudentSalutation(params.recipientName)})`;
+  }
 
   return whatsAppClient.sendMessage({
     to: params.recipientPhone,
@@ -359,7 +420,7 @@ export async function sendScheduleChangeEmergencyAlert(params: {
     templateCode: 'SCHEDULE_CHANGE_EMERGENCY',
     message: '',
     templateVariables: {
-      nama_penerima: params.recipientName,
+      sapaan_penerima: sapaanPenerima,
       nama_kelompok: params.organizationName,
       judul_sesi: params.scheduleTitle,
       status_perubahan_keterangan: params.changeDescription,
@@ -368,7 +429,8 @@ export async function sendScheduleChangeEmergencyAlert(params: {
       waktu_selesai: params.endTime,
       nama_tempat: params.venueName,
       nama_ustadz: params.teacherName,
-      url_jadwal: scheduleUrl,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes),
+      url_jadwal: scheduleDetailUrl,
     },
     referenceId: params.scheduleId,
   });

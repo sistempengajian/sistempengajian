@@ -205,6 +205,7 @@ export async function notifyScheduleChangeIfHariH(params: {
       endTime: endTimeStr,
       venueName,
       teacherName: teacherNames,
+      notes: schedule.notes,
       scheduleId: schedule.id,
       recipientUserId: teacher.id,
     });
@@ -224,7 +225,10 @@ export async function notifyScheduleChangeIfHariH(params: {
 
       const res = await sendScheduleChangeEmergencyAlert({
         recipientPhone: parent.phoneNumber,
-        recipientName: `Bpk/Ibu ${parent.fullName}`,
+        recipientName: parent.fullName,
+        recipientGender: parent.gender,
+        relationshipType: rel.relationshipType,
+        isParent: true,
         organizationName: orgName,
         scheduleTitle: schedule.title,
         changeDescription: params.changeDescription,
@@ -233,6 +237,7 @@ export async function notifyScheduleChangeIfHariH(params: {
         endTime: endTimeStr,
         venueName,
         teacherName: teacherNames,
+        notes: schedule.notes,
         scheduleId: schedule.id,
         recipientUserId: parent.id,
       });
@@ -247,6 +252,8 @@ export async function notifyScheduleChangeIfHariH(params: {
       const res = await sendScheduleChangeEmergencyAlert({
         recipientPhone: student.phoneNumber,
         recipientName: student.fullName,
+        recipientGender: student.gender,
+        isStudent: true,
         organizationName: orgName,
         scheduleTitle: schedule.title,
         changeDescription: params.changeDescription,
@@ -255,6 +262,7 @@ export async function notifyScheduleChangeIfHariH(params: {
         endTime: endTimeStr,
         venueName,
         teacherName: teacherNames,
+        notes: schedule.notes,
         scheduleId: schedule.id,
         recipientUserId: student.id,
       });

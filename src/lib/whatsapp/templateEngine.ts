@@ -13,9 +13,9 @@ export const DEFAULT_TEMPLATES: Record<string, WhatsAppTemplateDefinition> = {
     code: 'ATTENDANCE_ALPA_MAGIC',
     name: 'Notifikasi Alpa & Magic Link Izin',
     category: 'ATTENDANCE_ALERT',
-    variables: ['nama_ortu', 'nama_santri', 'judul_pengajian', 'waktu_sesi', 'tempat_pengajian', 'magic_link_izin', 'nama_kelompok'],
+    variables: ['sapaan_ortu', 'nama_santri', 'judul_pengajian', 'waktu_sesi', 'tempat_pengajian', 'magic_link_izin', 'nama_kelompok'],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. Bapak/Ibu {{nama_ortu}} (Wali dari {{nama_santri}}).
+Yth. {{sapaan_ortu}} (Wali dari {{nama_santri}}).
 
 Menginfokan bahwa pada sesi pengajian:
 📅 *{{judul_pengajian}}*
@@ -38,9 +38,9 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
     code: 'PARENT_TASK_PARAF',
     name: 'Permintaan Paraf Tugas Pembiasaan',
     category: 'PARENT_TASK_PARAF',
-    variables: ['nama_ortu', 'nama_santri', 'judul_tugas', 'poin_tugas', 'magic_link_paraf', 'bonus_poin', 'nama_wali_kelas', 'nama_kelompok'],
+    variables: ['sapaan_ortu', 'nama_santri', 'judul_tugas', 'poin_tugas', 'magic_link_paraf', 'bonus_poin', 'nama_wali_kelas', 'nama_kelompok'],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. Bapak/Ibu {{nama_ortu}}.
+Yth. {{sapaan_ortu}}.
 
 Ananda *{{nama_santri}}* telah menyelesaikan tugas pembiasaan:
 📝 *{{judul_tugas}}*
@@ -60,16 +60,16 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
     code: 'SCHEDULE_REMINDER',
     name: 'Pengingat Jadwal Mengajar & Badal Ustadz',
     category: 'SCHEDULE_REMINDER',
-    variables: ['nama_ustadz', 'judul_materi', 'tingkat_jenjang', 'nama_kelas', 'tempat_pengajian', 'waktu_lengkap', 'is_badal_text', 'dashboard_jadwal_url'],
-    templateBody: `Assalamu'alaikum Ustadz {{nama_ustadz}},
+    variables: ['sapaan_ustadz', 'judul_materi', 'tingkat_jenjang', 'nama_kelas', 'tempat_pengajian', 'waktu_lengkap', 'is_badal_text', 'catatan_tambahan', 'dashboard_jadwal_url'],
+    templateBody: `Assalamu'alaikum {{sapaan_ustadz}},
 
 Mengingatkan amanah jadwal mengajar pengajian:
 📖 Materi: *{{judul_materi}}*
 🏛️ Tingkat: *{{tingkat_jenjang}} {{nama_kelas}}*
 📍 Lokasi: *{{tempat_pengajian}}*
 ⏰ Waktu: *{{waktu_lengkap}}*
-{{is_badal_text}}
-Mohon konfirmasi kehadiran atau buka ruang absensi digital melalui dashboard:
+{{is_badal_text}}{{catatan_tambahan}}
+Mohon konfirmasi kehadiran atau buka ruang absensi digital melalui tautan berikut:
 👉 {{dashboard_jadwal_url}}
 
 Alhamdulillah Jazakumullahu Khairan Katsiran.`,
@@ -80,9 +80,7 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.`,
     name: 'Pengingat Jadwal H-1 (Santri & Wali Santri)',
     category: 'SCHEDULE_REMINDER',
     variables: [
-      'nama_penerima',
-      'nama_santri',
-      'jenjang_santri',
+      'sapaan_penerima',
       'hari_tanggal',
       'waktu_mulai',
       'waktu_selesai',
@@ -90,11 +88,12 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.`,
       'nama_kelompok',
       'judul_materi',
       'nama_ustadz',
+      'catatan_tambahan',
       'url_jadwal',
       'magic_link_izin',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. *{{nama_penerima}}* (Ananda {{nama_santri}} - {{jenjang_santri}}).
+{{sapaan_penerima}}.
 
 Mengingatkan agenda pengajian rutin *Sistem Generasi Qur'ani* untuk esok hari:
 
@@ -103,13 +102,13 @@ Mengingatkan agenda pengajian rutin *Sistem Generasi Qur'ani* untuk esok hari:
 🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
 📖 *Materi:* {{judul_materi}}
 👳‍♂️ *Pengajar:* {{nama_ustadz}}
-
+{{catatan_tambahan}}
 🎒 *Perlengkapan yang Wajib Dibawa:*
 1. Al-Qur'an & Kitab Materi
 2. Buku Catatan & Alat Tulis
 3. Memakai busana rapi, sopan, dan menutup aurat
 
-👉 *Buka Portal Belajar & Materi:*
+👉 *Buka Portal Belajar & Detail Materi:*
 {{url_jadwal}}
 
 ⚠️ *Berhalangan Hadir?*
@@ -122,10 +121,11 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
 
   SCHEDULE_REMINDER_H1_TEACHER: {
     code: 'SCHEDULE_REMINDER_H1_TEACHER',
-    name: 'Pengingat Jadwal H-1 (Pengajar / Ustadz)',
+    name: 'Pengingat Jadwal H-1 (Pengajar / Ustadz/Ustadzah)',
     category: 'SCHEDULE_REMINDER',
     variables: [
-      'nama_ustadz',
+      'sapaan_ustadz',
+      'title_ustadz',
       'hari_tanggal',
       'waktu_mulai',
       'waktu_selesai',
@@ -135,11 +135,12 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
       'nama_kelas',
       'judul_materi',
       'is_badal_text',
+      'catatan_tambahan',
       'url_jadwal',
       'url_request_badal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. *Ustadz {{nama_ustadz}}*.
+Yth. *{{sapaan_ustadz}}*.
 
 Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk esok hari:
 
@@ -148,8 +149,7 @@ Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk es
 🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
 👥 *Target Peserta:* {{jenjang_santri}} {{nama_kelas}}
 📖 *Materi:* {{judul_materi}}
-{{is_badal_text}}
-
+{{is_badal_text}}{{catatan_tambahan}}
 👉 *Buka Rincian Jadwal & Materi Ajar:*
 {{url_jadwal}}
 
@@ -157,7 +157,7 @@ Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk es
 Mohon segera ajukan permohonan Guru Badal (Pengganti) melalui sistem agar PJ kelompok dapat menugaskan pengganti tepat waktu:
 👉 {{url_request_badal}}
 
-Alhamdulillah Jazakumullahu Khairan Katsiran atas keikhlasan dan dedikasi Ustadz.
+Alhamdulillah Jazakumullahu Khairan Katsiran atas keikhlasan dan dedikasi {{title_ustadz}}.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
@@ -166,28 +166,29 @@ Alhamdulillah Jazakumullahu Khairan Katsiran atas keikhlasan dan dedikasi Ustadz
     name: 'Pengingat Hari-H (Countdown 2 Jam)',
     category: 'SCHEDULE_REMINDER',
     variables: [
-      'nama_penerima',
-      'nama_santri',
+      'sapaan_penerima',
       'judul_sesi',
       'waktu_mulai',
       'nama_tempat',
       'judul_materi',
       'nama_ustadz',
+      'catatan_tambahan',
       'url_jadwal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. *{{nama_penerima}}* ({{nama_santri}}).
+{{sapaan_penerima}}.
 
 Pengajian sesi *{{judul_sesi}}* akan dimulai dalam *2 jam ke depan*:
 
 ⏰ *Jam Mulai:* {{waktu_mulai}} WIB (Tepat Waktu)
 📍 *Lokasi:* {{nama_tempat}}
 📖 *Materi:* {{judul_materi}}
-👳 *Ustadz Pengampu:* {{nama_ustadz}}
-
+👳 *Pengampu:* {{nama_ustadz}}
+{{catatan_tambahan}}
 Mohon segera bersiap, berwudhu dari rumah, dan hadir 10 menit sebelum pengajian dimulai untuk presensi kehadiran tepat waktu ⭐.
 
-👉 *Lihat Jadwal:* {{url_jadwal}}
+👉 *Lihat Detail Jadwal & Materi:*
+{{url_jadwal}}
 
 Alhamdulillah Jazakumullahu Khairan.`,
   },
@@ -197,7 +198,7 @@ Alhamdulillah Jazakumullahu Khairan.`,
     name: 'Pemberitahuan Perubahan Jadwal Darurat (Hari-H)',
     category: 'SCHEDULE_REMINDER',
     variables: [
-      'nama_penerima',
+      'sapaan_penerima',
       'nama_kelompok',
       'judul_sesi',
       'status_perubahan_keterangan',
@@ -206,10 +207,11 @@ Alhamdulillah Jazakumullahu Khairan.`,
       'waktu_selesai',
       'nama_tempat',
       'nama_ustadz',
+      'catatan_tambahan',
       'url_jadwal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Yth. Jamaah Pengajian *{{nama_kelompok}}* ({{nama_penerima}}).
+{{sapaan_penerima}}.
 
 Terdapat PEMBARUAN JADWAL DARURAT HARI INI untuk sesi *{{judul_sesi}}*:
 
@@ -221,8 +223,9 @@ Terdapat PEMBARUAN JADWAL DARURAT HARI INI untuk sesi *{{judul_sesi}}*:
 • *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
 • *Tempat:* {{nama_tempat}}
 • *Pengajar:* {{nama_ustadz}}
-
-👉 *Lihat Jadwal Terupdate:* {{url_jadwal}}
+{{catatan_tambahan}}
+👉 *Lihat Detail Jadwal Terupdate:*
+{{url_jadwal}}
 
 Mohon maklum dan atas perhatiannya disampaikan Alhamdulillah Jazakumullahu Khairan Katsiran.
 — *Pengurus Pengajian {{nama_kelompok}}*`,

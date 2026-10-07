@@ -177,7 +177,7 @@ async function handleScheduleReminders(request: NextRequest) {
       ];
       const uniqueGenNames = Array.from(new Set(genNames)).join(', ') || 'Seluruh Jenjang';
 
-      // 3. Pengajar / Ustadz
+      // 3. Pengajar / Ustadz/Ustadzah
       if (isH1Reminder) {
         for (const st of schedule.teachers) {
           const teacher = st.teacher;
@@ -211,6 +211,7 @@ async function handleScheduleReminders(request: NextRequest) {
               const res = await sendScheduleReminderH1ToTeacher({
                 teacherPhone: teacher.phoneNumber!,
                 teacherName: teacher.fullName,
+                teacherGender: teacher.gender,
                 dayDate: dayDateStr,
                 startTime: startTimeStr,
                 endTime: endTimeStr,
@@ -220,6 +221,7 @@ async function handleScheduleReminders(request: NextRequest) {
                 className: schedule.class?.name,
                 materialTitle: materialTitles,
                 isBadal: st.isSubstitute,
+                notes: schedule.notes,
                 scheduleId: schedule.id,
                 teacherUserId: teacher.id,
               });
@@ -249,7 +251,7 @@ async function handleScheduleReminders(request: NextRequest) {
           if (isDryRun) {
             dryRunRecipients.push({
               target: 'ORANG_TUA',
-              name: `Bpk/Ibu ${parent.fullName} (Ananda ${student.fullName})`,
+              name: `${parent.fullName} (Ananda ${student.fullName})`,
               phone: parent.phoneNumber,
               type: reminderType,
               scheduleTitle: schedule.title,
@@ -265,14 +267,17 @@ async function handleScheduleReminders(request: NextRequest) {
 
           dispatchQueue.push({
             type: 'ORANG_TUA',
-            name: `Bpk/Ibu ${parent.fullName} (Ananda ${student.fullName})`,
+            name: `${parent.fullName} (Ananda ${student.fullName})`,
             phone: parent.phoneNumber,
             execute: async () => {
               let res;
               if (isH1Reminder) {
                 res = await sendScheduleReminderH1ToStudent({
                   recipientPhone: parent.phoneNumber!,
-                  recipientName: `Bpk/Ibu ${parent.fullName}`,
+                  recipientName: parent.fullName,
+                  recipientGender: parent.gender,
+                  relationshipType: rel.relationshipType,
+                  isParent: true,
                   studentName: student.fullName,
                   generationName: genName,
                   scheduleTitle: schedule.title,
@@ -283,6 +288,7 @@ async function handleScheduleReminders(request: NextRequest) {
                   organizationName: orgName,
                   materialTitle: materialTitles,
                   teacherName: teacherNames,
+                  notes: schedule.notes,
                   scheduleId: schedule.id,
                   magicToken: parentDedupKey,
                   recipientUserId: parent.id,
@@ -290,13 +296,18 @@ async function handleScheduleReminders(request: NextRequest) {
               } else {
                 res = await sendScheduleReminderCountdown({
                   recipientPhone: parent.phoneNumber!,
-                  recipientName: `Bpk/Ibu ${parent.fullName}`,
+                  recipientName: parent.fullName,
+                  recipientGender: parent.gender,
+                  relationshipType: rel.relationshipType,
+                  isParent: true,
                   studentName: student.fullName,
                   scheduleTitle: schedule.title,
                   startTime: startTimeStr,
                   venueName,
                   materialTitle: materialTitles,
                   teacherName: teacherNames,
+                  teacherGender: schedule.teachers[0]?.teacher?.gender,
+                  notes: schedule.notes,
                   scheduleId: schedule.id,
                   recipientUserId: parent.id,
                 });
@@ -341,6 +352,8 @@ async function handleScheduleReminders(request: NextRequest) {
                 res = await sendScheduleReminderH1ToStudent({
                   recipientPhone: student.phoneNumber!,
                   recipientName: student.fullName,
+                  recipientGender: student.gender,
+                  isParent: false,
                   studentName: student.fullName,
                   generationName: genName,
                   scheduleTitle: schedule.title,
@@ -351,6 +364,7 @@ async function handleScheduleReminders(request: NextRequest) {
                   organizationName: orgName,
                   materialTitle: materialTitles,
                   teacherName: teacherNames,
+                  notes: schedule.notes,
                   scheduleId: schedule.id,
                   magicToken: studentDedupKey,
                   recipientUserId: student.id,
@@ -359,12 +373,16 @@ async function handleScheduleReminders(request: NextRequest) {
                 res = await sendScheduleReminderCountdown({
                   recipientPhone: student.phoneNumber!,
                   recipientName: student.fullName,
+                  recipientGender: student.gender,
+                  isParent: false,
                   studentName: student.fullName,
                   scheduleTitle: schedule.title,
                   startTime: startTimeStr,
                   venueName,
                   materialTitle: materialTitles,
                   teacherName: teacherNames,
+                  teacherGender: schedule.teachers[0]?.teacher?.gender,
+                  notes: schedule.notes,
                   scheduleId: schedule.id,
                   recipientUserId: student.id,
                 });
