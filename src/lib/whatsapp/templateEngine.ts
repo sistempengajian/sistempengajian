@@ -30,7 +30,7 @@ Apabila ananda berhalangan hadir karena Sakit atau Izin keluarga, Bapak/Ibu dapa
 
 _(Tautan konfirmasi ini berlaku selama 24 jam)_
 
-Alhamdulillah Jazakumullahu Khairan Katsiran.
+Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
@@ -52,7 +52,7 @@ Mohon kesediaan Bapak/Ibu untuk memeriksa dan memberikan *Paraf Digital* melalui
 
 Dengan memberikan paraf, ananda akan mendapatkan bonus *+{{bonus_poin}} XP* dan menjaga streak belajarnya! 🔥
 
-Alhamdulillah Jazakumullahu Khairan Katsiran.
+Alhamdulillah Jazakumullahu Khairan.
 — *Wali Kelas {{nama_wali_kelas}} ({{nama_kelompok}})*`,
   },
 
@@ -72,7 +72,7 @@ Mengingatkan amanah jadwal mengajar pengajian:
 Mohon konfirmasi kehadiran atau buka ruang absensi digital melalui tautan berikut:
 👉 {{dashboard_jadwal_url}}
 
-Alhamdulillah Jazakumullahu Khairan Katsiran.`,
+Alhamdulillah Jazakumullahu Khairan.`,
   },
 
   SCHEDULE_REMINDER_H1_STUDENT: {
@@ -115,7 +115,7 @@ Mengingatkan agenda pengajian rutin *Sistem Generasi Qur'ani* untuk esok hari:
 Konfirmasi izin lebih awal agar tercatat di sistem:
 👉 {{magic_link_izin}}
 
-Alhamdulillah Jazakumullahu Khairan Katsiran.
+Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
@@ -157,7 +157,7 @@ Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk es
 Mohon segera ajukan permohonan Guru Badal (Pengganti) melalui sistem agar PJ kelompok dapat menugaskan pengganti tepat waktu:
 👉 {{url_request_badal}}
 
-Alhamdulillah Jazakumullahu Khairan Katsiran atas keikhlasan dan dedikasi {{title_ustadz}}.
+Alhamdulillah Jazakumullahu Khairan atas keikhlasan dan dedikasi {{title_ustadz}}.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
@@ -227,7 +227,7 @@ Terdapat PEMBARUAN JADWAL DARURAT HARI INI untuk sesi *{{judul_sesi}}*:
 👉 *Lihat Detail Jadwal Terupdate:*
 {{url_jadwal}}
 
-Mohon maklum dan atas perhatiannya disampaikan Alhamdulillah Jazakumullahu Khairan Katsiran.
+Mohon maklum dan atas perhatiannya disampaikan Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
@@ -258,7 +258,7 @@ Berikut ringkasan capaian belajar ananda *{{nama_santri}}* periode *{{nama_bulan
 Lihat rapor digital lengkap ananda di:
 👉 {{url_rapor_lengkap}}
 
-Alhamdulillah Jazakumullahu Khairan Katsiran atas bimbingan dan doa Bapak/Ibu di rumah.`,
+Alhamdulillah Jazakumullahu Khairan atas bimbingan dan doa Bapak/Ibu di rumah.`,
   },
 
   BROADCAST_ANNOUNCEMENT: {
@@ -275,8 +275,31 @@ Yth. {{nama_penerima}}.
 
 {{isi_pengumuman}}
 ----------------------------------------
-Alhamdulillah Jazakumullahu Khairan Katsiran.
+Alhamdulillah Jazakumullahu Khairan.
 — *{{nama_pengirim}}*`,
+  },
+
+  BROADCAST_MAGIC_LOGIN: {
+    code: 'BROADCAST_MAGIC_LOGIN',
+    name: 'Broadcast Tautan Masuk Akun Baru (Magic Link Onboarding)',
+    category: 'CUSTOM_DIRECT',
+    variables: ['sapaan_penerima', 'magic_login_url', 'nama_kelompok'],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+{{sapaan_penerima}}.
+
+Selamat datang di *Sistem Informasi & Manajemen Pengajian Generasi Qur'ani* 🕌✨
+
+Berikut adalah tautan masuk instan (Magic Link) resmi akun Anda untuk mengakses sistem presensi digital, jadwal pengajian, kurikulum, dan rapor capaian:
+
+👉 {{magic_login_url}}
+
+🔒 *Panduan Masuk:*
+• Cukup *klik tautan di atas*, Anda akan langsung masuk ke aplikasi tanpa perlu repot memasukkan kata sandi (password).
+• Tautan ini bersifat pribadi untuk 1x aktivasi login pertama.
+• Setelah berhasil masuk, Anda dapat memasang aplikasi ke layar utama HP (PWA) untuk akses cepat setiap saat.
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 };
 
