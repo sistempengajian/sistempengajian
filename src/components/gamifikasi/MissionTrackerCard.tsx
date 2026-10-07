@@ -28,7 +28,7 @@ interface MissionTrackerCardProps {
   dailyMissions: GamificationMission[];
   weeklyMissions: GamificationMission[];
   milestoneMissions: GamificationMission[];
-  onMissionClaimed?: (rewardXp: number) => void;
+  onMissionClaimed?: (missionId: string, rewardXp: number, newTotalPoints?: number) => void;
 }
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -74,10 +74,20 @@ export default function MissionTrackerCard({
         setClaimedMissions((prev) => new Set(prev).add(mission.id));
         setToastMessage(res.message);
         if (onMissionClaimed) {
-          onMissionClaimed(mission.rewardXp);
+          onMissionClaimed(mission.id, mission.rewardXp, res.newPoints);
         }
         setTimeout(() => setToastMessage(null), 4000);
       } else {
+        if (
+          res.message.toLowerCase().includes('sudah pernah') ||
+          res.message.toLowerCase().includes('telah berhasil') ||
+          res.message.toLowerCase().includes('sudah diklaim')
+        ) {
+          setClaimedMissions((prev) => new Set(prev).add(mission.id));
+          if (onMissionClaimed) {
+            onMissionClaimed(mission.id, 0);
+          }
+        }
         setToastMessage(res.message);
         setTimeout(() => setToastMessage(null), 4000);
       }

@@ -159,29 +159,6 @@ export default function UserProfileSummary({
           />
         </div>
       </div>
-
-      {/* Claimable Missions Callout Banner */}
-      {userProfile.availableClaimableMissions > 0 && onNavigateToMissions && (
-        <div className="mt-3.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border border-emerald-200/80 shadow-2xs flex items-center justify-between gap-3 animate-pulse">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs shadow-xs">
-              <Sparkles className="w-4 h-4 fill-white" />
-            </div>
-            <span className="text-xs sm:text-sm font-bold text-emerald-950 truncate">
-              {userProfile.availableClaimableMissions} Hadiah Misi Siap Diklaim!
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onNavigateToMissions}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex-shrink-0"
-          >
-            <span>Klaim Sekarang</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

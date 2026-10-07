@@ -16,13 +16,14 @@ import {
   LeaderboardRegionTier,
   OrganizationOption,
   MissionCategory,
+  calculateLevelInfo,
 } from './types';
 import { SEED_BADGES } from '@/lib/constants';
 
 // ==============================================================================
 // MISSION DEFINITIONS
 // ==============================================================================
-export const MISSION_DEFINITIONS = [
+const MISSION_DEFINITIONS = [
   {
     id: 'daily_presensi_tepat_waktu',
     code: 'DAILY_ATTENDANCE',
@@ -125,14 +126,14 @@ export const MISSION_DEFINITIONS = [
 ];
 
 // Helper: Period keys
-export function getTodayDateKey(date: Date = new Date()): string {
+function getTodayDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-export function getWeekKey(date: Date = new Date()): string {
+function getWeekKey(date: Date = new Date()): string {
   const target = new Date(date.valueOf());
   const dayNr = (date.getDay() + 6) % 7;
   target.setDate(target.getDate() - dayNr + 3);
@@ -145,13 +146,13 @@ export function getWeekKey(date: Date = new Date()): string {
   return `${target.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
-export function getPeriodKeyForMission(category: MissionCategory, date: Date = new Date()): string {
+function getPeriodKeyForMission(category: MissionCategory, date: Date = new Date()): string {
   if (category === 'DAILY') return getTodayDateKey(date);
   if (category === 'WEEKLY') return getWeekKey(date);
   return 'PERMANENT';
 }
 
-export function getStartAndEndOfWeek(date: Date = new Date()): { startOfWeek: Date; endOfWeek: Date } {
+function getStartAndEndOfWeek(date: Date = new Date()): { startOfWeek: Date; endOfWeek: Date } {
   const day = date.getDay();
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
   const startOfWeek = new Date(date);
@@ -165,47 +166,6 @@ export function getStartAndEndOfWeek(date: Date = new Date()): { startOfWeek: Da
   return { startOfWeek, endOfWeek };
 }
 
-// Level thresholds calculation helper
-function calculateLevelInfo(totalPoints: number): {
-  level: number;
-  levelTitle: string;
-  currentLevelPoints: number;
-  nextLevelPoints: number;
-  levelProgressPercent: number;
-} {
-  const levels = [
-    { level: 1, min: 0, max: 100, title: 'Santri Pemula' },
-    { level: 2, min: 101, max: 250, title: 'Pencari Ilmu' },
-    { level: 3, min: 251, max: 500, title: 'Pejuang Tholabul Ilmi' },
-    { level: 4, min: 501, max: 850, title: 'Bintang Pengajian' },
-    { level: 5, min: 851, max: 1300, title: 'Duta Disiplin' },
-    { level: 6, min: 1301, max: 1900, title: "Ksatria Qur'ani" },
-    { level: 7, min: 1901, max: 2700, title: 'Penjaga Sunnah' },
-    { level: 8, min: 2701, max: 3700, title: 'Teladan Generasi' },
-    { level: 9, min: 3701, max: 5000, title: "Mahkota Qur'ani" },
-    { level: 10, min: 5001, max: 100000, title: "Master Generasi Qur'ani" },
-  ];
-
-  const currentLevelObj =
-    levels.find((l) => totalPoints >= l.min && totalPoints <= l.max) || levels[levels.length - 1];
-
-  const currentLevel = currentLevelObj.level;
-  const levelTitle = currentLevelObj.title;
-  const minPoints = currentLevelObj.min;
-  const maxPoints = currentLevelObj.max;
-
-  const pointsIntoLevel = Math.max(0, totalPoints - minPoints);
-  const span = maxPoints - minPoints;
-  const levelProgressPercent = span > 0 ? Math.min(100, Math.round((pointsIntoLevel / span) * 100)) : 100;
-
-  return {
-    level: currentLevel,
-    levelTitle,
-    currentLevelPoints: totalPoints,
-    nextLevelPoints: maxPoints,
-    levelProgressPercent,
-  };
-}
 
 // Helper: Date Range for Leaderboard
 function getGamifikasiPeriodDates(period: LeaderboardFilterOptions['period']): {

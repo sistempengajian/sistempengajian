@@ -12,7 +12,11 @@ import {
   Star,
   RefreshCw,
 } from 'lucide-react';
-import { StudentGamificationDashboardData } from '@/app/(protected)/gamifikasi/types';
+import {
+  StudentGamificationDashboardData,
+  GamificationMission,
+  calculateLevelInfo,
+} from '@/app/(protected)/gamifikasi/types';
 import UserProfileSummary from './UserProfileSummary';
 import MissionTrackerCard from './MissionTrackerCard';
 import TrophyCabinet from './TrophyCabinet';
@@ -28,6 +32,44 @@ export default function GamifikasiClientWrapper({
 }: GamifikasiClientWrapperProps) {
   const [data, setData] = useState<StudentGamificationDashboardData>(initialData);
   const [activeTab, setActiveTab] = useState<GamifikasiTab>('MISSIONS');
+
+  const handleMissionClaimed = (missionId: string, rewardXp: number, newTotalPoints?: number) => {
+    setData((prev) => {
+      const updateList = (missions: GamificationMission[]) =>
+        missions.map((m) => (m.id === missionId ? { ...m, isClaimed: true } : m));
+
+      const newDaily = updateList(prev.dailyMissions);
+      const newWeekly = updateList(prev.weeklyMissions);
+      const newMilestone = updateList(prev.milestoneMissions);
+
+      let claimableCount = 0;
+      [...newDaily, ...newWeekly, ...newMilestone].forEach((m) => {
+        if (m.isCompleted && !m.isClaimed) {
+          claimableCount++;
+        }
+      });
+
+      const updatedPoints = newTotalPoints ?? (prev.userProfile.totalPoints + rewardXp);
+      const newLevelInfo = calculateLevelInfo(updatedPoints);
+
+      return {
+        ...prev,
+        dailyMissions: newDaily,
+        weeklyMissions: newWeekly,
+        milestoneMissions: newMilestone,
+        userProfile: {
+          ...prev.userProfile,
+          totalPoints: updatedPoints,
+          currentLevel: newLevelInfo.level,
+          levelTitle: newLevelInfo.levelTitle,
+          currentLevelPoints: newLevelInfo.currentLevelPoints,
+          nextLevelPoints: newLevelInfo.nextLevelPoints,
+          levelProgressPercent: newLevelInfo.levelProgressPercent,
+          availableClaimableMissions: claimableCount,
+        },
+      };
+    });
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -91,29 +133,19 @@ export default function GamifikasiClientWrapper({
 
       {/* 4. Tab Content (Misi Tracker vs Trophy Cabinet) */}
       <div>
-        {activeTab === 'MISSIONS' && (
+        <div className={activeTab === 'MISSIONS' ? 'block' : 'hidden'}>
           <MissionTrackerCard
             studentId={data.userProfile.studentId}
             dailyMissions={data.dailyMissions}
             weeklyMissions={data.weeklyMissions}
             milestoneMissions={data.milestoneMissions}
-            onMissionClaimed={(rewardXp) => {
-              const newPts = data.userProfile.totalPoints + rewardXp;
-              setData({
-                ...data,
-                userProfile: {
-                  ...data.userProfile,
-                  totalPoints: newPts,
-                  availableClaimableMissions: Math.max(0, data.userProfile.availableClaimableMissions - 1),
-                },
-              });
-            }}
+            onMissionClaimed={handleMissionClaimed}
           />
-        )}
+        </div>
 
-        {activeTab === 'TROPHIES' && (
+        <div className={activeTab === 'TROPHIES' ? 'block' : 'hidden'}>
           <TrophyCabinet badges={data.badges} />
-        )}
+        </div>
       </div>
     </div>
   );
