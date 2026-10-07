@@ -33,6 +33,7 @@ interface StudentQrScannerProps {
   } | null;
   isAlreadyPresent?: boolean;
   checkInTime?: string | null;
+  initialTab?: SantriTab;
 }
 
 type SantriTab = 'SCAN_SESSION' | 'MY_QR_CARD';
@@ -45,8 +46,9 @@ export default function StudentQrScanner({
   activeSchedule,
   isAlreadyPresent: initialPresent = false,
   checkInTime: initialCheckIn = null,
+  initialTab = 'SCAN_SESSION',
 }: StudentQrScannerProps) {
-  const [activeTab, setActiveTab] = useState<SantriTab>('SCAN_SESSION');
+  const [activeTab, setActiveTab] = useState<SantriTab>(initialTab);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

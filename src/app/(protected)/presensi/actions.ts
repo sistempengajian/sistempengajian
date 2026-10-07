@@ -143,13 +143,28 @@ export async function populateDefaultAbsenceForSession(sessionId: string) {
  * Mengisi status awal ALPA untuk seluruh santri terdaftar (Opsi B)
  */
 export async function getOrOpenSession(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
+  }
+
+  // Teacher authorization check:
+  const roleCodes = userProfile.roles.map((r: any) => r.role);
+  const isPjOrAdmin = roleCodes.some((rc: string) =>
+    ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(rc)
+  );
+
+  if (!isPjOrAdmin) {
+    const isAssigned = await prisma.scheduleTeacher.findFirst({
+      where: {
+        scheduleId,
+        teacherId: userProfile.id,
+      },
+    });
+    if (!isAssigned) {
+      throw new Error('Anda tidak memiliki otorisasi pengajar pada sesi jadwal ini.');
+    }
   }
 
   // Cek apakah sudah ada sesi aktif untuk jadwal ini
@@ -269,13 +284,39 @@ export async function getLiveSessionToken(sessionId: string) {
  * Memastikan seluruh santri yang belum tercatat presensinya otomatis terisi ALPA di database
  */
 export async function closeAttendanceSession(sessionId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
+  }
+
+  const roleCodes = userProfile.roles.map((r: any) => r.role);
+  const isPjOrAdmin = roleCodes.some((rc: string) =>
+    ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(rc)
+  );
+
+  const existingSession = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      schedule: {
+        include: {
+          teachers: true,
+        },
+      },
+    },
+  });
+
+  if (!existingSession) {
+    throw new Error('Sesi presensi tidak ditemukan');
+  }
+
+  if (!isPjOrAdmin) {
+    const isAssigned = existingSession.schedule.teachers.some(
+      (t) => t.teacherId === userProfile.id
+    );
+    if (!isAssigned) {
+      throw new Error('Anda tidak memiliki otorisasi pengajar untuk menutup sesi ini.');
+    }
   }
 
   // Pastikan santri yang belum tercatat otomatis tersimpan sebagai ALPA di database

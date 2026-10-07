@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { generateQrPayload } from '@/lib/totp';
 
@@ -17,12 +17,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !userProfile) {
       return NextResponse.json(
         { success: false, message: 'Tidak terautentikasi' },
         { status: 401 }
@@ -36,6 +33,11 @@ export async function GET(request: NextRequest) {
         dynamicQrSecret: true,
         qrRefreshSeconds: true,
         isActive: true,
+        schedule: {
+          select: {
+            teachers: { select: { teacherId: true } },
+          },
+        },
       },
     });
 
@@ -47,6 +49,23 @@ export async function GET(request: NextRequest) {
         },
         { status: 200 }
       );
+    }
+
+    const roleCodes = userProfile.roles.map((r: any) => r.role);
+    const isPjOrAdmin = roleCodes.some((rc: string) =>
+      ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(rc)
+    );
+
+    if (!isPjOrAdmin) {
+      const isAssigned = session.schedule.teachers.some(
+        (t) => t.teacherId === userProfile.id
+      );
+      if (!isAssigned) {
+        return NextResponse.json(
+          { success: false, message: 'Anda tidak memiliki akses ke QR sesi ini.' },
+          { status: 403 }
+        );
+      }
     }
 
     const payload = generateQrPayload(

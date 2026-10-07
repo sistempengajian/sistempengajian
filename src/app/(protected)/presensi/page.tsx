@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   Building2,
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  QrCode,
 } from 'lucide-react';
 import { AttendanceStatus, AttendanceMethod } from '@prisma/client';
 import { generateSessionSecret, generateQrPayload, TOTP_STEP_SECONDS } from '@/lib/totp';
@@ -33,7 +34,13 @@ import { getScopedOrganizationIds } from '@/lib/scoped-access';
 export default async function PresensiPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ scheduleId?: string; studentId?: string; tab?: string }>;
+  searchParams?: Promise<{
+    scheduleId?: string;
+    studentId?: string;
+    tab?: string;
+    role?: string;
+    mode?: string;
+  }>;
 }) {
   const resolvedParams = searchParams ? await searchParams : {};
   const requestedScheduleId = resolvedParams.scheduleId;
@@ -131,24 +138,108 @@ export default async function PresensiPage({
     roleCodes.includes('PJ_DESA') ||
     roleCodes.includes('PJ_DAERAH') ||
     roleCodes.includes('ADMIN_MASTER');
+  const hasDualRole = isPengajar && isSantri;
 
-  const canAccessCockpit = isPengajar || (isPjOrAdmin && Boolean(requestedScheduleId));
+  // Cek parameter role / mode dari URL
+  const requestedRole = (resolvedParams.role || resolvedParams.mode || '').toLowerCase();
+  const wantsSantri = requestedRole === 'student' || requestedRole === 'santri';
+  const wantsPengajar = requestedRole === 'teacher' || requestedRole === 'pengajar';
+  const wantsOrangTua = requestedRole === 'parent' || requestedRole === 'orang_tua';
+
+  // ─── Teacher-schedule authorization ───────────────────────────────────────
+  // Pengajar HANYA boleh mengakses presensi sesi jadwal tertentu jika mereka
+  // terdaftar sebagai pengajar (utama, pengganti/badal, atau tambahan) pada jadwal tersebut.
+  let isAssignedTeacherOfRequestedSchedule = false;
+  if (directSchedule && isPengajar) {
+    isAssignedTeacherOfRequestedSchedule = directSchedule.teachers.some(
+      (t: any) => t.teacherId === userProfile.id
+    );
+  }
+
+  // Jika pengajar mencoba membuka scheduleId tertentu tapi TIDAK terdaftar di jadwal itu:
+  if (requestedScheduleId && isPengajar && !isPjOrAdmin && !isAssignedTeacherOfRequestedSchedule) {
+    if (!isSantri) {
+      // User BUKAN santri (hanya pengajar yang membuka jadwal pengajar lain) -> Tolak akses!
+      return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+          <div className="bg-white/75 backdrop-blur-md p-6 rounded-3xl border border-slate-200/70 shadow-xs text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center mx-auto border border-rose-200/60">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Akses Ditolak</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Anda tidak terdaftar sebagai pengajar pada sesi jadwal ini. Hanya pengajar utama, pengajar pengganti, atau pengajar tambahan yang terdaftar yang dapat mengakses presensi sesi ini.
+            </p>
+            <Link
+              href="/presensi"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Kembali ke Presensi Saya
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    // Jika user juga merupakan Santri (dual-role), biarkan masuk ke tampilan Santri untuk sesi ini!
+  }
+
+  // ─── Dual-Role Switcher Header Helper ────────────────────────────────────
+  const renderDualRoleSwitcher = (activeMode: 'santri' | 'pengajar') => {
+    if (!hasDualRole) return null;
+    const scheduleQuery = requestedScheduleId ? `&scheduleId=${encodeURIComponent(requestedScheduleId)}` : '';
+    return (
+      <div className="max-w-md mx-auto mb-4">
+        <div className="bg-slate-100/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-1.5">
+          <Link
+            href={`/presensi?mode=santri${scheduleQuery}`}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeMode === 'santri'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Presensi Santri</span>
+          </Link>
+          <Link
+            href={`/presensi?mode=pengajar${scheduleQuery}`}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeMode === 'pengajar'
+                ? 'bg-teal-700 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Mode Pengajar</span>
+          </Link>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Resolusi Tampilan untuk Dual-Role (SANTRI + PENGAJAR) ────────────────
+  const shouldRenderCockpit =
+    !wantsSantri &&
+    !wantsOrangTua &&
+    ((isPengajar && !hasDualRole && (!requestedScheduleId || isAssignedTeacherOfRequestedSchedule || isPjOrAdmin)) ||
+      (hasDualRole && (wantsPengajar || (Boolean(requestedScheduleId) && isAssignedTeacherOfRequestedSchedule))) ||
+      (isPjOrAdmin && Boolean(requestedScheduleId)));
 
   // =========================================================================
   // VIEW 1: PENGAJAR / WALI KELAS / PJ MEMANDU PRESENSI -> CLASSROOM COCKPIT
   // =========================================================================
-  if (canAccessCockpit) {
-    // Gunakan jadwal dari query param jika ada, jika tidak cari jadwal aktif pengajar
+  if (shouldRenderCockpit) {
+    // Gunakan jadwal dari query param jika ada, jika tidak cari jadwal aktif milik pengajar ini sendiri
     let activeSchedule = directSchedule;
 
     if (!activeSchedule && isPengajar) {
+      // Only fetch the pengajar's own assigned schedules — not schedules from
+      // their organisation that may belong to other teachers.
       activeSchedule = await prisma.schedule.findFirst({
         where: {
           status: { in: ['ACTIVE', 'SCHEDULED'] },
-          OR: [
-            { teachers: { some: { teacherId: userProfile.id } } },
-            ...(userProfile.organizationId ? [{ organizationId: userProfile.organizationId }] : []),
-          ],
+          teachers: { some: { teacherId: userProfile.id } },
         },
         orderBy: { startTime: 'asc' },
         include: scheduleInclude,
@@ -158,6 +249,7 @@ export default async function PresensiPage({
     if (!activeSchedule) {
       return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+          {renderDualRoleSwitcher('pengajar')}
           <div className="bg-white/75 backdrop-blur-md p-6 rounded-3xl border border-slate-200/70 shadow-xs text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto border border-teal-200/60">
               <Calendar className="w-6 h-6" />
@@ -166,12 +258,23 @@ export default async function PresensiPage({
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Anda tidak memiliki jadwal pengajian aktif saat ini. Buat atau aktifkan jadwal di menu Jadwal Pengajian.
             </p>
-            <Link
-              href="/jadwal"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs transition-colors"
-            >
-              Buka Kalender Jadwal
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <Link
+                href="/jadwal"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs transition-colors"
+              >
+                Buka Kalender Jadwal
+              </Link>
+              {hasDualRole && (
+                <Link
+                  href="/presensi?mode=santri"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200/80 transition-colors"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  Buka Presensi Santri
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -422,10 +525,9 @@ export default async function PresensiPage({
           where: {
             status: { in: ['ACTIVE', 'SCHEDULED'] },
             startTime: { gte: startOfToday, lte: endOfToday },
-            OR: [
-              { teachers: { some: { teacherId: authUser.id } } },
-              ...(userProfile.organizationId ? [{ organizationId: userProfile.organizationId }] : []),
-            ],
+            ...(isPjOrAdmin
+              ? (userProfile.organizationId ? { organizationId: userProfile.organizationId } : {})
+              : { teachers: { some: { teacherId: userProfile.id } } }),
           },
           orderBy: { startTime: 'asc' },
           include: {
@@ -671,7 +773,8 @@ export default async function PresensiPage({
     }));
 
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+        {renderDualRoleSwitcher('pengajar')}
         <ClassroomCockpit
           key={activeSchedule.id}
           sessionId={session.id}
@@ -800,8 +903,16 @@ export default async function PresensiPage({
       }
     }
 
+    const initialSantriTab =
+      resolvedParams.tab === 'card' ||
+      resolvedParams.tab === 'kartu' ||
+      resolvedParams.tab === 'MY_QR_CARD'
+        ? 'MY_QR_CARD'
+        : 'SCAN_SESSION';
+
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+        {renderDualRoleSwitcher('santri')}
         <StudentQrScanner
           studentId={userProfile.id}
           studentName={userProfile.fullName}
@@ -820,6 +931,7 @@ export default async function PresensiPage({
           }
           isAlreadyPresent={isAlreadyPresent}
           checkInTime={checkInTimeStr}
+          initialTab={initialSantriTab}
         />
       </div>
     );
