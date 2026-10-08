@@ -3,12 +3,12 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Sistem Manajemen Pengajian & Pembinaan Generasi Qur'ani",
-    short_name: "PengajianApp",
+    short_name: "SiPanji",
     description: "Sistem Pengajian Terstruktur, Smart Absensi QR, Sinergi Orang Tua, dan Gamifikasi Berjenjang",
-    start_url: "/",
+    start_url: "/dashboard",
     display: "standalone",
-    background_color: "#F8FAFC",
-    theme_color: "#10B981",
+    background_color: "#1773ba",
+    theme_color: "#1773ba",
     orientation: "portrait",
     icons: [
       {

@@ -17,7 +17,7 @@ export default function AuthLayout({
       <div className="w-full max-w-md z-10">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2.5 group">
+          <Link href="/dashboard" className="inline-flex items-center gap-2.5 group">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
               <BookOpen className="w-6 h-6" />
             </div>

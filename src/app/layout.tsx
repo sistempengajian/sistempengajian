@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "PengajianApp",
+    statusBarStyle: "black-translucent",
+    title: "SiPanji",
   },
   formatDetection: {
     telephone: false,
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#10B981",
+  themeColor: "#1773ba",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

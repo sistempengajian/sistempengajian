@@ -57,8 +57,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Fast path 2: Request with no cookies on public routes (e.g. homepage '/') -> proceed immediately
+  // Fast path 2: Request with no cookies on public routes
   if (!hasSupabaseCookie && !isAuthRoute) {
+    if (request.nextUrl.pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -68,11 +73,13 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If unauthenticated user tries to access protected route -> redirect to /login
-  if (!user && isProtectedRoute) {
+  // If unauthenticated user tries to access protected route or root '/' -> redirect to /login
+  if (!user && (isProtectedRoute || request.nextUrl.pathname === '/')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.searchParams.set('redirectTo', request.nextUrl.pathname);
+    if (isProtectedRoute) {
+      url.searchParams.set('redirectTo', request.nextUrl.pathname);
+    }
     return NextResponse.redirect(url);
   }
 
@@ -80,8 +87,8 @@ export async function updateSession(request: NextRequest) {
 
   const hasAuthError = request.nextUrl.searchParams.has('auth_error');
 
-  // If already logged in and visiting /login -> redirect to /dashboard (kecuali sedang memverifikasi magic token atau ada error auth)
-  if (user && isAuthRoute && !isMagicLoginRoute && !hasAuthError) {
+  // If already logged in and visiting /login or '/' -> redirect to /dashboard (kecuali sedang memverifikasi magic token atau ada error auth)
+  if (user && (isAuthRoute || request.nextUrl.pathname === '/') && !isMagicLoginRoute && !hasAuthError) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
