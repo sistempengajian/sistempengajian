@@ -162,7 +162,7 @@ export default function ClassTableView({
                         <strong>{cls.studentCount}</strong>
                       </span>
                       <span className="text-slate-300">&bull;</span>
-                      <span className="inline-flex items-center gap-1" title="Jadwal Pengajian">
+                      <span className="inline-flex items-center gap-1" title="Sesi Pengajian">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         <strong>{cls._count.schedules}</strong>
                       </span>

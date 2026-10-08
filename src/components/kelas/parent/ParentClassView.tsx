@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import {
@@ -22,6 +22,10 @@ import {
   Heart,
   Check,
   X,
+  Filter,
+  HelpCircle,
+  FileText,
+  XCircle,
 } from 'lucide-react';
 import { ParentClassData } from '../types';
 import { formatWhatsAppUrl, displayPhoneNumber } from '@/lib/whatsapp';
@@ -89,6 +93,51 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
   const currentAttendanceSummary = activeOverview
     ? activeOverview.attendanceSummary
     : attendanceSummary;
+
+  const [periodFilter, setPeriodFilter] = useState<'THIS_MONTH' | 'THIS_WEEK' | 'LAST_MONTH' | 'ALL'>('THIS_MONTH');
+  const [scopeFilter, setScopeFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
+
+  const now = useMemo(() => new Date(), []);
+
+  // Filter jadwal ananda berdasarkan periode
+  const filteredSchedules = useMemo(() => {
+    return currentSchedules.filter((sch) => {
+      const sDate = new Date(sch.startTime);
+      if (periodFilter === 'THIS_MONTH') {
+        return (
+          sDate.getFullYear() === now.getFullYear() &&
+          sDate.getMonth() === now.getMonth()
+        );
+      }
+      if (periodFilter === 'THIS_WEEK') {
+        const dayOfWeek = (now.getDay() + 6) % 7;
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek, 0, 0, 0, 0);
+        const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek + 6, 23, 59, 59, 999);
+        return sDate >= startOfWeek && sDate <= endOfWeek;
+      }
+      if (periodFilter === 'LAST_MONTH') {
+        const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+        return (
+          sDate.getFullYear() === lastMonthYear &&
+          sDate.getMonth() === lastMonth
+        );
+      }
+      return true;
+    });
+  }, [currentSchedules, periodFilter, now]);
+
+  const upcomingSchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((sch) => sch.status !== 'COMPLETED' && new Date(sch.endTime) >= now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [filteredSchedules, now]);
+
+  const pastSchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((sch) => sch.status === 'COMPLETED' || new Date(sch.endTime) < now)
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  }, [filteredSchedules, now]);
 
   // Ganti ananda secara seketika (0 ms) tanpa memicu server roundtrip delay
   const handleSelectChild = (childId: string) => {
@@ -339,13 +388,13 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
             </section>
           )}
 
-          {/* 6. JADWAL PENGAJIAN ANANDA */}
+          {/* 6. SESI PENGAJIAN ANANDA */}
           <section className="bg-white/95 rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-indigo-600" />
                 <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                  Jadwal Mengaji {activeChild?.fullName}
+                  Sesi Pengajian {activeChild?.fullName}
                 </h3>
               </div>
               <Link
@@ -357,96 +406,290 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
               </Link>
             </div>
 
-            {currentSchedules.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentSchedules.map((sch) => {
-                  const startTime = new Date(sch.startTime);
-                  const endTime = new Date(sch.endTime);
+            {/* Filter Bar: Periode & Scope */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 p-3 sm:p-3.5 rounded-2xl border border-slate-200/80">
+              {/* Filter Periode */}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center shrink-0">
+                  <Filter className="w-4 h-4" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-700 shrink-0">Periode:</span>
+                  <select
+                    value={periodFilter}
+                    onChange={(e) => setPeriodFilter(e.target.value as any)}
+                    className="text-xs font-bold text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value="THIS_MONTH">
+                      Bulan Ini ({now.toLocaleDateString('id-ID', { month: 'short' })})
+                    </option>
+                    <option value="THIS_WEEK">Pekan Ini</option>
+                    <option value="LAST_MONTH">
+                      Bulan Lalu ({new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'short' })})
+                    </option>
+                    <option value="ALL">Semua Periode ({currentSchedules.length})</option>
+                  </select>
+                </div>
+              </div>
 
-                  return (
-                    <div
-                      key={sch.id}
-                      className="p-3.5 rounded-xl bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-indigo-300 transition-all flex flex-col justify-between gap-2.5 shadow-2xs"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sch.status === 'ACTIVE'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : sch.status === 'COMPLETED'
-                                  ? 'bg-slate-100 text-slate-600 border border-slate-200'
-                                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+              {/* Scope Filter Pills */}
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/70 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    scopeFilter === 'ALL'
+                      ? 'bg-indigo-50 text-indigo-800 shadow-2xs border border-indigo-200/60'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Semua ({filteredSchedules.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('UPCOMING')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    scopeFilter === 'UPCOMING'
+                      ? 'bg-indigo-50 text-indigo-800 shadow-2xs border border-indigo-200/60'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Mendatang ({upcomingSchedules.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('PAST')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    scopeFilter === 'PAST'
+                      ? 'bg-indigo-50 text-indigo-800 shadow-2xs border border-indigo-200/60'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Terlewat ({pastSchedules.length})
+                </button>
+              </div>
+            </div>
+
+            {/* List Sesi Pengajian */}
+            {filteredSchedules.length > 0 ? (
+              <div className="space-y-6">
+                {/* Helper render schedule card */}
+                {(() => {
+                  const renderParentCard = (sch: (typeof currentSchedules)[0]) => {
+                    const startTime = new Date(sch.startTime);
+                    const isPast = sch.status === 'COMPLETED' || new Date(sch.endTime) < now;
+                    const isOngoing = sch.status === 'ACTIVE';
+
+                    return (
+                      <div
+                        key={sch.id}
+                        className="p-3.5 rounded-xl bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-indigo-300 transition-all flex flex-col justify-between gap-2.5 shadow-2xs"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Status Sesi */}
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  isOngoing
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse'
+                                    : sch.status === 'COMPLETED'
+                                    ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                                    : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                 }`}
-                            >
-                              {sch.status === 'ACTIVE'
-                                ? 'Hari Ini'
-                                : sch.status === 'COMPLETED'
+                              >
+                                {isOngoing
+                                  ? 'Sesi Hari Ini'
+                                  : sch.status === 'COMPLETED'
                                   ? 'Selesai'
                                   : 'Terjadwal'}
-                            </span>
-                            {sch.isCombined && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                                <Users className="w-2.5 h-2.5 text-amber-600" />
-                                <span>Pengajian Gabungan</span>
+                              </span>
+
+                              {/* Status Presensi Santri */}
+                              {(isPast || sch.attendanceStatus) && (
+                                sch.attendanceStatus === 'HADIR' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    Hadir
+                                  </span>
+                                ) : sch.attendanceStatus === 'TERLAMBAT' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                    <Clock className="w-3 h-3 text-amber-600" />
+                                    Terlambat
+                                  </span>
+                                ) : sch.attendanceStatus === 'IZIN' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    <FileText className="w-3 h-3 text-indigo-600" />
+                                    Izin
+                                  </span>
+                                ) : sch.attendanceStatus === 'SAKIT' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                    <AlertCircle className="w-3 h-3 text-blue-600" />
+                                    Sakit
+                                  </span>
+                                ) : sch.attendanceStatus === 'ALPA' ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                    <XCircle className="w-3 h-3 text-rose-600" />
+                                    Alpa
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                    <HelpCircle className="w-3 h-3 text-slate-400" />
+                                    Belum Presensi
+                                  </span>
+                                )
+                              )}
+
+                              {sch.isCombined && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                  <Users className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>Gabungan</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {sch.className && !sch.isCombined && (
+                              <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">
+                                {sch.className}
                               </span>
                             )}
                           </div>
-                          {sch.className && !sch.isCombined && (
-                            <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">
-                              {sch.className}
-                            </span>
+
+                          <Link
+                            href={`/jadwal/${sch.id}`}
+                            className="group/title block"
+                          >
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover/title:text-indigo-700 transition-colors line-clamp-1">
+                              {sch.title}
+                            </h4>
+                          </Link>
+
+                          <div className="space-y-1 text-xs text-slate-600">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-indigo-600 shrink-0" />
+                              <span>
+                                {startTime.toLocaleDateString('id-ID', {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: startTime.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+                                })}
+                                , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                              <span className="truncate">{sch.venuePlaceName}</span>
+                            </div>
+
+                            {/* Check-in timestamp if available */}
+                            {sch.checkInTime && (
+                              <div className="mt-1 text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1 border border-emerald-100">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <span>
+                                  Ananda hadir tercatat pk. {new Date(sch.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Tombol Akses Capaian Ananda */}
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                          <Link
+                            href={`/jadwal/${sch.id}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-800 transition-colors"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Lihat Capaian Ananda</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <>
+                      {/* SEMUA: Mendatang lalu Terlewat */}
+                      {scopeFilter === 'ALL' && (
+                        <>
+                          {upcomingSchedules.length > 0 && (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
+                                  Sesi Mendatang ({upcomingSchedules.length})
+                                </h4>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {upcomingSchedules.map(renderParentCard)}
+                              </div>
+                            </div>
                           )}
-                        </div>
 
-                        <Link
-                          href={`/jadwal/${sch.id}`}
-                          className="group/title block"
-                        >
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover/title:text-indigo-700 transition-colors line-clamp-1">
-                            {sch.title}
-                          </h4>
-                        </Link>
+                          {pastSchedules.length > 0 && (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                                  Sesi Terlewat / Selesai ({pastSchedules.length})
+                                </h4>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {pastSchedules.map(renderParentCard)}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
 
-                        <div className="space-y-1 text-xs text-slate-600">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-indigo-600 shrink-0" />
-                            <span>
-                              {startTime.toLocaleDateString('id-ID', {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'short',
-                              })}
-                              , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                            </span>
+                      {/* MENDATANG SAJA */}
+                      {scopeFilter === 'UPCOMING' && (
+                        upcomingSchedules.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {upcomingSchedules.map(renderParentCard)}
                           </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 text-center py-6">
+                            Tidak ada sesi pengajian mendatang untuk ananda pada periode ini.
+                          </p>
+                        )
+                      )}
 
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
-                            <span className="truncate">{sch.venuePlaceName}</span>
+                      {/* TERLEWAT SAJA */}
+                      {scopeFilter === 'PAST' && (
+                        pastSchedules.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {pastSchedules.map(renderParentCard)}
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Tombol Akses Capaian Ananda */}
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                        <Link
-                          href={`/jadwal/${sch.id}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-800 transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Lihat Capaian Ananda</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
-                    </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 text-center py-6">
+                            Tidak ada catatan sesi terlewat untuk ananda pada periode ini.
+                          </p>
+                        )
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
             ) : (
-              <p className="text-xs text-slate-400 text-center py-6">
-                Belum ada agenda jadwal pengajian khusus yang terbit pekan ini.
-              </p>
+              <div className="text-center py-8 space-y-2">
+                <p className="text-xs text-slate-400">
+                  Tidak ditemukan sesi pengajian pada periode yang dipilih.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPeriodFilter('ALL');
+                    setScopeFilter('ALL');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200/80 transition-all cursor-pointer"
+                >
+                  <span>Tampilkan Semua Sesi ({currentSchedules.length})</span>
+                </button>
+              </div>
             )}
           </section>
         </>

@@ -195,6 +195,10 @@ export interface StudentClassData {
     endTime: Date;
     status: string;
     teacherName?: string | null;
+    attendanceStatus?: string | null;
+    attendanceMethod?: string | null;
+    checkInTime?: Date | null;
+    attendanceNotes?: string | null;
   }[];
   assignments: {
     id: string;
@@ -301,6 +305,11 @@ export interface ParentClassScheduleItem {
   targetScope?: string;
   isCombined?: boolean;
   className?: string | null;
+  teacherName?: string | null;
+  attendanceStatus?: string | null;
+  attendanceMethod?: string | null;
+  checkInTime?: Date | null;
+  attendanceNotes?: string | null;
 }
 
 export interface ChildClassOverview {

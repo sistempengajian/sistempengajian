@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   School,
@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Send,
   Sparkles,
+  Filter,
 } from 'lucide-react';
 import { HomeroomTeacherClassData } from '../types';
 import { formatWhatsAppUrl, displayPhoneNumber } from '@/lib/whatsapp';
@@ -35,8 +36,53 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
   const [selectedClassIndex, setSelectedClassIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'santri' | 'jadwal' | 'tugas'>(initialTab);
+  const [periodFilter, setPeriodFilter] = useState<'THIS_MONTH' | 'THIS_WEEK' | 'LAST_MONTH' | 'ALL'>('THIS_MONTH');
+  const [scopeFilter, setScopeFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
 
   const activeClass = assignedClasses[selectedClassIndex] || assignedClasses[0] || null;
+
+  const now = useMemo(() => new Date(), []);
+
+  // Filter jadwal aktif berdasarkan periode
+  const filteredSchedules = useMemo(() => {
+    if (!activeClass) return [];
+    return activeClass.schedules.filter((sch) => {
+      const sDate = new Date(sch.startTime);
+      if (periodFilter === 'THIS_MONTH') {
+        return (
+          sDate.getFullYear() === now.getFullYear() &&
+          sDate.getMonth() === now.getMonth()
+        );
+      }
+      if (periodFilter === 'THIS_WEEK') {
+        const dayOfWeek = (now.getDay() + 6) % 7;
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek, 0, 0, 0, 0);
+        const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek + 6, 23, 59, 59, 999);
+        return sDate >= startOfWeek && sDate <= endOfWeek;
+      }
+      if (periodFilter === 'LAST_MONTH') {
+        const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+        return (
+          sDate.getFullYear() === lastMonthYear &&
+          sDate.getMonth() === lastMonth
+        );
+      }
+      return true;
+    });
+  }, [activeClass, periodFilter, now]);
+
+  const upcomingSchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((sch) => sch.status !== 'COMPLETED' && new Date(sch.endTime) >= now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [filteredSchedules, now]);
+
+  const pastSchedules = useMemo(() => {
+    return filteredSchedules
+      .filter((sch) => sch.status === 'COMPLETED' || new Date(sch.endTime) < now)
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  }, [filteredSchedules, now]);
 
   // Filter santri di kelas aktif berdasarkan pencarian
   const filteredStudents = (activeClass?.students || []).filter((s) => {
@@ -178,9 +224,9 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                   type="button"
                   onClick={() => setActiveTab('jadwal')}
                   className="bg-slate-50/80 hover:bg-teal-50/60 rounded-2xl p-3 border border-slate-200/60 hover:border-teal-300 text-center transition-all cursor-pointer group"
-                  title="Buka Tab Jadwal Kelas"
+                  title="Buka Tab Sesi Pengajian"
                 >
-                  <span className="block text-[11px] text-slate-500 group-hover:text-teal-700 font-medium transition-colors">Jadwal Kelas</span>
+                  <span className="block text-[11px] text-slate-500 group-hover:text-teal-700 font-medium transition-colors">Sesi Pengajian</span>
                   <span className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-teal-800 transition-colors">
                     {activeClass.schedules.length}
                   </span>
@@ -216,7 +262,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
             </section>
           )}
 
-          {/* 4. TAB CONTROLS (SANTRI, JADWAL, TUGAS) */}
+          {/* 4. TAB CONTROLS (SANTRI, SESI PENGAJIAN, TUGAS) */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 backdrop-blur-sm rounded-2xl border border-slate-200/60 overflow-x-auto tab-scrollbar touch-pan-x">
             <button
               onClick={() => setActiveTab('santri')}
@@ -239,7 +285,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
               }`}
             >
               <CalendarDays className="w-4 h-4 text-teal-600" />
-              <span>Jadwal Pengajian ({activeClass?.schedules.length || 0})</span>
+              <span>Sesi Pengajian ({activeClass?.schedules.length || 0})</span>
             </button>
 
             <button
@@ -403,89 +449,412 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
             </div>
           )}
 
-          {/* B. TAB JADWAL KELAS */}
+          {/* B. TAB SESI PENGAJIAN */}
           {activeTab === 'jadwal' && (
-            <div className="space-y-3">
-              {activeClass && activeClass.schedules.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {activeClass.schedules.map((sch) => {
-                    const startTime = new Date(sch.startTime);
-                    const endTime = new Date(sch.endTime);
+            <div className="space-y-4">
+              {/* Filter Bar: Periode & Scope */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-xs p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+                {/* Filter Periode */}
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 border border-teal-200 flex items-center justify-center shrink-0">
+                    <Filter className="w-4 h-4" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-700 shrink-0">Periode:</span>
+                    <select
+                      value={periodFilter}
+                      onChange={(e) => setPeriodFilter(e.target.value as any)}
+                      className="text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    >
+                      <option value="THIS_MONTH">
+                        Bulan Ini ({now.toLocaleDateString('id-ID', { month: 'short' })})
+                      </option>
+                      <option value="THIS_WEEK">Pekan Ini</option>
+                      <option value="LAST_MONTH">
+                        Bulan Lalu ({new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'short' })})
+                      </option>
+                      <option value="ALL">Semua Periode ({activeClass?.schedules.length || 0})</option>
+                    </select>
+                  </div>
+                </div>
 
-                    return (
-                      <div
-                        key={sch.id}
-                        className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2.5 shadow-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              sch.status === 'ACTIVE'
-                                ? 'bg-emerald-500 text-white animate-pulse'
-                                : 'bg-blue-50 text-blue-700 border border-blue-200'
-                            }`}
-                          >
-                            {sch.status === 'ACTIVE' ? 'Sesi Berlangsung' : 'Terjadwal'}
-                          </span>
-                          <span className="text-xs text-slate-400">{sch.scheduleType}</span>
-                        </div>
+                {/* Scope Filter Pills */}
+                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setScopeFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      scopeFilter === 'ALL'
+                        ? 'bg-white text-teal-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Semua ({filteredSchedules.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScopeFilter('UPCOMING')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      scopeFilter === 'UPCOMING'
+                        ? 'bg-white text-teal-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Mendatang ({upcomingSchedules.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScopeFilter('PAST')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      scopeFilter === 'PAST'
+                        ? 'bg-white text-teal-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Terlewat ({pastSchedules.length})
+                  </button>
+                </div>
+              </div>
 
-                        <Link
-                          href={`/jadwal/${sch.id}`}
-                          className="group/title block"
-                        >
-                          <h3 className="text-sm font-bold text-slate-900 group-hover/title:text-teal-700 transition-colors line-clamp-1">
-                            {sch.title}
-                          </h3>
-                        </Link>
-
-                        <div className="space-y-1 text-xs text-slate-600">
+              {/* Konten Sesi Pengajian */}
+              {filteredSchedules.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Scope: SEMUA */}
+                  {scopeFilter === 'ALL' && (
+                    <>
+                      {upcomingSchedules.length > 0 && (
+                        <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                            <span>
-                              {startTime.toLocaleDateString('id-ID', {
-                                weekday: 'short',
-                                day: 'numeric',
-                                month: 'short',
-                              })}
-                              , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
+                              Sesi Mendatang ({upcomingSchedules.length})
+                            </h3>
                           </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {upcomingSchedules.map((sch) => {
+                              const startTime = new Date(sch.startTime);
+                              const endTime = new Date(sch.endTime);
+                              return (
+                                <div
+                                  key={sch.id}
+                                  className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2.5 shadow-xs hover:border-teal-200 transition-all"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                        sch.status === 'ACTIVE'
+                                          ? 'bg-emerald-500 text-white animate-pulse'
+                                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      }`}
+                                    >
+                                      {sch.status === 'ACTIVE' ? 'Sesi Berlangsung' : 'Terjadwal'}
+                                    </span>
+                                    <span className="text-xs text-slate-400">{sch.scheduleType}</span>
+                                  </div>
 
+                                  <Link href={`/jadwal/${sch.id}`} className="group/title block">
+                                    <h3 className="text-sm font-bold text-slate-900 group-hover/title:text-teal-700 transition-colors line-clamp-1">
+                                      {sch.title}
+                                    </h3>
+                                  </Link>
+
+                                  <div className="space-y-1 text-xs text-slate-600">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                      <span>
+                                        {startTime.toLocaleDateString('id-ID', {
+                                          weekday: 'short',
+                                          day: 'numeric',
+                                          month: 'short',
+                                        })}
+                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                      <span>{sch.venuePlaceName}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                    <Link
+                                      href={`/jadwal/${sch.id}`}
+                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors"
+                                    >
+                                      <CalendarDays className="w-3.5 h-3.5" />
+                                      <span>Rincian Sesi</span>
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                    </Link>
+
+                                    <Link
+                                      href={`/presensi?scheduleId=${sch.id}`}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95"
+                                    >
+                                      <QrCode className="w-3.5 h-3.5" />
+                                      <span>Cockpit Presensi</span>
+                                    </Link>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {pastSchedules.length > 0 && (
+                        <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span>{sch.venuePlaceName}</span>
+                            <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide">
+                              Sesi Terlewat / Selesai ({pastSchedules.length})
+                            </h3>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {pastSchedules.map((sch) => {
+                              const startTime = new Date(sch.startTime);
+                              const endTime = new Date(sch.endTime);
+                              return (
+                                <div
+                                  key={sch.id}
+                                  className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2.5 shadow-xs"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                      Selesai
+                                    </span>
+                                    <span className="text-xs text-slate-400">{sch.scheduleType}</span>
+                                  </div>
+
+                                  <Link href={`/jadwal/${sch.id}`} className="group/title block">
+                                    <h3 className="text-sm font-bold text-slate-900 group-hover/title:text-teal-700 transition-colors line-clamp-1">
+                                      {sch.title}
+                                    </h3>
+                                  </Link>
+
+                                  <div className="space-y-1 text-xs text-slate-600">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                      <span>
+                                        {startTime.toLocaleDateString('id-ID', {
+                                          weekday: 'short',
+                                          day: 'numeric',
+                                          month: 'short',
+                                        })}
+                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                      <span>{sch.venuePlaceName}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                    <Link
+                                      href={`/jadwal/${sch.id}`}
+                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors"
+                                    >
+                                      <CalendarDays className="w-3.5 h-3.5" />
+                                      <span>Rincian & Rekap Sesi</span>
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                    </Link>
+
+                                    <Link
+                                      href={`/presensi?scheduleId=${sch.id}`}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-700 transition-colors"
+                                    >
+                                      <QrCode className="w-3.5 h-3.5" />
+                                      <span>Rekap Presensi</span>
+                                    </Link>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
+                      )}
+                    </>
+                  )}
 
-                        <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                          <Link
-                            href={`/jadwal/${sch.id}`}
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors"
-                          >
-                            <CalendarDays className="w-3.5 h-3.5" />
-                            <span>Rincian & Capaian Sesi</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </Link>
+                  {/* Scope: MENDATANG SAJA */}
+                  {scopeFilter === 'UPCOMING' && (
+                    upcomingSchedules.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {upcomingSchedules.map((sch) => {
+                          const startTime = new Date(sch.startTime);
+                          const endTime = new Date(sch.endTime);
+                          return (
+                            <div
+                              key={sch.id}
+                              className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2.5 shadow-xs hover:border-teal-200 transition-all"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    sch.status === 'ACTIVE'
+                                      ? 'bg-emerald-500 text-white animate-pulse'
+                                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  }`}
+                                >
+                                  {sch.status === 'ACTIVE' ? 'Sesi Berlangsung' : 'Terjadwal'}
+                                </span>
+                                <span className="text-xs text-slate-400">{sch.scheduleType}</span>
+                              </div>
 
-                          <Link
-                            href={`/presensi?scheduleId=${sch.id}`}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200/70 text-xs font-bold text-teal-800 transition-colors"
-                          >
-                            <QrCode className="w-3.5 h-3.5" />
-                            <span>Cockpit Presensi</span>
-                          </Link>
-                        </div>
+                              <Link href={`/jadwal/${sch.id}`} className="group/title block">
+                                <h3 className="text-sm font-bold text-slate-900 group-hover/title:text-teal-700 transition-colors line-clamp-1">
+                                  {sch.title}
+                                </h3>
+                              </Link>
+
+                              <div className="space-y-1 text-xs text-slate-600">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                  <span>
+                                    {startTime.toLocaleDateString('id-ID', {
+                                      weekday: 'short',
+                                      day: 'numeric',
+                                      month: 'short',
+                                    })}
+                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>{sch.venuePlaceName}</span>
+                                </div>
+                              </div>
+
+                              <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                <Link
+                                  href={`/jadwal/${sch.id}`}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors"
+                                >
+                                  <CalendarDays className="w-3.5 h-3.5" />
+                                  <span>Rincian Sesi</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+
+                                <Link
+                                  href={`/presensi?scheduleId=${sch.id}`}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95"
+                                >
+                                  <QrCode className="w-3.5 h-3.5" />
+                                  <span>Cockpit Presensi</span>
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    ) : (
+                      <div className="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
+                        <CalendarDays className="w-9 h-9 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-500">
+                          Tidak ada sesi pengajian mendatang untuk filter periode ini.
+                        </p>
+                      </div>
+                    )
+                  )}
+
+                  {/* Scope: TERLEWAT SAJA */}
+                  {scopeFilter === 'PAST' && (
+                    pastSchedules.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {pastSchedules.map((sch) => {
+                          const startTime = new Date(sch.startTime);
+                          const endTime = new Date(sch.endTime);
+                          return (
+                            <div
+                              key={sch.id}
+                              className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-2.5 shadow-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                  Selesai
+                                </span>
+                                <span className="text-xs text-slate-400">{sch.scheduleType}</span>
+                              </div>
+
+                              <Link href={`/jadwal/${sch.id}`} className="group/title block">
+                                <h3 className="text-sm font-bold text-slate-900 group-hover/title:text-teal-700 transition-colors line-clamp-1">
+                                  {sch.title}
+                                </h3>
+                              </Link>
+
+                              <div className="space-y-1 text-xs text-slate-600">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                  <span>
+                                    {startTime.toLocaleDateString('id-ID', {
+                                      weekday: 'short',
+                                      day: 'numeric',
+                                      month: 'short',
+                                    })}
+                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>{sch.venuePlaceName}</span>
+                                </div>
+                              </div>
+
+                              <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                <Link
+                                  href={`/jadwal/${sch.id}`}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition-colors"
+                                >
+                                  <CalendarDays className="w-3.5 h-3.5" />
+                                  <span>Rincian & Rekap Sesi</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+
+                                <Link
+                                  href={`/presensi?scheduleId=${sch.id}`}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-700 transition-colors"
+                                >
+                                  <QrCode className="w-3.5 h-3.5" />
+                                  <span>Rekap Presensi</span>
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
+                        <CalendarDays className="w-9 h-9 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-500">
+                          Tidak ada catatan sesi terlewat untuk filter periode ini.
+                        </p>
+                      </div>
+                    )
+                  )}
                 </div>
               ) : (
-                <div className="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
-                  <CalendarDays className="w-9 h-9 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs text-slate-500">
-                    Belum ada jadwal khusus yang ditugaskan untuk kelas ini.
-                  </p>
+                <div className="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6 space-y-3">
+                  <CalendarDays className="w-9 h-9 text-slate-300 mx-auto" />
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-700">Tidak Ada Sesi Pengajian</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Belum ada sesi pengajian untuk filter periode yang dipilih.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodFilter('ALL');
+                      setScopeFilter('ALL');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200/80 transition-all cursor-pointer"
+                  >
+                    <span>Tampilkan Semua Sesi ({activeClass?.schedules.length || 0})</span>
+                  </button>
                 </div>
               )}
             </div>

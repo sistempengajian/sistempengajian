@@ -538,25 +538,48 @@ export async function getClassDetail(
       },
       orderBy: { fullName: 'asc' },
     }),
-    prisma.schedule.findMany({
-      where: {
-        OR: [
-          { classId },
-          { targetClasses: { some: { classId } } },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        scheduleType: true,
-        venuePlaceName: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-      },
-      orderBy: { startTime: 'desc' },
-      take: 10,
-    }),
+    Promise.all([
+      prisma.schedule.findMany({
+        where: {
+          OR: [
+            { classId },
+            { targetClasses: { some: { classId } } },
+          ],
+          startTime: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+        select: {
+          id: true,
+          title: true,
+          scheduleType: true,
+          venuePlaceName: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+        },
+        orderBy: { startTime: 'asc' },
+        take: 12,
+      }),
+      prisma.schedule.findMany({
+        where: {
+          OR: [
+            { classId },
+            { targetClasses: { some: { classId } } },
+          ],
+          startTime: { lt: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+        select: {
+          id: true,
+          title: true,
+          scheduleType: true,
+          venuePlaceName: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+        },
+        orderBy: { startTime: 'desc' },
+        take: 12,
+      }),
+    ]).then(([upcoming, past]) => [...upcoming, ...past]),
     prisma.assignment.findMany({
       where: { classId },
       select: {
@@ -789,26 +812,63 @@ export async function getStudentClassData(studentUserId: string): Promise<Studen
     ],
   };
 
-  const rawSchedules = await prisma.schedule.findMany({
-    where: schedulesWhere,
-    select: {
-      id: true,
-      title: true,
-      scheduleType: true,
-      venuePlaceName: true,
-      venueType: true,
-      startTime: true,
-      endTime: true,
-      status: true,
-      teachers: {
-        where: { isPrimary: true },
-        include: { teacher: { select: { fullName: true } } },
-        take: 1,
+  // 3. Ambil sesi pengajian kelas (Mendatang asc & Terlewat desc + Status Presensi Santri)
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  const studentScheduleSelect = {
+    id: true,
+    title: true,
+    scheduleType: true,
+    venuePlaceName: true,
+    venueType: true,
+    startTime: true,
+    endTime: true,
+    status: true,
+    teachers: {
+      where: { isPrimary: true },
+      include: { teacher: { select: { fullName: true } } },
+      take: 1,
+    },
+    attendanceSessions: {
+      select: {
+        id: true,
+        records: {
+          where: { studentId: studentUserId },
+          select: {
+            id: true,
+            status: true,
+            method: true,
+            checkInTime: true,
+            notes: true,
+          },
+        },
       },
     },
-    orderBy: { startTime: 'desc' },
-    take: 10,
-  });
+  };
+
+  const [upcomingStudentSchedules, pastStudentSchedules] = await Promise.all([
+    prisma.schedule.findMany({
+      where: {
+        ...schedulesWhere,
+        startTime: { gte: startOfToday },
+      },
+      select: studentScheduleSelect,
+      orderBy: { startTime: 'asc' },
+      take: 30,
+    }),
+    prisma.schedule.findMany({
+      where: {
+        ...schedulesWhere,
+        startTime: { lt: startOfToday },
+      },
+      select: studentScheduleSelect,
+      orderBy: { startTime: 'desc' },
+      take: 30,
+    }),
+  ]);
+
+  const rawSchedules = [...upcomingStudentSchedules, ...pastStudentSchedules];
 
   // 4. Ambil tugas kelas aktif & status pengerjaan santri
   const assignmentsWhere: any = {
@@ -952,17 +1012,24 @@ export async function getStudentClassData(studentUserId: string): Promise<Studen
     classData,
     homeroomTeacher: classData?.homeroomTeacher || null,
     classmates: rawClassmates,
-    schedules: rawSchedules.map((s) => ({
-      id: s.id,
-      title: s.title,
-      scheduleType: s.scheduleType,
-      venuePlaceName: s.venuePlaceName,
-      venueType: s.venueType,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      status: s.status,
-      teacherName: s.teachers[0]?.teacher.fullName || null,
-    })),
+    schedules: rawSchedules.map((s) => {
+      const attRecord = s.attendanceSessions?.flatMap((sess) => sess.records)?.[0];
+      return {
+        id: s.id,
+        title: s.title,
+        scheduleType: s.scheduleType,
+        venuePlaceName: s.venuePlaceName,
+        venueType: s.venueType,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        status: s.status,
+        teacherName: s.teachers[0]?.teacher.fullName || null,
+        attendanceStatus: attRecord?.status || null,
+        attendanceMethod: attRecord?.method || null,
+        checkInTime: attRecord?.checkInTime || null,
+        attendanceNotes: attRecord?.notes || null,
+      };
+    }),
     assignments: rawAssignments.map((a) => ({
       id: a.id,
       title: a.title,
@@ -1080,26 +1147,49 @@ export async function getHomeroomTeacherClassData(
           },
           orderBy: { fullName: 'asc' },
         }),
-        // Jadwal kelas
-        prisma.schedule.findMany({
-          where: {
-            OR: [
-              { classId: cls.id },
-              { targetClasses: { some: { classId: cls.id } } },
-            ],
-          },
-          select: {
-            id: true,
-            title: true,
-            scheduleType: true,
-            venuePlaceName: true,
-            startTime: true,
-            endTime: true,
-            status: true,
-          },
-          orderBy: { startTime: 'desc' },
-          take: 6,
-        }),
+        // Jadwal / Sesi kelas (Mendatang asc & Terlewat desc)
+        Promise.all([
+          prisma.schedule.findMany({
+            where: {
+              OR: [
+                { classId: cls.id },
+                { targetClasses: { some: { classId: cls.id } } },
+              ],
+              startTime: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+            },
+            select: {
+              id: true,
+              title: true,
+              scheduleType: true,
+              venuePlaceName: true,
+              startTime: true,
+              endTime: true,
+              status: true,
+            },
+            orderBy: { startTime: 'asc' },
+            take: 15,
+          }),
+          prisma.schedule.findMany({
+            where: {
+              OR: [
+                { classId: cls.id },
+                { targetClasses: { some: { classId: cls.id } } },
+              ],
+              startTime: { lt: new Date(new Date().setHours(0, 0, 0, 0)) },
+            },
+            select: {
+              id: true,
+              title: true,
+              scheduleType: true,
+              venuePlaceName: true,
+              startTime: true,
+              endTime: true,
+              status: true,
+            },
+            orderBy: { startTime: 'desc' },
+            take: 15,
+          }),
+        ]).then(([upcoming, past]) => [...upcoming, ...past]),
         // Tugas kelas
         prisma.assignment.findMany({
           where: { classId: cls.id },
@@ -1292,7 +1382,74 @@ async function fetchChildClassOverview(
 
   const childOrgIds = [childOrgId, parentOrgId].filter(Boolean) as string[];
 
-  // 3. Eksekusi query tugas, jadwal, dan absensi secara paralel
+  // 3. Persiapkan kriteria query jadwal & sesi pengajian ananda
+  const schedulesWhere: any = {
+    status: { in: ['SCHEDULED', 'ACTIVE', 'COMPLETED'] },
+    organizationId: { in: childOrgIds },
+    OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+    AND: [
+      {
+        OR: [
+          // 1. Jadwal spesifik kelas anak
+          ...(childClassIds.length > 0
+            ? [
+                { classId: { in: childClassIds } },
+                // 2. Jadwal gabungan yang secara eksplisit mendaftarkan kelas anak
+                { targetClasses: { some: { classId: { in: childClassIds } } } },
+              ]
+            : []),
+          // 3. Jadwal yang menargetkan jenjang anak secara spesifik
+          ...(childGenId
+            ? [
+                { targetGenerations: { some: { generationId: childGenId } } },
+              ]
+            : []),
+          // 4. Jadwal umum wilayah tanpa pembatasan kelas/jenjang tertentu
+          {
+            classId: null,
+            targetClasses: { none: {} },
+            targetGenerations: { none: {} },
+          },
+        ],
+      },
+    ],
+  };
+
+  const parentScheduleSelect = {
+    id: true,
+    title: true,
+    venuePlaceName: true,
+    startTime: true,
+    endTime: true,
+    status: true,
+    scheduleType: true,
+    targetScope: true,
+    classId: true,
+    class: { select: { name: true } },
+    targetClasses: { select: { classId: true } },
+    teachers: {
+      where: { isPrimary: true },
+      include: { teacher: { select: { fullName: true } } },
+      take: 1,
+    },
+    attendanceSessions: {
+      select: {
+        id: true,
+        records: {
+          where: { studentId: child.id },
+          select: {
+            id: true,
+            status: true,
+            method: true,
+            checkInTime: true,
+            notes: true,
+          },
+        },
+      },
+    },
+  };
+
+  // 4. Eksekusi query tugas, jadwal (mendatang asc & terlewat desc), dan absensi secara paralel
   const [
     pendingSubmissions,
     rawSchedules,
@@ -1316,54 +1473,26 @@ async function fetchChildClassOverview(
       orderBy: { submittedAt: 'desc' },
       take: 5,
     }),
-    prisma.schedule.findMany({
-      where: {
-        status: { in: ['SCHEDULED', 'ACTIVE', 'COMPLETED'] },
-        organizationId: { in: childOrgIds },
-        OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
-        AND: [
-          {
-            OR: [
-              // 1. Jadwal spesifik kelas anak
-              ...(childClassIds.length > 0
-                ? [
-                    { classId: { in: childClassIds } },
-                    // 2. Jadwal gabungan yang secara eksplisit mendaftarkan kelas anak
-                    { targetClasses: { some: { classId: { in: childClassIds } } } },
-                  ]
-                : []),
-              // 3. Jadwal yang menargetkan jenjang anak secara spesifik
-              ...(childGenId
-                ? [
-                    { targetGenerations: { some: { generationId: childGenId } } },
-                  ]
-                : []),
-              // 4. Jadwal umum wilayah tanpa pembatasan kelas/jenjang tertentu
-              {
-                classId: null,
-                targetClasses: { none: {} },
-                targetGenerations: { none: {} },
-              },
-            ],
-          },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        venuePlaceName: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        scheduleType: true,
-        targetScope: true,
-        classId: true,
-        class: { select: { name: true } },
-        targetClasses: { select: { classId: true } },
-      },
-      orderBy: { startTime: 'desc' },
-      take: 8,
-    }),
+    Promise.all([
+      prisma.schedule.findMany({
+        where: {
+          ...schedulesWhere,
+          startTime: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+        select: parentScheduleSelect,
+        orderBy: { startTime: 'asc' },
+        take: 20,
+      }),
+      prisma.schedule.findMany({
+        where: {
+          ...schedulesWhere,
+          startTime: { lt: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+        select: parentScheduleSelect,
+        orderBy: { startTime: 'desc' },
+        take: 20,
+      }),
+    ]).then(([upcoming, past]) => [...upcoming, ...past]),
     prisma.attendanceRecord.count({
       where: { studentId: child.id },
     }),
@@ -1393,18 +1522,26 @@ async function fetchChildClassOverview(
     pointsReward: s.assignment.pointsReward,
   }));
 
-  const schedules: ParentClassScheduleItem[] = rawSchedules.map((s) => ({
-    id: s.id,
-    title: s.title,
-    venuePlaceName: s.venuePlaceName,
-    startTime: s.startTime,
-    endTime: s.endTime,
-    status: s.status,
-    scheduleType: s.scheduleType,
-    targetScope: s.targetScope,
-    isCombined: s.targetClasses.length > 1 || (s.targetClasses.length > 0 && Boolean(s.classId)),
-    className: s.class?.name || null,
-  }));
+  const schedules: ParentClassScheduleItem[] = rawSchedules.map((s) => {
+    const attRecord = s.attendanceSessions?.flatMap((sess) => sess.records)?.[0];
+    return {
+      id: s.id,
+      title: s.title,
+      venuePlaceName: s.venuePlaceName,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      status: s.status,
+      scheduleType: s.scheduleType,
+      targetScope: s.targetScope,
+      isCombined: s.targetClasses.length > 1 || (s.targetClasses.length > 0 && Boolean(s.classId)),
+      className: s.class?.name || null,
+      teacherName: s.teachers?.[0]?.teacher.fullName || null,
+      attendanceStatus: attRecord?.status || null,
+      attendanceMethod: attRecord?.method || null,
+      checkInTime: attRecord?.checkInTime || null,
+      attendanceNotes: attRecord?.notes || null,
+    };
+  });
 
   const percentage =
     totalSessions > 0 ? Math.round((attendedCount / totalSessions) * 100) : 100;

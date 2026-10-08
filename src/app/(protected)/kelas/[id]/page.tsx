@@ -195,7 +195,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
             <strong className="text-slate-900 font-bold">{students.length} orang</strong>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Jadwal Sesi:</span>
+            <span className="text-slate-500">Sesi Pengajian:</span>
             <strong className="text-slate-900 font-bold">{schedules.length} sesi</strong>
           </div>
           <div className="flex items-center justify-between text-xs">
@@ -256,16 +256,16 @@ export default async function DetailKelasPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* 4. Bagian Bawah: Jadwal & Tugas Pengajian */}
+      {/* 4. Bagian Bawah: Sesi Pengajian & Tugas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Jadwal Pengajian Terkait */}
+        {/* Sesi Pengajian Terkait */}
         <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 border border-sky-200 flex items-center justify-center">
                 <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900">Jadwal Pengajian</h3>
+              <h3 className="text-sm font-bold text-slate-900">Sesi Pengajian</h3>
             </div>
             <Link
               href="/jadwal"
@@ -278,7 +278,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
 
           {schedules.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
-              Belum ada jadwal sesi pengajian untuk kelas ini.
+              Belum ada sesi pengajian untuk kelas ini.
             </div>
           ) : (
             <div className="space-y-2.5">
