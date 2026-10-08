@@ -132,27 +132,34 @@ export default function ScheduleCard({
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [isTeacherTooltipOpen, setIsTeacherTooltipOpen] = useState(false);
+  const teacherTooltipRef = useRef<HTMLDivElement>(null);
 
   // Tutup tooltip saat klik di luar
   useEffect(() => {
-    if (!isTooltipOpen) return;
+    if (!isTooltipOpen && !isTeacherTooltipOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
         setIsTooltipOpen(false);
+      }
+      if (teacherTooltipRef.current && !teacherTooltipRef.current.contains(e.target as Node)) {
+        setIsTeacherTooltipOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isTooltipOpen]);
+  }, [isTooltipOpen, isTeacherTooltipOpen]);
 
   const start = new Date(schedule.startTime);
   const end = new Date(schedule.endTime);
 
   const primaryTeacher = schedule.teachers.find((t) => t.isPrimary)?.teacher;
   const coTeachers = schedule.teachers.filter((t) => !t.isPrimary && !t.isSubstitute);
-  const substituteTeacher = schedule.teachers.find((t) => t.isSubstitute)?.teacher;
+  const substituteTeachers = schedule.teachers.filter((t) => t.isSubstitute);
+  const substituteTeacher = substituteTeachers[0]?.teacher;
+  const hasMultipleTeachersOrBadal = coTeachers.length > 0 || substituteTeachers.length > 0;
   const hasActiveSession = schedule.attendanceSessions?.some((s) => s.isActive);
 
   // Deteksi peran pengguna: Pengampu langsung vs Wali Kelas yang memantau
@@ -617,25 +624,115 @@ export default function ScheduleCard({
       {/* 4. Footer Row: Ustadz Pengampu & Action Links */}
       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
         {/* Info Pengajar */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center shrink-0 border border-teal-200">
-            {primaryTeacher?.fullName.charAt(0) || 'U'}
-          </div>
-          <div className="min-w-0 flex items-center gap-1 text-xs">
-            <span className="font-semibold text-slate-800 truncate max-w-[140px] sm:max-w-[180px]">
-              {primaryTeacher?.fullName || 'Belum Ditentukan'}
-            </span>
-            {coTeachers.length > 0 && (
-              <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                +{coTeachers.length}
+        <div
+          ref={teacherTooltipRef}
+          className="relative min-w-0"
+          onMouseEnter={() => hasMultipleTeachersOrBadal && setIsTeacherTooltipOpen(true)}
+          onMouseLeave={() => setIsTeacherTooltipOpen(false)}
+        >
+          <div
+            onClick={(e) => {
+              if (hasMultipleTeachersOrBadal) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsTeacherTooltipOpen((prev) => !prev);
+              }
+            }}
+            className={`flex items-center gap-1.5 min-w-0 ${hasMultipleTeachersOrBadal ? 'cursor-pointer hover:opacity-85 transition-opacity' : ''}`}
+            title={hasMultipleTeachersOrBadal ? 'Klik untuk melihat rincian seluruh pengajar dan badal' : undefined}
+          >
+            <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center shrink-0 border border-teal-200">
+              {primaryTeacher?.fullName.charAt(0) || 'U'}
+            </div>
+            <div className="min-w-0 flex items-center gap-1 text-xs">
+              <span className="font-semibold text-slate-800 truncate max-w-[120px] sm:max-w-[160px]">
+                {primaryTeacher?.fullName || 'Belum Ditentukan'}
               </span>
-            )}
-            {substituteTeacher && (
-              <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold shrink-0">
-                Badal: {substituteTeacher.fullName}
-              </span>
-            )}
+              {coTeachers.length > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-teal-50 text-teal-800 border border-teal-200/80 text-[10px] font-bold shrink-0">
+                  +{coTeachers.length}
+                </span>
+              )}
+              {substituteTeachers.length === 1 && (
+                <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold shrink-0 truncate max-w-[110px] sm:max-w-[140px]">
+                  Badal: {substituteTeachers[0].teacher.fullName}
+                </span>
+              )}
+              {substituteTeachers.length > 1 && (
+                <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold shrink-0">
+                  {substituteTeachers.length} Badal
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Tooltip Popover Daftar Pengajar & Badal */}
+          {isTeacherTooltipOpen && hasMultipleTeachersOrBadal && (
+            <div
+              className="absolute left-0 bottom-full mb-1.5 z-30 w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
+                  <User className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Tim Pengajar &amp; Badal</span>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60">
+                  {schedule.teachers.length} Ustadz
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-52 overflow-y-auto">
+                {/* Pengampu Utama */}
+                {primaryTeacher && (
+                  <div className="p-2 rounded-xl bg-teal-50/60 border border-teal-200/70 space-y-0.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-teal-700 block">
+                      Pengampu Utama
+                    </span>
+                    <p className="font-bold text-slate-900 text-xs truncate">{primaryTeacher.fullName}</p>
+                  </div>
+                )}
+
+                {/* Pengampu Pendamping */}
+                {coTeachers.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 block px-1">
+                      Pengampu Pendamping ({coTeachers.length})
+                    </span>
+                    {coTeachers.map((ct) => (
+                      <div
+                        key={ct.teacher.id}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-800 font-medium"
+                      >
+                        <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {ct.teacher.fullName.charAt(0)}
+                        </div>
+                        <span className="truncate text-xs font-semibold">{ct.teacher.fullName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Badal / Pengganti */}
+                {substituteTeachers.length > 0 && (
+                  <div className="space-y-1 pt-1 border-t border-slate-100">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-700 block px-1">
+                      Ustadz Badal ({substituteTeachers.length})
+                    </span>
+                    {substituteTeachers.map((st) => (
+                      <div
+                        key={st.teacher.id}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-50/70 border border-amber-200/70 text-amber-900 font-medium"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="truncate text-xs font-bold">{st.teacher.fullName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons: Presensi QR & Detail Link */}

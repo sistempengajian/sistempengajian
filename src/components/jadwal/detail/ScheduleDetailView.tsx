@@ -253,7 +253,8 @@ export default function ScheduleDetailView({
 
   const primaryTeacherRel = schedule.teachers?.find((t: any) => t.isPrimary);
   const coTeacherRels = schedule.teachers?.filter((t: any) => !t.isPrimary && !t.isSubstitute) || [];
-  const substituteTeacherRel = schedule.teachers?.find((t: any) => t.isSubstitute);
+  const substituteTeacherRels = schedule.teachers?.filter((t: any) => t.isSubstitute) || [];
+  const substituteTeacherRel = substituteTeacherRels[0];
 
   const isScheduleCompleted = schedule.status === 'COMPLETED' || schedule.status === 'CANCELLED';
   const hasActiveSession = !isScheduleCompleted && schedule.attendanceSessions?.some((s: any) => s.isActive);
@@ -815,9 +816,9 @@ export default function ScheduleDetailView({
             <div className="text-xs text-slate-600 font-medium">
               {coTeacherRels.length > 0 ? `+${coTeacherRels.length} Guru Pendamping` : 'Pengampu Tunggal'}
             </div>
-            {substituteTeacherRel && (
+            {substituteTeacherRels.length > 0 && (
               <div className="text-[11px] text-amber-700 font-semibold pt-1 truncate">
-                Badal: {substituteTeacherRel.teacher?.fullName}
+                Badal: {substituteTeacherRels.map((st: any) => st.teacher?.fullName).join(', ')}
               </div>
             )}
           </div>
@@ -831,14 +832,14 @@ export default function ScheduleDetailView({
             <User className="w-4 h-4 text-teal-600" />
             <span>Pengajar &amp; Badal</span>
           </div>
-          {canDelegateBadal && !substituteTeacherRel && (
+          {canDelegateBadal && (
             <button
               type="button"
               onClick={() => setIsBadalModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all cursor-pointer active:scale-95"
             >
               <UserCheck className="w-3.5 h-3.5 text-amber-600" />
-              <span>Badal</span>
+              <span>Delegasikan Badal</span>
             </button>
           )}
         </div>
@@ -869,7 +870,7 @@ export default function ScheduleDetailView({
               className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-start gap-3"
             >
               <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
-                {ct.teacher.fullName.charAt(0) || 'U'}
+                {ct.teacher.fullName?.charAt(0) || 'U'}
               </div>
               <div className="min-w-0 flex-1">
                 <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-bold">
@@ -882,8 +883,11 @@ export default function ScheduleDetailView({
           ))}
 
           {/* Ustadz Badal */}
-          {substituteTeacherRel ? (
-            <div className="p-3.5 rounded-2xl border border-amber-300 bg-amber-50/50 flex items-start gap-3 relative">
+          {substituteTeacherRels.map((st: any) => (
+            <div
+              key={st.teacher.id}
+              className="p-3.5 rounded-2xl border border-amber-300 bg-amber-50/50 flex items-start gap-3 relative"
+            >
               <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
                 <UserCheck className="w-5 h-5" />
               </div>
@@ -903,12 +907,12 @@ export default function ScheduleDetailView({
                   )}
                 </div>
                 <h4 className="font-bold text-slate-900 text-sm mt-1 truncate">
-                  {substituteTeacherRel.teacher?.fullName}
+                  {st.teacher?.fullName}
                 </h4>
                 <p className="text-xs text-amber-800/80 mt-0.5">Menerima delegasi pengajaran sesi ini</p>
               </div>
             </div>
-          ) : null}
+          ))}
         </div>
       </div>
 

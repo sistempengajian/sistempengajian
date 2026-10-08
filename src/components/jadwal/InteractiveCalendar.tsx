@@ -151,8 +151,7 @@ export default function InteractiveCalendar({
       // Filter search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const primary = sch.teachers?.find((t) => t.isPrimary)?.teacher.fullName.toLowerCase() || '';
-        const substitute = sch.teachers?.find((t) => t.isSubstitute)?.teacher.fullName.toLowerCase() || '';
+        const teacherMatch = sch.teachers?.some((t) => t.teacher?.fullName.toLowerCase().includes(q));
         const title = sch.title.toLowerCase();
         const venue = sch.venuePlaceName.toLowerCase();
         const cls = sch.class?.name.toLowerCase() || '';
@@ -162,8 +161,7 @@ export default function InteractiveCalendar({
         if (
           !title.includes(q) &&
           !venue.includes(q) &&
-          !primary.includes(q) &&
-          !substitute.includes(q) &&
+          !teacherMatch &&
           !cls.includes(q) &&
           !studentMatch &&
           !targetClassMatch

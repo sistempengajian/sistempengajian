@@ -957,7 +957,7 @@ export async function getAnalyticsDashboardData(
       };
     });
 
-  // 5. Kalkulasi Karakter & Radar 5 Dimensi
+  // 5. Kalkulasi Karakter & Radar Dimensi Berbasis Data Riil
   const studentEvalMap = new Map<string, { totalAdab: number; totalKeaktifan: number; count: number }>();
   evaluationsRaw.forEach((e) => {
     if (!studentEvalMap.has(e.studentId)) {
@@ -969,19 +969,55 @@ export async function getAnalyticsDashboardData(
     s.count += 1;
   });
 
-  let totalAdabAll = 0;
-  let totalKeaktifanAll = 0;
-  let evalCountAll = 0;
+  // Hitung metrik karakter individu per santri dengan penalti alpa
+  const studentScoresMap = new Map<string, { adab: number; keaktifan: number; charScore: number }>();
+  let totalStudentCharScores = 0;
+  let totalStudentAdabScores = 0;
+  let totalStudentKeaktifanScores = 0;
+  let evaluatedStudentsCount = 0;
 
-  studentEvalMap.forEach((v) => {
-    totalAdabAll += v.totalAdab;
-    totalKeaktifanAll += v.totalKeaktifan;
-    evalCountAll += v.count;
+  studentsProfileRaw.forEach((student) => {
+    const sAtt = studentAttendanceMap.get(student.id) || {
+      total: 0,
+      hadir: 0,
+      terlambat: 0,
+      alpa: 0,
+      izin: 0,
+      sakit: 0,
+    };
+    const sEval = studentEvalMap.get(student.id) || { totalAdab: 0, totalKeaktifan: 0, count: 0 };
+    const alpaPenalty = Math.min(100, sAtt.alpa * 10);
+
+    let sAdab = 0;
+    let sKeaktifan = 0;
+
+    if (sEval.count > 0) {
+      sAdab = Math.max(0, Math.round(sEval.totalAdab / sEval.count) - alpaPenalty);
+      sKeaktifan = Math.max(0, Math.round(sEval.totalKeaktifan / sEval.count) - alpaPenalty);
+    } else if (sAtt.total > 0 && (sAtt.hadir + sAtt.terlambat) > 0) {
+      // Jika ustadz belum sempat input form penilaian karakter khusus tapi santri hadir,
+      // estimasi nilai berbasis kedisiplinan kehadiran riil
+      sAdab = Math.max(0, Math.round((sAtt.hadir / sAtt.total) * 100) - alpaPenalty);
+      sKeaktifan = Math.max(0, Math.round(((sAtt.hadir + sAtt.terlambat) / sAtt.total) * 100) - alpaPenalty);
+    } else {
+      sAdab = 0;
+      sKeaktifan = 0;
+    }
+
+    const sChar = Math.round((sAdab + sKeaktifan) / 2);
+    studentScoresMap.set(student.id, { adab: sAdab, keaktifan: sKeaktifan, charScore: sChar });
+
+    if (sAtt.total > 0 || sEval.count > 0) {
+      totalStudentAdabScores += sAdab;
+      totalStudentKeaktifanScores += sKeaktifan;
+      totalStudentCharScores += sChar;
+      evaluatedStudentsCount++;
+    }
   });
 
-  const avgAdab = evalCountAll > 0 ? Math.round(totalAdabAll / evalCountAll) : 0;
-  const avgKeaktifan = evalCountAll > 0 ? Math.round(totalKeaktifanAll / evalCountAll) : 0;
-  const characterAverage = evalCountAll > 0 ? Math.round((avgAdab + avgKeaktifan) / 2) : 0;
+  const avgAdab = evaluatedStudentsCount > 0 ? Math.round(totalStudentAdabScores / evaluatedStudentsCount) : 0;
+  const avgKeaktifan = evaluatedStudentsCount > 0 ? Math.round(totalStudentKeaktifanScores / evaluatedStudentsCount) : 0;
+  const characterAverage = evaluatedStudentsCount > 0 ? Math.round(totalStudentCharScores / evaluatedStudentsCount) : 0;
 
   // Kalkulasi Keaktifan Pengerjaan Tugas (disesuaikan dengan tugas yang benar-benar ditujukan untuk santri)
   let totalExpectedSubmissionsAll = 0;
@@ -1011,6 +1047,12 @@ export async function getAnalyticsDashboardData(
       ? Math.min(100, Math.round((totalCompletedSubmissionsAll / totalExpectedSubmissionsAll) * 100))
       : 0;
 
+  // Disiplin kehadiran: memperhitungkan kehadiran tepat waktu dan kehadiran terlambat (bobot 0.5) terhadap seluruh total rekaman presensi
+  const disciplineScore =
+    totalAttendances > 0
+      ? Math.min(100, Math.round(((countHadir + countTerlambat * 0.5) / totalAttendances) * 100))
+      : 0;
+
   const characterRadar: CharacterDimensionScore[] = [
     {
       dimension: 'Budi Pekerti (Adab)',
@@ -1024,7 +1066,7 @@ export async function getAnalyticsDashboardData(
     },
     {
       dimension: 'Kemandirian & Disiplin',
-      score: validPresentCount > 0 ? Math.round((countHadir / validPresentCount) * 100) : 0,
+      score: disciplineScore,
       benchmark: 80,
     },
   ];
@@ -1050,6 +1092,7 @@ export async function getAnalyticsDashboardData(
     };
     const sChecklist = studentChecklistMap.get(student.id) || 0;
     const sEval = studentEvalMap.get(student.id) || { totalAdab: 0, totalKeaktifan: 0, count: 0 };
+    const sScores = studentScoresMap.get(student.id) || { adab: 0, keaktifan: 0, charScore: 0 };
 
     const studentTargetChecklist =
       (student.generation?.id && checklistCountPerGen[student.generation.id]) ||
@@ -1063,8 +1106,7 @@ export async function getAnalyticsDashboardData(
       sChecklist > 0 && studentTargetChecklist > 0
         ? Math.min(100, Math.round((sChecklist / studentTargetChecklist) * 100))
         : 0;
-    const studentCharScore =
-      sEval.count > 0 ? Math.round((sEval.totalAdab / sEval.count + sEval.totalKeaktifan / sEval.count) / 2) : 0;
+    const studentCharScore = sScores.charScore;
 
     const hasActivity = sAtt.total > 0 || sChecklist > 0 || sEval.count > 0;
     const compositeScore = hasActivity
@@ -1075,24 +1117,31 @@ export async function getAnalyticsDashboardData(
     let status: 'TOP' | 'STABLE' | 'AT_RISK' = 'STABLE';
 
     if (!hasActivity) {
-      status = 'STABLE';
-      reasons.push('Belum ada jadwal, presensi, atau evaluasi pada periode ini');
-    } else if (compositeScore >= 85 && studentAttRate >= 90 && sAtt.alpa === 0) {
+      if (totalAttendances > 0) {
+        status = 'AT_RISK';
+        reasons.push('Tidak memiliki catatan presensi / evaluasi sesi (Perlu ditindaklanjuti)');
+      } else {
+        status = 'STABLE';
+        reasons.push('Belum ada jadwal sesi pengajian pada periode ini');
+      }
+    } else if (compositeScore >= 85 && studentAttRate >= 90 && sAtt.alpa === 0 && studentCharScore >= 80) {
       status = 'TOP';
       if (studentAttRate === 100) reasons.push('Presensi Sempurna (100%)');
       if (studentCurriculumRate >= 80) reasons.push(`Capaian kurikulum sangat tinggi (${studentCurriculumRate}%)`);
       if (studentCharScore >= 90) reasons.push('Adab & akhlak istimewa');
     } else if (
       (sAtt.total > 0 && studentAttRate < 75) ||
-      sAtt.alpa >= 2 ||
+      sAtt.alpa >= 1 ||
+      (sAtt.total > 0 && (sAtt.hadir + sAtt.terlambat) === 0) ||
       (sChecklist > 0 && studentCurriculumRate < 40) ||
-      (sEval.count > 0 && studentCharScore < 70)
+      (studentCharScore < 70)
     ) {
       status = 'AT_RISK';
-      if (sAtt.alpa >= 2) reasons.push(`Alpa ${sAtt.alpa}x dalam periode ini`);
-      if (sAtt.total > 0 && studentAttRate < 75) reasons.push(`Tingkat kehadiran rendah (${studentAttRate}%)`);
+      if (sAtt.alpa >= 1) reasons.push(`Alpa ${sAtt.alpa}x dalam periode ini`);
+      if (sAtt.total > 0 && (sAtt.hadir + sAtt.terlambat) === 0) reasons.push('Tidak pernah hadir pada sesi yang tercatat');
+      else if (sAtt.total > 0 && studentAttRate < 75) reasons.push(`Tingkat kehadiran rendah (${studentAttRate}%)`);
       if (sChecklist > 0 && studentCurriculumRate < 40) reasons.push(`Capaian kurikulum terhambat (${studentCurriculumRate}%)`);
-      if (sEval.count > 0 && studentCharScore < 70) reasons.push('Perlu bimbingan adab & keaktifan');
+      if (studentCharScore < 70) reasons.push('Perlu bimbingan adab & keaktifan');
     }
 
     if (reasons.length === 0) {

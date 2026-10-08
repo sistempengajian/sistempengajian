@@ -1066,12 +1066,31 @@ export async function getChildDevelopmentReport(
   }
 
   const evaluatedSessionsCount = evaluations.length;
-  const averageAdab =
-    evaluatedSessionsCount > 0 ? Math.round(totalAdab / evaluatedSessionsCount) : 85;
-  const averageKeaktifan =
-    evaluatedSessionsCount > 0
-      ? Math.round(totalKeaktifan / evaluatedSessionsCount)
-      : 85;
+  let averageAdab = 0;
+  let averageKeaktifan = 0;
+
+  // Penalti Alfa: 10 poin per sesi alpa untuk merefleksikan pelanggaran adab/ketidakhadiran
+  const alpaPenalty = Math.min(100, absent * 10);
+
+  if (evaluatedSessionsCount > 0) {
+    const rawAvgAdab = Math.round(totalAdab / evaluatedSessionsCount);
+    const rawAvgKeaktifan = Math.round(totalKeaktifan / evaluatedSessionsCount);
+
+    averageAdab = Math.max(0, rawAvgAdab - alpaPenalty);
+    averageKeaktifan = Math.max(0, rawAvgKeaktifan - alpaPenalty);
+  } else {
+    // Jika tidak ada data evaluasi sesi langsung:
+    // 1. Jika santri aktif hadir (attended > 0), gunakan nilai kedisiplinan kehadiran riil
+    // 2. Jika santri selalu ALPA atau belum ada sesi (attended === 0), skor = 0
+    if (totalSessions > 0 && attended > 0) {
+      const attendanceDisciplineBase = Math.round((onTime / totalSessions) * 100);
+      averageAdab = Math.max(0, attendanceDisciplineBase - alpaPenalty);
+      averageKeaktifan = Math.max(0, Math.round((attended / totalSessions) * 100) - alpaPenalty);
+    } else {
+      averageAdab = 0;
+      averageKeaktifan = 0;
+    }
+  }
 
   const feedbackTags: FeedbackTagCount[] = Object.entries(tagCounts)
     .map(([tag, count]) => ({ tag, count }))

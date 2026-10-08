@@ -357,26 +357,66 @@ export async function generateAndSaveRollingSchedule(
             });
           }
 
-          // Buat ScheduleTeacher entries
-          const teachersData = [
-            {
+          // Buat ScheduleTeacher entries untuk seluruh pengajar (utama & pendamping) dan badal
+          const teachersData: {
+            scheduleId: string;
+            teacherId: string;
+            isPrimary: boolean;
+            isSubstitute: boolean;
+          }[] = [];
+
+          if (session.teachers && session.teachers.length > 0) {
+            for (const t of session.teachers) {
+              // 1. Pengajar (Utama atau Pendamping)
+              teachersData.push({
+                scheduleId: created.id,
+                teacherId: t.teacherId,
+                isPrimary: t.isPrimary,
+                isSubstitute: false,
+              });
+
+              // 2. Badal untuk pengajar ini jika ada
+              if (t.substituteTeacherId) {
+                teachersData.push({
+                  scheduleId: created.id,
+                  teacherId: t.substituteTeacherId,
+                  isPrimary: false,
+                  isSubstitute: true,
+                });
+              }
+            }
+          } else {
+            // Fallback compatibility
+            teachersData.push({
               scheduleId: created.id,
               teacherId: session.primaryTeacherId,
               isPrimary: true,
               isSubstitute: false,
-            },
-          ];
-          if (session.substituteTeacherId) {
-            teachersData.push({
-              scheduleId: created.id,
-              teacherId: session.substituteTeacherId,
-              isPrimary: false,
-              isSubstitute: true,
+            });
+            if (session.substituteTeacherId) {
+              teachersData.push({
+                scheduleId: created.id,
+                teacherId: session.substituteTeacherId,
+                isPrimary: false,
+                isSubstitute: true,
+              });
+            }
+          }
+
+          // Deduplikasi teacherId dalam 1 schedule agar tidak melanggar unique constraint @@unique([scheduleId, teacherId])
+          const uniqueTeachersMap = new Map<string, (typeof teachersData)[0]>();
+          for (const item of teachersData) {
+            if (!uniqueTeachersMap.has(item.teacherId)) {
+              uniqueTeachersMap.set(item.teacherId, item);
+            }
+          }
+
+          if (uniqueTeachersMap.size > 0) {
+            await tx.scheduleTeacher.createMany({
+              data: Array.from(uniqueTeachersMap.values()),
+              skipDuplicates: true,
             });
           }
-          await tx.scheduleTeacher.createMany({
-            data: teachersData,
-          });
 
           // Buat ScheduleMaterial entries via createMany
           if (session.scheduleMaterials.length > 0) {

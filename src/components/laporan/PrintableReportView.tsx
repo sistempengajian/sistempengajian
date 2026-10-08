@@ -170,11 +170,23 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="p-3 border border-slate-300 rounded-lg">
             <span className="text-slate-500 block">Nilai Rata-rata Adab &amp; Akhlaq:</span>
-            <span className="text-lg font-bold text-slate-900">{character.averageAdab} / 100</span>
+            <span className="text-lg font-bold text-slate-900">
+              {character.averageAdab > 0
+                ? `${character.averageAdab} / 100`
+                : character.evaluatedSessionsCount > 0
+                ? '0 / 100'
+                : 'Belum Ada Penilaian'}
+            </span>
           </div>
           <div className="p-3 border border-slate-300 rounded-lg">
             <span className="text-slate-500 block">Nilai Keaktifan &amp; Tartil:</span>
-            <span className="text-lg font-bold text-slate-900">{character.averageKeaktifan} / 100</span>
+            <span className="text-lg font-bold text-slate-900">
+              {character.averageKeaktifan > 0
+                ? `${character.averageKeaktifan} / 100`
+                : character.evaluatedSessionsCount > 0
+                ? '0 / 100'
+                : 'Belum Ada Penilaian'}
+            </span>
           </div>
         </div>
       </div>
@@ -184,7 +196,11 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
         <h4 className="text-xs font-bold text-slate-900">Catatan Wali Kelas / Pembina:</h4>
         <div className="p-3 border border-slate-300 rounded-lg text-xs italic bg-slate-50 min-h-16">
           {character.teacherNotesFeed[0]?.note ||
-            'Alhamdulillah ananda mengikuti kegiatan belajar mengajar dengan tertib, berakhlaqul karimah, dan bersemangat dalam mempelajari Al-Qur\'an dan Hadits.'}
+            (attendance.attended === 0 && attendance.absent > 0
+              ? 'Perlu perhatian khusus dan pendampingan wali santri di rumah karena ananda belum menghadiri sesi pengajian pada periode ini.'
+              : attendance.percentage >= 80
+              ? 'Alhamdulillah ananda mengikuti kegiatan belajar mengajar dengan tertib, berakhlaqul karimah, dan bersemangat dalam mempelajari Al-Qur\'an dan Hadits.'
+              : 'Perlu peningkatan kehadiran dan keaktifan mengaji secara istiqomah agar target pembinaan kurikulum tercapai.')}
         </div>
       </div>
 

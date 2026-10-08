@@ -96,7 +96,11 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
         </div>
 
         {/* Sub-metrics */}
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-[11px]">
+        <div className="mt-4 grid grid-cols-4 gap-1.5 border-t border-slate-100 pt-3 text-[11px]">
+          <div>
+            <span className="text-slate-400 block font-medium">Santri</span>
+            <span className="font-bold text-slate-800">{summary.totalStudents}</span>
+          </div>
           <div>
             <span className="text-slate-400 block font-medium">Tepat</span>
             <span className="font-bold text-emerald-700">{summary.onTimeRate}%</span>

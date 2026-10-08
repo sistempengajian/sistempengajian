@@ -230,8 +230,13 @@ export async function getStudentCurriculumMetrics(
 
   try {
     // 1. Ambil seluruh riwayat progres checklist santri ini
-    const [progressRecords, genMaterials, attendanceRecords, studentBadges] =
-      await Promise.all([
+    const [
+      progressRecords,
+      genMaterials,
+      attendanceRecords,
+      studentBadges,
+      studentEvaluations,
+    ] = await Promise.all([
         prisma.materialChecklistProgress.findMany({
           where: { studentId },
           include: {
@@ -257,6 +262,10 @@ export async function getStudentCurriculumMetrics(
           include: { badge: true },
           orderBy: { unlockedAt: 'desc' },
           take: 4,
+        }),
+        prisma.studentEvaluation.findMany({
+          where: { studentId },
+          select: { adabScore: true, keaktifanScore: true },
         }),
       ]);
 
@@ -304,16 +313,23 @@ export async function getStudentCurriculumMetrics(
         ? Math.round((enrichmentCompleted / enrichmentTotal) * 100)
         : 0;
 
-    // Hitung Adab & Disiplin: Berdasarkan rasio kehadiran santri (presensi)
+    // Hitung Adab & Disiplin: Berdasarkan evaluasi riil sesi dan rasio kehadiran santri
     const totalPresensi = attendanceRecords.length;
     const hadirCount = attendanceRecords.filter((a) => a.status === 'HADIR').length;
     const alpaCount = attendanceRecords.filter((a) => a.status === 'ALPA').length;
+    const alpaPenalty = Math.min(100, alpaCount * 10);
 
-    // Jika belum ada presensi, adab default 100% jika tidak ada alpa
-    const adabPct =
-      totalPresensi > 0
-        ? Math.round((hadirCount / totalPresensi) * 100)
-        : 100;
+    let adabPct = 0;
+    if (studentEvaluations.length > 0) {
+      const rawEvalScore =
+        studentEvaluations.reduce((acc, e) => acc + (e.adabScore + e.keaktifanScore) / 2, 0) /
+        studentEvaluations.length;
+      adabPct = Math.max(0, Math.round(rawEvalScore - alpaPenalty));
+    } else if (totalPresensi > 0 && hadirCount > 0) {
+      adabPct = Math.max(0, Math.round((hadirCount / totalPresensi) * 100 - alpaPenalty));
+    } else {
+      adabPct = 0;
+    }
 
     const totalChecklists = mandatoryTotal + enrichmentTotal;
     const totalCompleted = mandatoryCompleted + enrichmentCompleted;
@@ -348,8 +364,8 @@ export async function getStudentCurriculumMetrics(
         percentage: enrichmentPct,
       },
       adab: {
-        completed: totalPresensi > 0 ? hadirCount : 10,
-        total: totalPresensi > 0 ? totalPresensi : 10,
+        completed: totalPresensi > 0 ? hadirCount : 0,
+        total: totalPresensi > 0 ? totalPresensi : 0,
         percentage: adabPct,
       },
       overallPercentage: overallPct,

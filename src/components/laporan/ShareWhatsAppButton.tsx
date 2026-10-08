@@ -20,9 +20,25 @@ export default function ShareWhatsAppButton({ report, userRoleCategory }: ShareW
   // Bangun teks pesan WhatsApp rapi
   const latestTeacherNote =
     character.teacherNotesFeed[0]?.note ||
-    (isSantri
+    (attendance.attended === 0 && attendance.absent > 0
+      ? 'Perlu perhatian khusus dan pendampingan orang tua karena santri belum menghadiri sesi pengajian pada periode ini.'
+      : isSantri
       ? 'Santri aktif mengikuti kegiatan pengajian dengan tertib, disiplin, dan berakhlaqul karimah.'
       : 'Ananda mengikuti kegiatan pengajian dengan baik, tertib, dan berakhlaqul karimah.');
+
+  const adabText =
+    character.averageAdab > 0
+      ? `*${character.averageAdab}/100*`
+      : character.evaluatedSessionsCount > 0
+      ? '*0/100*'
+      : '_Belum Ada Evaluasi_';
+
+  const keaktifanText =
+    character.averageKeaktifan > 0
+      ? `*${character.averageKeaktifan}/100*`
+      : character.evaluatedSessionsCount > 0
+      ? '*0/100*'
+      : '_Belum Ada Evaluasi_';
 
   const messageText = isSantri
     ? `*RAPOR CAPAIAN BELAJAR SANTRI*
@@ -39,8 +55,8 @@ ${attendance.currentStreak > 0 ? `• Kehadiran Beruntun: *${attendance.currentS
 
 📖 *Penguasaan Materi & Kurikulum:*
 • Target Tuntas: *${curriculum.completedItems} dari ${curriculum.totalChecklistItems} Materi (${curriculum.masteryPercentage}%)*
-• Nilai Rata-rata Adab: *${character.averageAdab}/100*
-• Nilai Keaktifan: *${character.averageKeaktifan}/100*
+• Nilai Rata-rata Adab: ${adabText}
+• Nilai Keaktifan: ${keaktifanText}
 
 📝 *Catatan Wali Kelas / Pembina:*
 "${latestTeacherNote}"
@@ -62,8 +78,8 @@ ${attendance.currentStreak > 0 ? `• Kehadiran Beruntun: *${attendance.currentS
 
 📖 *Penguasaan Materi & Kurikulum:*
 • Target Tuntas: *${curriculum.completedItems} dari ${curriculum.totalChecklistItems} Materi (${curriculum.masteryPercentage}%)*
-• Nilai Rata-rata Adab: *${character.averageAdab}/100*
-• Nilai Keaktifan: *${character.averageKeaktifan}/100*
+• Nilai Rata-rata Adab: ${adabText}
+• Nilai Keaktifan: ${keaktifanText}
 
 📝 *Catatan Wali Kelas / Guru:*
 "${latestTeacherNote}"

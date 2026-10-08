@@ -68,6 +68,15 @@ export interface GeneratorInput {
   batchId?: string;
 }
 
+export interface GeneratedSessionTeacher {
+  slotIndex: number;
+  teacherId: string;
+  teacherName: string;
+  isPrimary: boolean;
+  substituteTeacherId?: string | null;
+  substituteTeacherName?: string | null;
+}
+
 /** Satu sesi yang akan disimpan ke tabel `Schedule` */
 export interface GeneratedSession {
   title: string;
@@ -89,6 +98,8 @@ export interface GeneratedSession {
   rollingTeacherStepOrder: number;
   /** Materi yang dijadwalkan pada sesi ini */
   scheduleMaterials: { materialId: string; materialTitle: string; slotIndex: number }[];
+  /** Daftar seluruh pengajar (utama & pendamping) dan badal pada sesi ini */
+  teachers: GeneratedSessionTeacher[];
   /** Pengajar primary */
   primaryTeacherId: string;
   primaryTeacherName: string;
@@ -279,11 +290,24 @@ export function generateRollingScheduleSessions(
           }))
       : [];
 
-    // Pengajar sesi ini
-    const primaryItem = tchQueue?.items
+    // Pengajar sesi ini (seluruh slot aktif)
+    const sortedTchItems = (tchQueue?.items || [])
+      .slice()
       .sort((a, b) => a.slotIndex - b.slotIndex)
-      .at(0);
-    if (!primaryItem) return; // skip jika tidak ada pengajar
+      .slice(0, blueprint.teacherRolling.teachersPerSession || 1);
+
+    if (sortedTchItems.length === 0) return; // skip jika tidak ada pengajar
+
+    const sessionTeachers: GeneratedSessionTeacher[] = sortedTchItems.map((item, idx) => ({
+      slotIndex: item.slotIndex,
+      teacherId: item.teacherId,
+      teacherName: item.teacherName,
+      isPrimary: idx === 0,
+      substituteTeacherId: item.substituteTeacherId ?? null,
+      substituteTeacherName: item.substituteTeacherName ?? null,
+    }));
+
+    const primaryItem = sessionTeachers[0];
 
     // Judul sesi: Cukup nama blueprint saja sesuai instruksi user
     const title = blueprint.name;
@@ -306,6 +330,7 @@ export function generateRollingScheduleSessions(
       rollingMaterialStepOrder: matStepIdx,
       rollingTeacherStepOrder: tchStepIdx,
       scheduleMaterials,
+      teachers: sessionTeachers,
       primaryTeacherId: primaryItem.teacherId,
       primaryTeacherName: primaryItem.teacherName,
       substituteTeacherId: primaryItem.substituteTeacherId ?? null,

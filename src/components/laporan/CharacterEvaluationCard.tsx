@@ -35,9 +35,17 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
           </div>
         </div>
 
-        {character.evaluatedSessionsCount > 0 && (
-          <span className="text-xs font-semibold text-slate-500 self-start sm:self-auto">
+        {character.evaluatedSessionsCount > 0 ? (
+          <span className="text-xs font-semibold text-slate-600 self-start sm:self-auto bg-slate-100 px-3 py-1 rounded-xl">
             Berdasarkan {character.evaluatedSessionsCount} sesi pengajian
+          </span>
+        ) : character.averageAdab > 0 ? (
+          <span className="text-xs font-semibold text-amber-700 self-start sm:self-auto bg-amber-50 px-3 py-1 rounded-xl border border-amber-200/70">
+            Estimasi Berbasis Presensi
+          </span>
+        ) : (
+          <span className="text-xs font-semibold text-rose-700 self-start sm:self-auto bg-rose-50 px-3 py-1 rounded-xl border border-rose-200/70">
+            Belum Ada Penilaian / Tidak Hadir
           </span>
         )}
       </div>
