@@ -199,6 +199,9 @@ async function handleScheduleReminders(request: NextRequest) {
           },
         },
       },
+      orderBy: {
+        startTime: 'asc',
+      },
     });
 
     console.log(

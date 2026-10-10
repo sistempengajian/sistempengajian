@@ -276,7 +276,7 @@ export default function StudentQrScanner({
 
       ctx.fillStyle = '#d1fae5';
       ctx.font = '600 14px system-ui, -apple-system, sans-serif';
-      ctx.fillText("GENERASI QUR'ANI", canvas.width / 2, 85);
+      ctx.fillText("GENERASI PENERUS", canvas.width / 2, 85);
 
       // 3. Nama Santri
       ctx.fillStyle = '#0f172a';

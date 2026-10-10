@@ -61,6 +61,7 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
   cooldownRemaining?: number;
   targetPhone?: string;
   userName?: string;
+  loginToken?: string;
 }> {
   try {
     const normalized = normalizePhoneNumber(phoneInput);
@@ -146,7 +147,7 @@ export async function requestWhatsAppMagicLogin(phoneInput: string): Promise<{
     const message = `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 Yth. *${user.fullName}*.
 
-Berikut adalah tautan masuk instan (Magic Link) ke akun *Sistem Pengajian & Generasi Qur'ani*:
+Berikut adalah tautan masuk instan (Magic Link) ke akun *Sistem Pengajian & Generasi Penerus*:
 
 👉 ${magicLoginUrl}
 
@@ -156,7 +157,7 @@ Berikut adalah tautan masuk instan (Magic Link) ke akun *Sistem Pengajian & Gene
 • Jeda pengiriman ulang link masuk adalah *5 menit*.
 • Jangan bagikan tautan ini kepada siapapun demi keamanan data akun Anda.
 
-Alhamdulillah Jazakumullahu Khairan Katsiran.
+Alhamdulillah Jazakumullahu Khairan.
 — *Sistem Manajemen Pengajian Terpadu*`;
 
     // 5. Kirim via WhatsApp Gateway
@@ -179,6 +180,7 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
       cooldownRemaining: LOGIN_COOLDOWN_SECONDS,
       targetPhone: displayPhoneNumber(normalized),
       userName: user.fullName,
+      loginToken: magicToken,
     };
   } catch (err: any) {
     console.error('[MagicLogin Error]:', err);
@@ -186,6 +188,97 @@ Alhamdulillah Jazakumullahu Khairan Katsiran.
       success: false,
       error: err.message || 'Terjadi kesalahan sistem saat memproses login WhatsApp.',
     };
+  }
+}
+
+/**
+ * Server Action: Memeriksa apakah token magic login telah berhasil diverifikasi (di browser / tab lain)
+ * Jika sudah diverifikasi, otomatis lakukan inisialisasi sesi otentikasi pada client PWA ini.
+ */
+export async function checkLoginTokenStatus(loginToken: string): Promise<{
+  isVerified: boolean;
+  userName?: string;
+  error?: string;
+}> {
+  try {
+    if (!loginToken || loginToken.trim().length < 10) {
+      return { isVerified: false };
+    }
+
+    const supabase = await createClient();
+
+    // 1. Cek apakah sesi sudah aktif di client ini (misal cookie terbagi secara native)
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+
+    if (currentUser) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: currentUser.id },
+        select: { fullName: true },
+      });
+      return {
+        isVerified: true,
+        userName: dbUser?.fullName || 'Pengguna',
+      };
+    }
+
+    // 2. Cek status token di database
+    const cleanToken = loginToken.trim();
+    const tokenRecord = await prisma.whatsAppLoginToken.findUnique({
+      where: { token: cleanToken },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!tokenRecord) {
+      return { isVerified: false, error: 'Token tidak ditemukan' };
+    }
+
+    // Jika token sudah dipakai dan masih dalam jendela waktu aktif (10 menit)
+    if (tokenRecord.isUsed) {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      if (tokenRecord.usedAt && tokenRecord.usedAt < tenMinutesAgo) {
+        return { isVerified: false, error: 'Sesi token telah kedaluwarsa.' };
+      }
+
+      // Pastikan sesi disinkronisasikan ke cookie client PWA ini
+      try {
+        const supabaseAdmin = createAdminClient();
+        const userEmail =
+          tokenRecord.user.email ||
+          `${tokenRecord.user.username || tokenRecord.user.id}@pengajian.app`;
+
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email: userEmail,
+        });
+
+        if (linkData?.properties?.hashed_token) {
+          await supabase.auth.verifyOtp({
+            token_hash: linkData.properties.hashed_token,
+            type: 'magiclink',
+          });
+        }
+      } catch (authErr) {
+        console.error('[checkLoginTokenStatus Auth Sync Error]:', authErr);
+      }
+
+      try {
+        revalidatePath('/', 'layout');
+      } catch {}
+
+      return {
+        isVerified: true,
+        userName: tokenRecord.user.fullName,
+      };
+    }
+
+    return { isVerified: false };
+  } catch (err: any) {
+    console.error('[checkLoginTokenStatus Exception]:', err);
+    return { isVerified: false };
   }
 }
 

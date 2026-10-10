@@ -133,11 +133,11 @@ export function calculateLevelInfo(totalPoints: number): {
     { level: 3, min: 251, max: 500, title: 'Pejuang Tholabul Ilmi' },
     { level: 4, min: 501, max: 850, title: 'Bintang Pengajian' },
     { level: 5, min: 851, max: 1300, title: 'Duta Disiplin' },
-    { level: 6, min: 1301, max: 1900, title: "Ksatria Qur'ani" },
+    { level: 6, min: 1301, max: 1900, title: "Ksatria Generasi Penerus" },
     { level: 7, min: 1901, max: 2700, title: 'Penjaga Sunnah' },
     { level: 8, min: 2701, max: 3700, title: 'Teladan Generasi' },
-    { level: 9, min: 3701, max: 5000, title: "Mahkota Qur'ani" },
-    { level: 10, min: 5001, max: 100000, title: "Master Generasi Qur'ani" },
+    { level: 9, min: 3701, max: 5000, title: "Mahkota Generasi Penerus" },
+    { level: 10, min: 5001, max: 100000, title: "Master Generasi Generasi Penerus" },
   ];
 
   const currentLevelObj =

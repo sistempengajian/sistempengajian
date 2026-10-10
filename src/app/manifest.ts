@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sistem Manajemen Pengajian & Pembinaan Generasi Qur'ani",
+    name: "Sistem Manajemen Pengajian & Pembinaan Generasi Penerus",
     short_name: "SiPanji",
     description: "Sistem Pengajian Terstruktur, Smart Absensi QR, Sinergi Orang Tua, dan Gamifikasi Berjenjang",
     start_url: "/dashboard",
@@ -34,5 +34,8 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     categories: ["education", "lifestyle", "productivity"],
+    launch_handler: {
+      client_mode: ["focus-existing", "navigate-new"],
+    },
   };
 }

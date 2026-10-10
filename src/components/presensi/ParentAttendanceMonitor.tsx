@@ -806,7 +806,7 @@ export default function ParentAttendanceMonitor({
 
       ctx.fillStyle = '#d1fae5';
       ctx.font = '600 14px system-ui, -apple-system, sans-serif';
-      ctx.fillText("GENERASI QUR'ANI", canvas.width / 2, 85);
+      ctx.fillText("GENERASI PENERUS", canvas.width / 2, 85);
 
       // Nama Santri
       ctx.fillStyle = '#0f172a';
@@ -1004,7 +1004,7 @@ export default function ParentAttendanceMonitor({
           <div class="card">
             <div class="header">
               <h1>Sistem Pengajian</h1>
-              <p>GENERASI QUR'ANI</p>
+              <p>GENERASI PENERUS</p>
             </div>
             <div class="body">
               <div>

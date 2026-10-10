@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { requestWhatsAppMagicLogin, getWhatsAppLoginCooldown, login, loginAsDemoUser } from '../actions';
+import { requestWhatsAppMagicLogin, getWhatsAppLoginCooldown, checkLoginTokenStatus, login, loginAsDemoUser } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 import {
   Phone,
@@ -57,6 +57,9 @@ function LoginForm() {
     phone: string;
     userName?: string;
   } | null>(null);
+  const [activeLoginToken, setActiveLoginToken] = useState<string | null>(null);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [isManualChecking, setIsManualChecking] = useState(false);
 
   // Email / Password Fallback States
   const [email, setEmail] = useState('');
@@ -94,6 +97,99 @@ function LoginForm() {
 
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
+
+  // Real-time Auto-Detection: Otomatis mendeteksi saat link WhatsApp diklik (Cross-window, visibility, polling)
+  useEffect(() => {
+    if (!sentSuccessInfo || !activeLoginToken || isAutoLoggingIn) return;
+
+    let isMounted = true;
+    let isChecking = false;
+
+    const verifySessionStatus = async () => {
+      if (isChecking || !isMounted) return;
+      isChecking = true;
+      try {
+        const res = await checkLoginTokenStatus(activeLoginToken);
+        if (res.isVerified && isMounted) {
+          setIsAutoLoggingIn(true);
+          setTimeout(() => {
+            window.location.href = redirectTo;
+          }, 600);
+        }
+      } catch (e) {
+        // Abaikan kegagalan jaringan saat background polling
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    // 1. Background Polling setiap 2 detik
+    const interval = setInterval(verifySessionStatus, 2000);
+
+    // 2. Trigger instan saat pengguna kembali ke PWA dari WhatsApp (visibility / focus)
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        verifySessionStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    // 3. Trigger instan via BroadcastChannel & LocalStorage Event dari tab browser
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        channel = new BroadcastChannel('sipanji_auth_channel');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'LOGIN_SUCCESS') {
+            verifySessionStatus();
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'sipanji_auth_sync') {
+        verifySessionStatus();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('storage', handleStorage);
+      try {
+        channel?.close();
+      } catch {}
+    };
+  }, [sentSuccessInfo, activeLoginToken, isAutoLoggingIn, redirectTo]);
+
+  // Cek status verifikasi secara manual jika pengguna menekan tombol "Sudah Klik Link"
+  const handleManualCheckStatus = async () => {
+    if (!activeLoginToken || isManualChecking || isAutoLoggingIn) return;
+    setIsManualChecking(true);
+    setErrorMessage(null);
+    try {
+      const res = await checkLoginTokenStatus(activeLoginToken);
+      if (res.isVerified) {
+        setIsAutoLoggingIn(true);
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 500);
+      } else {
+        setErrorMessage(
+          'Tautan belum diklik atau sesi masih dalam proses di WhatsApp. Silakan klik tautan di WhatsApp terlebih dahulu.'
+        );
+      }
+    } catch {
+      setErrorMessage('Terjadi gangguan koneksi saat memeriksa status login.');
+    } finally {
+      setIsManualChecking(false);
+    }
+  };
 
   // Cek cooldown otomatis saat nomor telepon berubah (setelah 10 digit)
   const handlePhoneBlur = async () => {
@@ -137,6 +233,7 @@ function LoginForm() {
           phone: res.targetPhone || phone,
           userName: res.userName,
         });
+        setActiveLoginToken(res.loginToken || null);
         setCooldownSeconds(res.cooldownRemaining || 300);
       }
     });
@@ -268,61 +365,100 @@ function LoginForm() {
         <div>
           {/* Card Notifikasi Berhasil Terkirim */}
           {sentSuccessInfo ? (
-            <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 text-emerald-900 animate-in zoom-in-95">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <CheckCircle2 className="w-5 h-5" />
+            isAutoLoggingIn ? (
+              <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-600/25 flex items-center gap-3.5 animate-in zoom-in-95">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-7 h-7 text-white" />
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-sm text-emerald-950 mb-1">
-                    Tautan Masuk Terkirim ke WhatsApp!
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-base text-white">
+                    Login Terverifikasi!
                   </h4>
-                  <p className="text-xs text-emerald-800 leading-relaxed mb-3">
-                    Link verifikasi telah dikirim ke nomor{' '}
-                    <strong className="text-emerald-950 font-mono font-bold">
-                      {sentSuccessInfo.phone}
-                    </strong>
-                    {sentSuccessInfo.userName ? ` (${sentSuccessInfo.userName})` : ''}.
+                  <p className="text-xs text-emerald-100 mt-0.5 flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    <span>Membuka Dashboard SiPanji secara otomatis...</span>
                   </p>
-
-                  <div className="p-3 rounded-xl bg-white/80 border border-emerald-200/70 text-[11px] text-emerald-900 space-y-1">
-                    <div className="flex items-center gap-1.5 font-semibold">
-                      <Clock className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Ketentuan Penggunaan:</span>
-                    </div>
-                    <p>• Berlaku untuk <strong>1 (satu) kali masuk</strong>.</p>
-                    <p>• Tautan akan kedaluwarsa dalam <strong>15 menit</strong>.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 text-emerald-900 animate-in zoom-in-95 space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-sm text-emerald-950 mb-1">
+                      Tautan Masuk Terkirim ke WhatsApp!
+                    </h4>
+                    <p className="text-xs text-emerald-800 leading-relaxed">
+                      Link verifikasi telah dikirim ke nomor{' '}
+                      <strong className="text-emerald-950 font-mono font-bold">
+                        {sentSuccessInfo.phone}
+                      </strong>
+                      {sentSuccessInfo.userName ? ` (${sentSuccessInfo.userName})` : ''}.
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Tombol Kirim Ulang dengan Cooldown Countdown */}
-              <div className="mt-4 pt-4 border-t border-emerald-200/70 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                <div className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>
-                    Jeda Kirim Ulang:{' '}
-                    <strong className="font-mono text-xs text-emerald-900">
-                      {cooldownSeconds > 0 ? formatCooldown(cooldownSeconds) : 'Siap'}
-                    </strong>
-                  </span>
+                {/* Status Deteksi Realtime */}
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-100/70 border border-emerald-200/80 text-emerald-900 text-xs font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+                  <span className="truncate">Menunggu Anda mengklik tautan di WhatsApp...</span>
                 </div>
 
+                {/* Petunjuk Pengguna Awam / PWA */}
+                <div className="p-3 rounded-xl bg-white/90 border border-emerald-200/70 text-[11px] text-emerald-900 space-y-1.5 leading-relaxed">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Petunjuk Masuk Cepat:</span>
+                  </div>
+                  <p>1. Buka pesan WhatsApp dan klik link masuk resmi SiPanji.</p>
+                  <p>2. Kembali ke aplikasi ini — halaman akan <strong>otomatis masuk ke Dashboard</strong> tanpa perlu di-refresh manual!</p>
+                </div>
+
+                {/* Tombol Cek Masuk Manual jika Pengguna Ingin Langsung Lanjut */}
                 <button
                   type="button"
-                  onClick={(e: any) => handleWhatsAppSubmit(e)}
-                  disabled={isPending || cooldownSeconds > 0}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-200 disabled:text-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                  onClick={handleManualCheckStatus}
+                  disabled={isManualChecking}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin' : ''}`} />
-                  <span>
-                    {cooldownSeconds > 0
-                      ? `Tunggu ${formatCooldown(cooldownSeconds)}`
-                      : 'Kirim Ulang Link'}
-                  </span>
+                  {isManualChecking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  )}
+                  <span>Sudah Klik Link di WhatsApp? Masuk Sekarang</span>
                 </button>
+
+                {/* Baris Kirim Ulang dengan Jeda Waktu */}
+                <div className="pt-3 border-t border-emerald-200/70 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>
+                      Jeda Kirim Ulang:{' '}
+                      <strong className="font-mono text-xs text-emerald-900">
+                        {cooldownSeconds > 0 ? formatCooldown(cooldownSeconds) : 'Siap'}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e: any) => handleWhatsAppSubmit(e)}
+                    disabled={isPending || cooldownSeconds > 0}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 disabled:bg-slate-100 disabled:text-slate-400 text-emerald-800 text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin' : ''}`} />
+                    <span>
+                      {cooldownSeconds > 0
+                        ? `Tunggu ${formatCooldown(cooldownSeconds)}`
+                        : 'Kirim Ulang'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
               <div>

@@ -50,10 +50,22 @@ export default function MagicLoginVerificationPage({ params }: MagicLoginPagePro
           setStatus('success');
           setUserName(result.userName || 'Pengguna');
 
-          // Redirect otomatis setelah 1.8 detik
+          // 1. Beritahu PWA / tab lain secara real-time via BroadcastChannel & localStorage
+          try {
+            localStorage.setItem('sipanji_auth_sync', Date.now().toString());
+            if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+              const ch = new BroadcastChannel('sipanji_auth_channel');
+              ch.postMessage({ type: 'LOGIN_SUCCESS', userName: result.userName });
+              ch.close();
+            }
+          } catch (e) {
+            // Ignore channel errors
+          }
+
+          // 2. Redirect otomatis ke dashboard setelah 2.5 detik
           setTimeout(() => {
             router.push('/dashboard');
-          }, 1800);
+          }, 2500);
         } else {
           setStatus('error');
           setErrorMessage(result.error || 'Gagal memverifikasi tautan masuk.');
@@ -103,26 +115,37 @@ export default function MagicLoginVerificationPage({ params }: MagicLoginPagePro
       {/* State 2: Berhasil Masuk */}
       {status === 'success' && (
         <div className="bg-white/95 backdrop-blur-md rounded-3xl p-8 border border-emerald-200 shadow-2xl text-center flex flex-col items-center animate-in zoom-in-95">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-6 animate-bounce">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-5 animate-bounce">
             <CheckCircle2 className="w-9 h-9" />
           </div>
 
           <h2 className="text-2xl font-black text-slate-900 mb-1">
             Masuk Berhasil!
           </h2>
-          <p className="text-sm font-semibold text-emerald-700 mb-3">
+          <p className="text-sm font-semibold text-emerald-700 mb-2">
             Ahlan wa Sahlan, {userName}
           </p>
-          <p className="text-xs text-slate-500 leading-relaxed max-w-xs mb-6">
-            Tautan telah terverifikasi. Anda sedang dialihkan ke dashboard portal pengajian...
+          <p className="text-xs text-slate-500 leading-relaxed max-w-xs mb-4">
+            Tautan telah terverifikasi dan sesi login Anda telah aktif.
           </p>
+
+          {/* Kartu Khusus Panduan Pengguna Aplikasi (PWA) */}
+          <div className="w-full p-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-200/80 text-left mb-5 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Sudah Memasang Aplikasi SiPanji di HP?</span>
+            </div>
+            <p className="text-[11px] text-emerald-800/90 leading-relaxed">
+              Anda bisa langsung kembali membuka ikon <strong>SiPanji</strong> di Layar Utama HP Anda. Aplikasi telah otomatis masuk tanpa perlu login ulang!
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={() => router.push('/dashboard')}
             className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Buka Dashboard Sekarang</span>
+            <span>Lanjut di Browser Ini (Buka Dashboard)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

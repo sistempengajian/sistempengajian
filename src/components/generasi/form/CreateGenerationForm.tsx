@@ -185,7 +185,7 @@ export default function CreateGenerationForm() {
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: PAUD Qur'ani, Pra-Remaja, Lansia"
+                  placeholder="Contoh: PAUD, Pra-Remaja, Lansia"
                   value={name}
                   onChange={handleNameChange}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"

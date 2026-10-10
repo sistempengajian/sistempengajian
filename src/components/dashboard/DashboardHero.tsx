@@ -63,7 +63,7 @@ export default function DashboardHero({
         {isSantri
           ? "Semoga senantiasa bersemangat dalam mempelajari Al-Qur'an dan menggapai generasi unggul berkarakter."
           : isPengajar || isWaliKelas
-            ? "Selamat berkhidmah membina generasi Qur'ani dengan keikhlasan dan kesabaran."
+            ? "Selamat berkhidmah membina generasi Penerus dengan keikhlasan dan kesabaran."
             : isOrangTua
               ? "Mendampingi ananda tumbuh menjadi generasi unggul yang faham, faqih, dan berakhlak mulia."
               : "Mengemban amanah tata kelola pembinaan pengajian dengan rapi dan terstruktur."}

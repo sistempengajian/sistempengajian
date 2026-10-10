@@ -62,7 +62,7 @@ ${attendance.currentStreak > 0 ? `• Kehadiran Beruntun: *${attendance.currentS
 "${latestTeacherNote}"
 
 ----------------------------------------
-_Alhamdulillah Jazakumullahu Khairan Katsiran._
+_Alhamdulillah Jazakumullahu Khairan._
 _Sistem Pengajian Terpadu_`
     : `*LAPORAN PERKEMBANGAN SANTRI*
 ----------------------------------------
@@ -85,7 +85,7 @@ ${attendance.currentStreak > 0 ? `• Kehadiran Beruntun: *${attendance.currentS
 "${latestTeacherNote}"
 
 ----------------------------------------
-_Alhamdulillah Jazakumullahu Khairan Katsiran._
+_Alhamdulillah Jazakumullahu Khairan._
 _Sistem Pengajian Terpadu_`;
 
   const handleCopy = async () => {

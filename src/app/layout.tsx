@@ -14,7 +14,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Sistem Manajemen Pengajian & Pembinaan Generasi Qur'ani",
+  title: "Sistem Manajemen Pengajian & Pembinaan Generasi Penerus",
   description: "Platform Manajemen Pengajian Terstruktur, Smart Absensi QR, Sinergi Orang Tua, dan Gamifikasi Berjenjang",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

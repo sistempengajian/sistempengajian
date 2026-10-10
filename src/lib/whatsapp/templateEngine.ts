@@ -95,7 +95,7 @@ Alhamdulillah Jazakumullahu Khairan.`,
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}.
 
-Mengingatkan agenda pengajian rutin *Sistem Generasi Qur'ani* untuk esok hari:
+Mengingatkan agenda pengajian rutin *Sistem Generasi Penerus* untuk esok hari:
 
 📅 *Hari / Tgl:* {{hari_tanggal}}
 ⏰ *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
@@ -142,7 +142,7 @@ Alhamdulillah Jazakumullahu Khairan.
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 Yth. *{{sapaan_ustadz}}*.
 
-Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Qur'ani* untuk esok hari:
+Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Penerus* untuk esok hari:
 
 📅 *Hari / Tgl:* {{hari_tanggal}}
 ⏰ *Waktu:* {{waktu_mulai}} - {{waktu_selesai}} WIB
@@ -178,7 +178,7 @@ Alhamdulillah Jazakumullahu Khairan atas keikhlasan dan dedikasi {{title_ustadz}
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}.
 
-Pengajian sesi *{{judul_sesi}}* akan dimulai dalam *2 jam ke depan*:
+Pengajian sesi *{{judul_sesi}}* akan dimulai dalam beberapa jam ke depan:
 
 ⏰ *Jam Mulai:* {{waktu_mulai}} WIB (Tepat Waktu)
 📍 *Lokasi:* {{nama_tempat}}
@@ -287,7 +287,7 @@ Alhamdulillah Jazakumullahu Khairan.
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}.
 
-Selamat datang di *Sistem Informasi & Manajemen Pengajian Generasi Qur'ani* 🕌✨
+Selamat datang di *Sistem Informasi & Manajemen Pengajian Generasi Penerus*
 
 Berikut adalah tautan masuk instan (Magic Link) resmi akun Anda untuk mengakses sistem presensi digital, jadwal pengajian, kurikulum, dan rapor capaian:
 

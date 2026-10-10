@@ -1,8 +1,8 @@
-// Application Constants for Sistem Manajemen Pengajian & Pembinaan Generasi Qur'ani
+// Application Constants for Sistem Manajemen Pengajian & Pembinaan Generasi Penerus
 // Blueprint Version 2.0.0
 
 export const APP_CONFIG = {
-  name: 'Sistem Pengajian & Generasi Qur\'ani',
+  name: 'Sistem Pengajian & Generasi Penerus',
   shortName: 'PengajianApp',
   description: 'Platform Manajemen Pengajian & Pembinaan Generasi Qur\'ani Terintegrasi',
   version: '1.0.0',

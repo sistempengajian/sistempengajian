@@ -855,7 +855,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                   </div>
 
                   <div className="mt-3 text-center text-xs font-semibold text-slate-500">
-                    _Alhamdulillah Jazakumullahu Khairan Katsiran._
+                    _Alhamdulillah Jazakumullahu Khairan._
                   </div>
                 </div>
               </div>

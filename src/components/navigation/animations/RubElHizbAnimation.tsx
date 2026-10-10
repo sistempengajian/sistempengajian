@@ -6,7 +6,7 @@ interface RubElHizbAnimationProps {
 }
 
 /**
- * Animasi Vektor SVG Murni: Geometri Bintang Segi-8 Qur'ani (Rub el Hizb)
+ * Animasi Vektor SVG Murni: Geometri Bintang Segi-8 Generasi Penerus (Rub el Hizb)
  * - TEMA CERAH & BERSIH (White Ivory, Mint Emerald & Royal Gold)
  * - Berputar halus dengan multi-layer akselerasi GPU
  * - Pendar cahaya neon zamrud & emas di atas latar putih bersih
