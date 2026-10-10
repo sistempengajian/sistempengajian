@@ -290,6 +290,7 @@ export async function sendScheduleReminderH1ToTeacher(params: {
   isBadal?: boolean;
   notes?: string | null;
   scheduleId: string;
+  magicToken?: string;
   teacherUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
@@ -325,6 +326,7 @@ export async function sendScheduleReminderH1ToTeacher(params: {
       url_jadwal: scheduleDetailUrl,
       url_request_badal: requestBadalUrl,
     },
+    magicToken: params.magicToken,
     referenceId: params.scheduleId,
   });
 }
@@ -347,6 +349,7 @@ export async function sendScheduleReminderCountdown(params: {
   teacherGender?: string | null;
   notes?: string | null;
   scheduleId: string;
+  magicToken?: string;
   recipientUserId?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
@@ -376,6 +379,7 @@ export async function sendScheduleReminderCountdown(params: {
       catatan_tambahan: formatScheduleNotesBlock(params.notes),
       url_jadwal: scheduleDetailUrl,
     },
+    magicToken: params.magicToken,
     referenceId: params.scheduleId,
   });
 }

@@ -232,6 +232,7 @@ async function handleScheduleReminders(request: NextRequest) {
                 isBadal: st.isSubstitute,
                 notes: schedule.notes,
                 scheduleId: schedule.id,
+                magicToken: teacherDedupKey,
                 teacherUserId: teacher.id,
               });
               return {
@@ -318,6 +319,7 @@ async function handleScheduleReminders(request: NextRequest) {
                   teacherGender: schedule.teachers[0]?.teacher?.gender,
                   notes: schedule.notes,
                   scheduleId: schedule.id,
+                  magicToken: parentDedupKey,
                   recipientUserId: parent.id,
                 });
               }
@@ -393,6 +395,7 @@ async function handleScheduleReminders(request: NextRequest) {
                   teacherGender: schedule.teachers[0]?.teacher?.gender,
                   notes: schedule.notes,
                   scheduleId: schedule.id,
+                  magicToken: studentDedupKey,
                   recipientUserId: student.id,
                 });
               }
@@ -407,9 +410,9 @@ async function handleScheduleReminders(request: NextRequest) {
       }
     }
 
-    // Eksekusi antrean pesan dengan batching dan batas waktu ketat (Maks 10 detik)
+    // Eksekusi antrean pesan dengan batching aman (Maks 45 detik dari 60s maxDuration)
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 10000;
+    const MAX_EXECUTION_TIME_MS = 45000;
     const BATCH_SIZE = 5;
     let consecutiveErrors = 0;
 
@@ -419,7 +422,7 @@ async function handleScheduleReminders(request: NextRequest) {
         break;
       }
 
-      if (consecutiveErrors >= 3) {
+      if (consecutiveErrors >= 5) {
         processLogs.push(`[Circuit Breaker] Gateway WhatsApp tidak merespons (Offline/Timeout berulang). Menghentikan sisa antrean.`);
         break;
       }
@@ -441,6 +444,11 @@ async function handleScheduleReminders(request: NextRequest) {
           consecutiveErrors++;
           processLogs.push(`[Error] Eksekusi pesan gagal: ${res.reason?.message || 'Error'}`);
         }
+      }
+
+      // Beri jeda 300ms antar batch agar antrean socket gateway WA tetap stabil
+      if (i + BATCH_SIZE < dispatchQueue.length) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
 
