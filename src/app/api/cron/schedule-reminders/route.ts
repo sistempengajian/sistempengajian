@@ -410,9 +410,9 @@ async function handleScheduleReminders(request: NextRequest) {
       }
     }
 
-    // Eksekusi antrean pesan dengan batching aman (Maks 45 detik dari 60s maxDuration)
+    // Eksekusi antrean pesan dengan batching aman (Maks 22 detik agar selalu selesai di bawah batas 30 detik cron-job.org)
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 45000;
+    const MAX_EXECUTION_TIME_MS = 22000;
     const BATCH_SIZE = 5;
     let consecutiveErrors = 0;
 

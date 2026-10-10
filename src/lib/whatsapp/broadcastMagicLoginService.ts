@@ -237,9 +237,9 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
       });
     }
 
-    // 4. Eksekusi antrean secara berurutan (pacing) dengan batas waktu aman 50 detik
+    // 4. Eksekusi antrean secara berurutan (pacing) dengan batas waktu aman 22 detik (agar di bawah 30s cron-job.org)
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 50000;
+    const MAX_EXECUTION_TIME_MS = 22000;
     let consecutiveErrors = 0;
 
     for (let i = 0; i < dispatchQueue.length; i++) {
