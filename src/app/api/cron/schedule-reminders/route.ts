@@ -34,15 +34,15 @@ function getRandomDelayMs(minSec = 3, maxSec = 15): number {
 
 /**
  * Endpoint Cron Scheduler: Pengingat Jadwal Pengajian Otomatis via WhatsApp
- * Didukung:
+ * Fitur:
  * - Interval pemicu 1 menit (cron-job.org)
  * - Jeda acak sekuensial 3 s/d 15 detik per pesan
  * - Anti Overlapping Request via Redis Concurrency Lock
  * - Pre-flight Health Check WAHA
  * - Anti-Pesan Basi (Context Expiry Guard)
- * - Aturan H-1 Santri: jeda < 30 jam dicek judul sesi (judul berbeda -> tetap dikirim H-1)
- * - Aturan H-1 Pengajar: selalu dikirim 23 jam sebelum sesi
- * - Fitur Rekap Laporan Batch Admin (sukses, gagal, sisa) ke nomor di .env
+ * - Pengaturan Mandiri Wali Kelas: Toggle ON/OFF, Target Scope (Keduanya/Hanya Ortu/Hanya Santri), dan Opsi Ortu (Keduanya/Salah Satu)
+ * - Pesan ke Pengajar SELALU dikirimkan (23 jam sebelum sesi)
+ * - Laporan BATCH NOTIFIKASI WA Admin dengan observabilitas komprehensif seluruh penyebab tidak terkirim
  */
 export async function GET(request: NextRequest) {
   return handleScheduleReminders(request);
@@ -120,10 +120,6 @@ async function handleScheduleReminders(request: NextRequest) {
         if (!deviceStatus.isConnected) {
           isWahaConnected = false;
           console.warn('[Cron ScheduleReminders] ⚠️ Gateway WAHA terputus/offline. Menunda pengiriman batch.');
-
-          // Kirim peringatan ke admin jika nomor terdaftar
-          const adminPhoneRaw = process.env.CRON_ADMIN_REPORT_PHONE || '0882007730579';
-          const adminPhone = normalizePhoneNumber(adminPhoneRaw);
 
           return NextResponse.json({
             success: false,
@@ -215,9 +211,19 @@ async function handleScheduleReminders(request: NextRequest) {
     const processLogs: string[] = [];
     const dryRunRecipients: any[] = [];
 
+    // Wadah Audit Observabilitas Lengkap untuk Laporan Admin
+    const auditMetrics = {
+      homeroomDisabledClasses: new Set<string>(),
+      gap30hSameTitleSchedules: new Set<string>(),
+      studentsWithoutPhone: new Set<string>(),
+      studentsWithoutParent: new Set<string>(),
+      parentsWithoutPhone: new Set<string>(),
+      scopeFilteredStudents: 0,
+      scopeFilteredParents: 0,
+      singleParentFiltered: 0,
+    };
+
     // Preload semua log pesan berhasil 24 jam terakhir dalam 1 query DB
-    // CATATAN KRITIS: Hanya log dengan status SENT, DELIVERED, READ yang dianggap terkirim.
-    // Jika pesan FAILED, magicToken tidak masuk ke sentTokensSet sehingga bisa di-retry saat WAHA pulih.
     const existingLogs = await prisma.whatsAppMessageLog.findMany({
       where: {
         createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
@@ -289,7 +295,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
       // =========================================================================
       // 5. Target Pengajar (Ustadz / Ustadzah, Badal)
-      // Aturan: Dikirim 23 jam sebelum jadwal dilaksanakan tanpa terpengaruh jeda jadwal santri
+      // Aturan: SELALU DIKIRIMKAN 23 jam sebelum jadwal dilaksanakan tanpa terpengaruh switch kelas
       // =========================================================================
       if (isH1Reminder) {
         for (const st of schedule.teachers) {
@@ -384,6 +390,9 @@ async function handleScheduleReminders(request: NextRequest) {
           if (gapHours < 30) {
             if (isSameTitle) {
               allowStudentH1 = false;
+              auditMetrics.gap30hSameTitleSchedules.add(
+                `"${schedule.title}" (${gapHours.toFixed(1)} jam setelah "${previousSchedule.title}")`
+              );
               processLogs.push(
                 `[H-1 Santri Dilewati] "${schedule.title}" berjarak ${gapHours.toFixed(
                   1
@@ -401,102 +410,148 @@ async function handleScheduleReminders(request: NextRequest) {
         }
       }
 
-      // Jika ini jendela H-1 dan santri tidak diizinkan H-1, lewati santri & orang tua untuk jadwal ini
+      // =========================================================================
+      // 7. Pengaturan Notifikasi per Kelas (Kontrol Wali Kelas)
+      // Wali Kelas dapat mematikan pesan otomatis, memilih target scope, atau batasan orang tua
+      // =========================================================================
+      const classSetting = schedule.class;
+      const isClassWaEnabled = classSetting ? (classSetting.waNotificationEnabled ?? true) : true;
+      const recipientScope = classSetting ? (classSetting.waRecipientScope ?? 'BOTH') : 'BOTH';
+      const parentOption = classSetting ? (classSetting.waParentOption ?? 'ALL_PARENTS') : 'ALL_PARENTS';
+
+      if (!isClassWaEnabled) {
+        auditMetrics.homeroomDisabledClasses.add(classSetting?.name || schedule.title);
+        processLogs.push(
+          `[Wali Kelas OFF] Notifikasi santri/ortu dinonaktifkan oleh Wali Kelas untuk "${classSetting?.name || schedule.title}".`
+        );
+        continue; // Lewati santri dan orang tua jadwal ini
+      }
+
+      // Jika jendela H-1 dan santri tidak diizinkan H-1 (aturan < 30 jam judul sama), lewati santri & ortu
       if (isH1Reminder && !allowStudentH1) {
         continue;
       }
 
       // =========================================================================
-      // 7. Target Santri & Orang Tua
+      // 8. Target Santri & Orang Tua
       // =========================================================================
       const targetStudents = await getTargetStudentsForSchedule(schedule);
 
       for (const student of targetStudents) {
         const genName = student.generation?.name || 'Santri';
 
-        // A. Orang Tua
-        for (const rel of student.parents) {
-          const parent = rel.parent;
-          if (!parent || !parent.phoneNumber) continue;
+        // -----------------------------------------------------------------------
+        // A. Orang Tua / Wali
+        // -----------------------------------------------------------------------
+        if (recipientScope === 'STUDENTS_ONLY') {
+          auditMetrics.scopeFilteredParents++;
+        } else if (student.parents.length === 0) {
+          auditMetrics.studentsWithoutParent.add(student.fullName);
+        } else {
+          // Terapkan opsi orang tua: Semua Orang Tua (Ayah & Ibu) vs Salah Satu Saja
+          const parentsToNotify =
+            parentOption === 'SINGLE_PARENT' && student.parents.length > 1
+              ? [student.parents[0]] // Ambil hanya 1 kontak orang tua pertama
+              : student.parents;
 
-          const parentDedupKey = `SCHED_REMINDER_${schedule.id}_PARENT_${parent.id}_${student.id}_${reminderType}`;
+          if (parentOption === 'SINGLE_PARENT' && student.parents.length > 1) {
+            auditMetrics.singleParentFiltered += student.parents.length - 1;
+          }
 
-          if (isDryRun) {
-            dryRunRecipients.push({
-              target: 'ORANG_TUA',
+          for (const rel of parentsToNotify) {
+            const parent = rel.parent;
+            if (!parent || !parent.phoneNumber) {
+              auditMetrics.parentsWithoutPhone.add(
+                `${parent?.fullName || 'Wali'} (Ananda ${student.fullName})`
+              );
+              continue;
+            }
+
+            const parentDedupKey = `SCHED_REMINDER_${schedule.id}_PARENT_${parent.id}_${student.id}_${reminderType}`;
+
+            if (isDryRun) {
+              dryRunRecipients.push({
+                target: 'ORANG_TUA',
+                name: `${parent.fullName} (Ananda ${student.fullName})`,
+                phone: parent.phoneNumber,
+                type: reminderType,
+                scheduleTitle: schedule.title,
+                sessionTime: `${dayDateStr}, ${startTimeStr} - ${endTimeStr} WIB`,
+              });
+              continue;
+            }
+
+            if (sentTokensSet.has(parentDedupKey)) {
+              skippedCount++;
+              continue;
+            }
+
+            dispatchQueue.push({
+              type: 'ORANG_TUA',
               name: `${parent.fullName} (Ananda ${student.fullName})`,
               phone: parent.phoneNumber,
-              type: reminderType,
-              scheduleTitle: schedule.title,
-              sessionTime: `${dayDateStr}, ${startTimeStr} - ${endTimeStr} WIB`,
+              execute: async () => {
+                let res;
+                if (isH1Reminder) {
+                  res = await sendScheduleReminderH1ToStudent({
+                    recipientPhone: parent.phoneNumber!,
+                    recipientName: parent.fullName,
+                    recipientGender: parent.gender,
+                    relationshipType: rel.relationshipType,
+                    isParent: true,
+                    studentName: student.fullName,
+                    generationName: genName,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    materialTitle: materialTitles,
+                    teacherName: teacherNames,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: parentDedupKey,
+                    recipientUserId: parent.id,
+                  });
+                } else {
+                  res = await sendScheduleReminderCountdown({
+                    recipientPhone: parent.phoneNumber!,
+                    recipientName: parent.fullName,
+                    recipientGender: parent.gender,
+                    relationshipType: rel.relationshipType,
+                    isParent: true,
+                    studentName: student.fullName,
+                    scheduleTitle: schedule.title,
+                    startTime: startTimeStr,
+                    venueName,
+                    materialTitle: materialTitles,
+                    teacherName: teacherNames,
+                    teacherGender: schedule.teachers[0]?.teacher?.gender,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: parentDedupKey,
+                    recipientUserId: parent.id,
+                  });
+                }
+                return {
+                  success: Boolean(res.success),
+                  log: `[${reminderType} Ortu] ${parent.fullName} (Ananda ${student.fullName})`,
+                  error: res.error,
+                };
+              },
             });
-            continue;
           }
-
-          if (sentTokensSet.has(parentDedupKey)) {
-            skippedCount++;
-            continue;
-          }
-
-          dispatchQueue.push({
-            type: 'ORANG_TUA',
-            name: `${parent.fullName} (Ananda ${student.fullName})`,
-            phone: parent.phoneNumber,
-            execute: async () => {
-              let res;
-              if (isH1Reminder) {
-                res = await sendScheduleReminderH1ToStudent({
-                  recipientPhone: parent.phoneNumber!,
-                  recipientName: parent.fullName,
-                  recipientGender: parent.gender,
-                  relationshipType: rel.relationshipType,
-                  isParent: true,
-                  studentName: student.fullName,
-                  generationName: genName,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  materialTitle: materialTitles,
-                  teacherName: teacherNames,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: parentDedupKey,
-                  recipientUserId: parent.id,
-                });
-              } else {
-                res = await sendScheduleReminderCountdown({
-                  recipientPhone: parent.phoneNumber!,
-                  recipientName: parent.fullName,
-                  recipientGender: parent.gender,
-                  relationshipType: rel.relationshipType,
-                  isParent: true,
-                  studentName: student.fullName,
-                  scheduleTitle: schedule.title,
-                  startTime: startTimeStr,
-                  venueName,
-                  materialTitle: materialTitles,
-                  teacherName: teacherNames,
-                  teacherGender: schedule.teachers[0]?.teacher?.gender,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: parentDedupKey,
-                  recipientUserId: parent.id,
-                });
-              }
-              return {
-                success: Boolean(res.success),
-                log: `[${reminderType} Ortu] ${parent.fullName} (Ananda ${student.fullName})`,
-                error: res.error,
-              };
-            },
-          });
         }
 
+        // -----------------------------------------------------------------------
         // B. Santri Sendiri
-        if (student.phoneNumber) {
+        // -----------------------------------------------------------------------
+        if (recipientScope === 'PARENTS_ONLY') {
+          auditMetrics.scopeFilteredStudents++;
+        } else if (!student.phoneNumber) {
+          auditMetrics.studentsWithoutPhone.add(student.fullName);
+        } else {
           const studentDedupKey = `SCHED_REMINDER_${schedule.id}_STUDENT_${student.id}_${reminderType}`;
 
           if (isDryRun) {
@@ -574,13 +629,12 @@ async function handleScheduleReminders(request: NextRequest) {
     }
 
     // =========================================================================
-    // 8. Eksekusi Antrean Sekuensial dengan Jeda Acak 3-15 Detik
+    // 9. Eksekusi Antrean Sekuensial dengan Jeda Acak 3-15 Detik
     // Batas Runtime Maksimal 20 Detik (Sangat Aman dari Limit 30 Detik cron-job.org)
-    // Sisa antrean dialihkan otomatis ke menit berikutnya tanpa kehilangan pesan
     // =========================================================================
     const startTimeMs = Date.now();
-    const MAX_EXECUTION_TIME_MS = 20000; // Maksimal 20 detik total eksekusi batch
-    const MAX_DELAY_CUTOFF_MS = 16000; // Jika sudah lewat 16 detik, jangan sleep lagi
+    const MAX_EXECUTION_TIME_MS = 20000;
+    const MAX_DELAY_CUTOFF_MS = 16000;
     let consecutiveErrors = 0;
 
     for (let i = 0; i < dispatchQueue.length; i++) {
@@ -663,20 +717,39 @@ async function handleScheduleReminders(request: NextRequest) {
           venue: s.venuePlaceName,
           organization: s.organization.name,
         })),
+        auditMetrics: {
+          homeroomDisabledClasses: Array.from(auditMetrics.homeroomDisabledClasses),
+          gap30hSameTitleSchedules: Array.from(auditMetrics.gap30hSameTitleSchedules),
+          studentsWithoutPhoneCount: auditMetrics.studentsWithoutPhone.size,
+          studentsWithoutParentCount: auditMetrics.studentsWithoutParent.size,
+          parentsWithoutPhoneCount: auditMetrics.parentsWithoutPhone.size,
+          scopeFilteredStudents: auditMetrics.scopeFilteredStudents,
+          scopeFilteredParents: auditMetrics.scopeFilteredParents,
+          singleParentFiltered: auditMetrics.singleParentFiltered,
+        },
         recipientsPreview: dryRunRecipients.slice(0, 50),
       });
     }
 
     // =========================================================================
-    // 9. Fitur Rekap Laporan Admin (Kirim Notifikasi Sukses/Gagal per Batch)
-    // Dikirim ke nomor CRON_ADMIN_REPORT_PHONE jika ada pengiriman atau kegagalan
+    // 10. Fitur Rekap Laporan Admin Komprehensif (Observabilitas Penuh)
+    // Dikirim ke nomor CRON_ADMIN_REPORT_PHONE jika ada aktivitas atau ada kondisi skip/penolakan
     // =========================================================================
     const adminPhoneRaw = process.env.CRON_ADMIN_REPORT_PHONE || '0882007730579';
     const adminPhone = normalizePhoneNumber(adminPhoneRaw);
+
     const hasActivity = sentCount > 0 || failedCount > 0;
+    const hasAuditFindings =
+      auditMetrics.homeroomDisabledClasses.size > 0 ||
+      auditMetrics.studentsWithoutPhone.size > 0 ||
+      auditMetrics.studentsWithoutParent.size > 0 ||
+      auditMetrics.parentsWithoutPhone.size > 0 ||
+      auditMetrics.gap30hSameTitleSchedules.size > 0;
+
     const remainingInQueue = Math.max(0, dispatchQueue.length - (sentCount + failedCount));
 
-    if (hasActivity && !isDryRun && adminPhone) {
+    // Kirim laporan jika ada pengiriman pesan ATAU jika ada jadwal yang diproses dengan temuan audit
+    if ((hasActivity || (upcomingSchedules.length > 0 && hasAuditFindings)) && !isDryRun && adminPhone) {
       try {
         const timeStr = new Intl.DateTimeFormat('id-ID', {
           weekday: 'long',
@@ -696,12 +769,56 @@ async function handleScheduleReminders(request: NextRequest) {
           `📢 *LAPORAN BATCH NOTIFIKASI WA*\n` +
           `----------------------------------------\n` +
           `⏱️ *Waktu Batch:* ${timeStr} WIB\n` +
-          `📌 *Jadwal:* ${scheduleTitles || '-'}\n\n` +
+          `📌 *Jadwal Terkait:* ${scheduleTitles || '-'}\n\n` +
           `📊 *Hasil Pengiriman Menit Ini:*\n` +
           `• ✅ *Berhasil Terkirim:* ${sentCount} pesan\n` +
           `• ❌ *Gagal Terkirim:* ${failedCount} pesan\n` +
-          `• ⏭️ *Dilewati (Sudah Ada):* ${skippedCount} pesan\n` +
+          `• ⏭️ *Dilewati (Sudah Terkirim):* ${skippedCount} pesan\n` +
           `• ⏳ *Sisa Antrean (Menit Berikutnya):* ${remainingInQueue} pesan\n`;
+
+        // Bagian Audit Kondisi Penyebab Notifikasi Tidak Dikirimkan
+        adminReportText += `\n📋 *Audit Kondisi Tidak Terkirim / Dilewati:*\n`;
+
+        if (auditMetrics.homeroomDisabledClasses.size > 0) {
+          adminReportText += `• 🚫 *Dinonaktifkan Wali Kelas:* ${Array.from(auditMetrics.homeroomDisabledClasses).join(', ')}\n`;
+        }
+
+        if (auditMetrics.gap30hSameTitleSchedules.size > 0) {
+          adminReportText += `• ⏭️ *Jeda < 30 Jam (Judul Sama):* ${Array.from(auditMetrics.gap30hSameTitleSchedules).join(', ')}\n`;
+        }
+
+        if (auditMetrics.studentsWithoutPhone.size > 0) {
+          const listNames = Array.from(auditMetrics.studentsWithoutPhone);
+          const previewNames = listNames.slice(0, 3).join(', ');
+          const extraCount = listNames.length > 3 ? `, +${listNames.length - 3} lainnya` : '';
+          adminReportText += `• 📭 *Santri Tanpa No WA:* ${listNames.length} orang (${previewNames}${extraCount})\n`;
+        }
+
+        if (auditMetrics.studentsWithoutParent.size > 0) {
+          const listNames = Array.from(auditMetrics.studentsWithoutParent);
+          const previewNames = listNames.slice(0, 3).join(', ');
+          const extraCount = listNames.length > 3 ? `, +${listNames.length - 3} lainnya` : '';
+          adminReportText += `• ⚠️ *Santri Belum Terhubung Ortu:* ${listNames.length} anak (${previewNames}${extraCount})\n`;
+        }
+
+        if (auditMetrics.parentsWithoutPhone.size > 0) {
+          const listNames = Array.from(auditMetrics.parentsWithoutPhone);
+          const previewNames = listNames.slice(0, 3).join(', ');
+          const extraCount = listNames.length > 3 ? `, +${listNames.length - 3} lainnya` : '';
+          adminReportText += `• 📵 *Ortu Tanpa No WA:* ${listNames.length} kontak (${previewNames}${extraCount})\n`;
+        }
+
+        if (auditMetrics.scopeFilteredStudents > 0 || auditMetrics.scopeFilteredParents > 0 || auditMetrics.singleParentFiltered > 0) {
+          const scopeNotes: string[] = [];
+          if (auditMetrics.scopeFilteredStudents > 0) scopeNotes.push(`${auditMetrics.scopeFilteredStudents} santri (mode Hanya Ortu)`);
+          if (auditMetrics.scopeFilteredParents > 0) scopeNotes.push(`${auditMetrics.scopeFilteredParents} ortu (mode Hanya Santri)`);
+          if (auditMetrics.singleParentFiltered > 0) scopeNotes.push(`${auditMetrics.singleParentFiltered} ortu ke-2 (mode Salah Satu)`);
+          adminReportText += `• 🎛️ *Disesuaikan Mode Kelas:* ${scopeNotes.join(', ')}\n`;
+        }
+
+        if (!hasAuditFindings) {
+          adminReportText += `• (Semua peserta memenuhi syarat pengiriman)\n`;
+        }
 
         if (failedCount > 0 && lastErrorMessage) {
           adminReportText += `\n⚠️ *Detail Kendala Terakhir:*\n${lastErrorMessage}\n`;
@@ -709,7 +826,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
         adminReportText +=
           `----------------------------------------\n` +
-          `_Sistem Notifikasi Pengajian Otomatis_`;
+          `_Sistem Otomatisasi Pengajian & Notifikasi WA_`;
 
         await whatsAppClient.sendMessage({
           to: adminPhone,
@@ -717,7 +834,7 @@ async function handleScheduleReminders(request: NextRequest) {
           recipientName: 'Admin Pengajian',
           messageType: 'CUSTOM_DIRECT',
         });
-        console.log(`[Cron ScheduleReminders] 📲 Laporan batch berhasil dikirim ke Admin (${adminPhone})`);
+        console.log(`[Cron ScheduleReminders] 📲 Laporan batch komprehensif dikirim ke Admin (${adminPhone})`);
       } catch (adminSendErr) {
         console.error('[Cron ScheduleReminders] Gagal mengirim laporan batch ke Admin:', adminSendErr);
       }

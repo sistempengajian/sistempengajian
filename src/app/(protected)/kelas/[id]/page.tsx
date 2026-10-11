@@ -22,6 +22,7 @@ import { TierLevel } from '@prisma/client';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { getClassDetail } from '../queries';
+import { ClassNotificationSettingsCard } from '@/components/kelas/ClassNotificationSettingsCard';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -204,6 +205,16 @@ export default async function DetailKelasPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* 2.5 Pengaturan Notifikasi WhatsApp Otomatis Kelas (Khusus Wali Kelas & Pengelola) */}
+      <ClassNotificationSettingsCard
+        classId={classData.id}
+        className={classData.name}
+        initialEnabled={classData.waNotificationEnabled ?? true}
+        initialScope={classData.waRecipientScope ?? 'BOTH'}
+        initialParentOption={classData.waParentOption ?? 'ALL_PARENTS'}
+        canEdit={userPermissions.canEdit || classData.homeroomTeacherId === authUser.id}
+      />
 
       {/* 3. Daftar Santri Binaan */}
       <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">

@@ -605,6 +605,9 @@ export async function getClassDetail(
     organizationId: rawClass.organizationId,
     generationId: rawClass.generationId,
     homeroomTeacherId: rawClass.homeroomTeacherId,
+    waNotificationEnabled: rawClass.waNotificationEnabled,
+    waRecipientScope: rawClass.waRecipientScope,
+    waParentOption: rawClass.waParentOption,
     createdAt: rawClass.createdAt,
     updatedAt: rawClass.updatedAt,
     organization: {

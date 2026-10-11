@@ -45,6 +45,9 @@ export interface ClassWithRelations {
   organizationId: string;
   generationId: string;
   homeroomTeacherId: string | null;
+  waNotificationEnabled?: boolean;
+  waRecipientScope?: string;
+  waParentOption?: string;
   createdAt: Date;
   updatedAt: Date;
   organization: ClassOrganizationInfo;

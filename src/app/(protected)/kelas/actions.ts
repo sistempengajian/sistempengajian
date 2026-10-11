@@ -507,3 +507,85 @@ export async function deleteClass(
     return { success: false, message: error?.message || 'Gagal menghapus kelas karena kendala sistem.' };
   }
 }
+
+const notificationSettingsSchema = z.object({
+  classId: z.string().uuid('ID Kelas tidak valid.'),
+  waNotificationEnabled: z.boolean(),
+  waRecipientScope: z.enum(['BOTH', 'PARENTS_ONLY', 'STUDENTS_ONLY']),
+  waParentOption: z.enum(['ALL_PARENTS', 'SINGLE_PARENT']),
+});
+
+/**
+ * Server Action: Memperbarui Pengaturan Notifikasi WhatsApp Otomatis per Kelas
+ * Dapat diakses oleh Wali Kelas yang bertugas atau staf pengelola (Admin / PJ)
+ */
+export async function updateClassNotificationSettings(
+  input: z.infer<typeof notificationSettingsSchema>
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const parsed = notificationSettingsSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: parsed.error.issues[0]?.message || 'Input pengaturan tidak valid.',
+      };
+    }
+
+    const { classId, waNotificationEnabled, waRecipientScope, waParentOption } = parsed.data;
+    const { authUser, dbUser: currentUser } = await getEffectiveAuthUser();
+
+    if (!authUser || !currentUser) {
+      return { success: false, message: 'Sesi Anda telah berakhir atau pengguna tidak ditemukan.' };
+    }
+
+    const targetClass = await prisma.class.findUnique({
+      where: { id: classId },
+      include: { organization: true },
+    });
+
+    if (!targetClass) {
+      return { success: false, message: 'Kelas tidak ditemukan.' };
+    }
+
+    const currentUserRoles = currentUser.roles.map((r) => r.role);
+    const isManager =
+      currentUserRoles.includes('ADMIN_MASTER') ||
+      currentUserRoles.includes('PJ_DAERAH') ||
+      currentUserRoles.includes('PJ_DESA') ||
+      currentUserRoles.includes('PJ_KELOMPOK');
+
+    const isHomeroomTeacher = targetClass.homeroomTeacherId === currentUser.id;
+
+    if (!isManager && !isHomeroomTeacher) {
+      return {
+        success: false,
+        message: 'Akses ditolak: Anda bukan Wali Kelas dari kelas ini atau tidak memiliki hak akses pengelola.',
+      };
+    }
+
+    const updated = await prisma.class.update({
+      where: { id: classId },
+      data: {
+        waNotificationEnabled,
+        waRecipientScope,
+        waParentOption,
+      },
+    });
+
+    revalidatePath(`/kelas/${classId}`);
+    revalidatePath('/kelas');
+
+    return {
+      success: true,
+      message: 'Pengaturan notifikasi otomatis WhatsApp kelas berhasil disimpan.',
+      data: updated,
+    };
+  } catch (error: any) {
+    console.error('Error updating class notification settings:', error);
+    return {
+      success: false,
+      message: error?.message || 'Terjadi kesalahan sistem saat memperbarui pengaturan kelas.',
+    };
+  }
+}
+

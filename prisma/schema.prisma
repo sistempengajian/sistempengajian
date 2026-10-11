@@ -303,6 +303,9 @@ model Class {
   generationId      String    @map("generation_id") @db.Uuid
   homeroomTeacherId String?   @map("homeroom_teacher_id") @db.Uuid
   academicYear      String    @map("academic_year") @db.VarChar(50)
+  waNotificationEnabled Boolean @default(true) @map("wa_notification_enabled")
+  waRecipientScope      String  @default("BOTH") @map("wa_recipient_scope") @db.VarChar(50)
+  waParentOption        String  @default("ALL_PARENTS") @map("wa_parent_option") @db.VarChar(50)
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
