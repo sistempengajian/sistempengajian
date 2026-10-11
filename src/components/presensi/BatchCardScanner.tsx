@@ -58,6 +58,32 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
     }
   };
 
+  // Audio tone peringatan saat kartu ditolak / tidak cocok jadwal
+  const playErrorBeep = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        if ('navigator' in window && navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
+        if ('AudioContext' in window) {
+          const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, audioCtx.currentTime); // A3 low tone
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        }
+      }
+    } catch {
+      // Ignore audio failure
+    }
+  };
+
   const handleScanSuccess = async (decodedText: string) => {
     if (isCooldownRef.current || isProcessing) return;
 
@@ -75,6 +101,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
       if (res.success) {
         playBeep();
         setLastScanned(res.message);
+        setErrorMessage(null);
         setScannedList((prev) => [
           {
             id: decodedText,
@@ -85,10 +112,14 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
         ]);
         onScanSuccess?.();
       } else {
+        playErrorBeep();
+        setLastScanned(null);
         setErrorMessage(res.message || 'Kartu santri tidak valid.');
       }
     } catch (err) {
       console.error('Scan error:', err);
+      playErrorBeep();
+      setLastScanned(null);
       setErrorMessage('Terjadi kesalahan saat memverifikasi kartu.');
     } finally {
       setIsProcessing(false);

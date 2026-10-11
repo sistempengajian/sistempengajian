@@ -130,7 +130,27 @@ export default async function PresensiPage({
     : null;
 
   const roleCodes = userProfile.roles.map((r) => r.role);
-  const isPengajar = roleCodes.includes('PENGAJAR') || roleCodes.includes('WALI_KELAS');
+
+  // ─── Teacher-schedule authorization ───────────────────────────────────────
+  // Pengajar HANYA boleh mengakses presensi sesi jadwal tertentu jika mereka
+  // terdaftar sebagai pengajar (utama, pendamping, badal), wali kelas binaan, atau pengurus.
+  let isAssignedTeacherOfRequestedSchedule = false;
+  if (directSchedule) {
+    const isTeacher = directSchedule.teachers.some(
+      (t: any) => t.teacherId === userProfile.id
+    );
+    const isHomeroom =
+      directSchedule.class?.homeroomTeacherId === userProfile.id ||
+      directSchedule.targetClasses?.some(
+        (tc: any) => tc.class?.homeroomTeacherId === userProfile.id
+      );
+    isAssignedTeacherOfRequestedSchedule = isTeacher || isHomeroom;
+  }
+
+  const isPengajar =
+    roleCodes.includes('PENGAJAR') ||
+    roleCodes.includes('WALI_KELAS') ||
+    Boolean(directSchedule && isAssignedTeacherOfRequestedSchedule);
   const isSantri = roleCodes.includes('SANTRI');
   const isOrangTua = roleCodes.includes('ORANG_TUA');
   const isPjOrAdmin =
@@ -146,16 +166,6 @@ export default async function PresensiPage({
   const wantsPengajar = requestedRole === 'teacher' || requestedRole === 'pengajar';
   const wantsOrangTua = requestedRole === 'parent' || requestedRole === 'orang_tua';
 
-  // ─── Teacher-schedule authorization ───────────────────────────────────────
-  // Pengajar HANYA boleh mengakses presensi sesi jadwal tertentu jika mereka
-  // terdaftar sebagai pengajar (utama, pengganti/badal, atau tambahan) pada jadwal tersebut.
-  let isAssignedTeacherOfRequestedSchedule = false;
-  if (directSchedule && isPengajar) {
-    isAssignedTeacherOfRequestedSchedule = directSchedule.teachers.some(
-      (t: any) => t.teacherId === userProfile.id
-    );
-  }
-
   // Jika pengajar mencoba membuka scheduleId tertentu tapi TIDAK terdaftar di jadwal itu:
   if (requestedScheduleId && isPengajar && !isPjOrAdmin && !isAssignedTeacherOfRequestedSchedule) {
     if (!isSantri) {
@@ -168,7 +178,7 @@ export default async function PresensiPage({
             </div>
             <h3 className="text-base font-bold text-slate-900">Akses Ditolak</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Anda tidak terdaftar sebagai pengajar pada sesi jadwal ini. Hanya pengajar utama, pengajar pengganti, atau pengajar tambahan yang terdaftar yang dapat mengakses presensi sesi ini.
+              Anda tidak terdaftar sebagai pengajar pada sesi jadwal ini. Hanya pengajar utama, pengajar pendamping, pengajar badal, atau wali kelas yang dapat mengakses presensi sesi ini.
             </p>
             <Link
               href="/presensi"
@@ -234,16 +244,33 @@ export default async function PresensiPage({
     let activeSchedule = directSchedule;
 
     if (!activeSchedule && isPengajar) {
-      // Only fetch the pengajar's own assigned schedules — not schedules from
-      // their organisation that may belong to other teachers.
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      // 1. Prioritaskan jadwal yang saat ini sedang ACTIVE
       activeSchedule = await prisma.schedule.findFirst({
         where: {
-          status: { in: ['ACTIVE', 'SCHEDULED'] },
+          status: 'ACTIVE',
           teachers: { some: { teacherId: userProfile.id } },
         },
         orderBy: { startTime: 'asc' },
         include: scheduleInclude,
       });
+
+      // 2. Jika tidak ada yang ACTIVE, cari jadwal HARI INI yang berstatus SCHEDULED
+      if (!activeSchedule) {
+        activeSchedule = await prisma.schedule.findFirst({
+          where: {
+            status: 'SCHEDULED',
+            startTime: { gte: startOfToday, lte: endOfToday },
+            teachers: { some: { teacherId: userProfile.id } },
+          },
+          orderBy: { startTime: 'asc' },
+          include: scheduleInclude,
+        });
+      }
     }
 
     if (!activeSchedule) {
@@ -837,11 +864,35 @@ export default async function PresensiPage({
     let activeSchedule: any = null;
 
     if (requestedScheduleId) {
-      activeSchedule = await prisma.schedule.findUnique({
+      const candidateSchedule = await prisma.schedule.findUnique({
         where: { id: requestedScheduleId },
-        include: sessionInclude,
+        include: {
+          ...sessionInclude,
+          class: true,
+          targetClasses: { include: { class: true } },
+          targetGenerations: true,
+        },
       });
-    } else {
+
+      if (candidateSchedule) {
+        const studentOrgIds = [
+          userProfile.organizationId,
+          userProfile.organization?.parentId,
+        ].filter(Boolean) as string[];
+
+        const isOrgEligible = studentOrgIds.includes(candidateSchedule.organizationId);
+        const matchesClass =
+          candidateSchedule.class?.generationId === userProfile.generationId ||
+          candidateSchedule.targetClasses?.some((tc: any) => tc.class?.generationId === userProfile.generationId) ||
+          candidateSchedule.targetGenerations?.some((tg: any) => tg.generationId === userProfile.generationId);
+
+        if (isOrgEligible || matchesClass) {
+          activeSchedule = candidateSchedule;
+        }
+      }
+    }
+    
+    if (!activeSchedule) {
       const studentClasses = await prisma.class.findMany({
         where: {
           generationId: userProfile.generationId || undefined,

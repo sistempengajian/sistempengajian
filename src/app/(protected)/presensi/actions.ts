@@ -15,6 +15,227 @@ import crypto from 'crypto';
 import { uploadTaskImage } from '@/lib/storage/mediaUploader';
 
 /**
+ * Memeriksa apakah seorang santri terdaftar / berhak mengikuti jadwal pengajian tertentu
+ */
+export async function checkStudentScheduleEligibility(
+  studentId: string,
+  scheduleId: string,
+  sessionId?: string
+): Promise<{ isEligible: boolean; studentName?: string; reason?: string }> {
+  // 1. Cek cepat: Jika sessionId diberikan, periksa apakah santri sudah ada di daftar record sesi
+  if (sessionId) {
+    const existingRecord = await prisma.attendanceRecord.findUnique({
+      where: {
+        sessionId_studentId: {
+          sessionId,
+          studentId,
+        },
+      },
+      select: { id: true, student: { select: { fullName: true } } },
+    });
+    if (existingRecord) {
+      return { isEligible: true, studentName: existingRecord.student.fullName };
+    }
+  }
+
+  // 2. Ambil data santri
+  const student = await prisma.user.findUnique({
+    where: { id: studentId },
+    select: {
+      id: true,
+      fullName: true,
+      status: true,
+      organizationId: true,
+      generationId: true,
+      roles: { select: { role: true } },
+    },
+  });
+
+  if (!student) {
+    return { isEligible: false, reason: 'Santri tidak ditemukan dalam sistem.' };
+  }
+
+  if (!student.roles.some((r) => r.role === 'SANTRI')) {
+    return { isEligible: false, studentName: student.fullName, reason: 'Pengguna bukan berstatus santri.' };
+  }
+
+  // 3. Ambil data jadwal beserta target kelas, generasi, dan wilayah
+  const schedule = await prisma.schedule.findUnique({
+    where: { id: scheduleId },
+    include: {
+      class: {
+        select: {
+          id: true,
+          organizationId: true,
+          generationId: true,
+        },
+      },
+      targetClasses: {
+        include: {
+          class: {
+            select: {
+              id: true,
+              organizationId: true,
+              generationId: true,
+            },
+          },
+        },
+      },
+      targetGenerations: {
+        select: { generationId: true },
+      },
+      organization: {
+        select: { id: true, parentId: true },
+      },
+    },
+  });
+
+  if (!schedule) {
+    return { isEligible: false, reason: 'Jadwal pengajian tidak ditemukan.' };
+  }
+
+  // 4. Periksa kecocokan kelas target
+  const targetClassesList: Array<{ organizationId: string; generationId: string }> = [];
+  if (schedule.class) {
+    targetClassesList.push({
+      organizationId: schedule.class.organizationId,
+      generationId: schedule.class.generationId,
+    });
+  }
+  if (schedule.targetClasses && schedule.targetClasses.length > 0) {
+    for (const tc of schedule.targetClasses) {
+      if (tc.class) {
+        targetClassesList.push({
+          organizationId: tc.class.organizationId,
+          generationId: tc.class.generationId,
+        });
+      }
+    }
+  }
+
+  if (targetClassesList.length > 0) {
+    const matchesClass = targetClassesList.some(
+      (c) => c.organizationId === student.organizationId && c.generationId === student.generationId
+    );
+    if (!matchesClass) {
+      return {
+        isEligible: false,
+        studentName: student.fullName,
+        reason: `Santri tidak terdaftar di kelas yang dijadwalkan pada sesi ini (${schedule.title}).`,
+      };
+    }
+    return { isEligible: true, studentName: student.fullName };
+  }
+
+  // 5. Periksa kecocokan teritorial (Jadwal tingkat Kelompok, Desa, atau Daerah tanpa kelas khusus)
+  if (schedule.targetGenerations && schedule.targetGenerations.length > 0) {
+    const matchesGen = schedule.targetGenerations.some(
+      (g) => g.generationId === student.generationId
+    );
+    if (!matchesGen) {
+      return {
+        isEligible: false,
+        studentName: student.fullName,
+        reason: `Jenjang generasi santri tidak sesuai dengan target jadwal ini (${schedule.title}).`,
+      };
+    }
+  }
+
+  // Cek cakupan organisasi
+  const validOrgIds: string[] = [schedule.organizationId];
+  if (schedule.tierLevel === 'DESA') {
+    const subOrgs = await prisma.organization.findMany({
+      where: { parentId: schedule.organizationId },
+      select: { id: true },
+    });
+    validOrgIds.push(...subOrgs.map((o) => o.id));
+  } else if (schedule.tierLevel === 'DAERAH') {
+    const desaOrgs = await prisma.organization.findMany({
+      where: { parentId: schedule.organizationId },
+      select: { id: true },
+    });
+    const desaIds = desaOrgs.map((o) => o.id);
+    validOrgIds.push(...desaIds);
+    if (desaIds.length > 0) {
+      const kelompokOrgs = await prisma.organization.findMany({
+        where: { parentId: { in: desaIds } },
+        select: { id: true },
+      });
+      validOrgIds.push(...kelompokOrgs.map((o) => o.id));
+    }
+  }
+
+  const matchesOrg = Boolean(student.organizationId && validOrgIds.includes(student.organizationId));
+  if (!matchesOrg) {
+    return {
+      isEligible: false,
+      studentName: student.fullName,
+      reason: `Kelompok santri berada di luar cakupan wilayah jadwal ini (${schedule.title}).`,
+    };
+  }
+
+  return { isEligible: true, studentName: student.fullName };
+}
+
+/**
+ * Memeriksa hak otorisasi pengajar pada jadwal tertentu
+ * Mendukung: Pengajar Utama, Pengajar Pendamping, Pengajar Badal, Wali Kelas, dan Pengurus/Admin
+ */
+export async function checkTeacherScheduleAuthorization(
+  userId: string,
+  scheduleId: string
+): Promise<{ isAuthorized: boolean; roleDescription?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { roles: true },
+  });
+
+  if (!user) return { isAuthorized: false };
+
+  const roleCodes = user.roles.map((r) => r.role);
+  const isManager = roleCodes.some((rc) =>
+    ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(rc)
+  );
+
+  if (isManager) {
+    return { isAuthorized: true, roleDescription: 'Pengurus / Admin' };
+  }
+
+  // Periksa apakah terdaftar di schedule_teachers (Utama, Pendamping, atau Badal)
+  const scheduleTeacher = await prisma.scheduleTeacher.findFirst({
+    where: { scheduleId, teacherId: userId },
+  });
+
+  if (scheduleTeacher) {
+    const desc = scheduleTeacher.isSubstitute
+      ? 'Pengajar Badal'
+      : scheduleTeacher.isPrimary
+      ? 'Pengajar Utama'
+      : 'Pengajar Pendamping';
+    return { isAuthorized: true, roleDescription: desc };
+  }
+
+  // Periksa apakah merupakan Wali Kelas dari kelas yang dijadwalkan
+  const schedule = await prisma.schedule.findUnique({
+    where: { id: scheduleId },
+    include: {
+      class: { select: { homeroomTeacherId: true } },
+      targetClasses: { include: { class: { select: { homeroomTeacherId: true } } } },
+    },
+  });
+
+  const isHomeroom =
+    schedule?.class?.homeroomTeacherId === userId ||
+    schedule?.targetClasses.some((tc) => tc.class?.homeroomTeacherId === userId);
+
+  if (isHomeroom) {
+    return { isAuthorized: true, roleDescription: 'Wali Kelas' };
+  }
+
+  return { isAuthorized: false };
+}
+
+/**
  * Mengisi status awal ALPA di database untuk seluruh santri target jadwal yang belum memiliki catatan presensi
  * Memastikan data di server sinkron dengan tampilan default Alpa sejak sesi dibuka maupun saat ditutup.
  */
@@ -67,8 +288,9 @@ export async function populateDefaultAbsenceForSession(sessionId: string) {
 
   const targetClassesList = Array.from(targetClassesMap.values());
 
-  // Filter santri
+  // Filter santri aktif
   const studentWhere: any = {
+    status: 'ACTIVE',
     roles: {
       some: { role: 'SANTRI' },
     },
@@ -149,22 +371,10 @@ export async function getOrOpenSession(scheduleId: string) {
     throw new Error('Tidak terautentikasi');
   }
 
-  // Teacher authorization check:
-  const roleCodes = userProfile.roles.map((r: any) => r.role);
-  const isPjOrAdmin = roleCodes.some((rc: string) =>
-    ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(rc)
-  );
-
-  if (!isPjOrAdmin) {
-    const isAssigned = await prisma.scheduleTeacher.findFirst({
-      where: {
-        scheduleId,
-        teacherId: userProfile.id,
-      },
-    });
-    if (!isAssigned) {
-      throw new Error('Anda tidak memiliki otorisasi pengajar pada sesi jadwal ini.');
-    }
+  // Teacher authorization check (Utama, Pendamping, Badal, Wali Kelas, atau Pengurus/Admin):
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, scheduleId);
+  if (!authCheck.isAuthorized) {
+    throw new Error('Anda tidak memiliki otorisasi pengajar pada sesi jadwal ini.');
   }
 
   // Cek apakah sudah ada sesi aktif untuk jadwal ini
@@ -297,26 +507,16 @@ export async function closeAttendanceSession(sessionId: string) {
 
   const existingSession = await prisma.attendanceSession.findUnique({
     where: { id: sessionId },
-    include: {
-      schedule: {
-        include: {
-          teachers: true,
-        },
-      },
-    },
+    select: { scheduleId: true },
   });
 
   if (!existingSession) {
     throw new Error('Sesi presensi tidak ditemukan');
   }
 
-  if (!isPjOrAdmin) {
-    const isAssigned = existingSession.schedule.teachers.some(
-      (t) => t.teacherId === userProfile.id
-    );
-    if (!isAssigned) {
-      throw new Error('Anda tidak memiliki otorisasi pengajar untuk menutup sesi ini.');
-    }
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, existingSession.scheduleId);
+  if (!authCheck.isAuthorized) {
+    throw new Error('Anda tidak memiliki otorisasi pengajar untuk menutup sesi ini.');
   }
 
   // Pastikan santri yang belum tercatat otomatis tersimpan sebagai ALPA di database
@@ -345,13 +545,24 @@ export async function closeAttendanceSession(sessionId: string) {
  * Membuka kembali sesi presensi yang telah ditutup
  */
 export async function reopenAttendanceSession(sessionId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
+  }
+
+  const existingSession = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    select: { scheduleId: true },
+  });
+
+  if (!existingSession) {
+    throw new Error('Sesi presensi tidak ditemukan');
+  }
+
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, existingSession.scheduleId);
+  if (!authCheck.isAuthorized) {
+    throw new Error('Anda tidak memiliki otorisasi pengajar untuk membuka kembali sesi ini.');
   }
 
   const session = await prisma.attendanceSession.update({
@@ -406,6 +617,17 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
 
   if (!verification.isValid) {
     return { success: false, message: verification.message };
+  }
+
+  // Verifikasi kelayakan santri: Pastikan santri terdaftar di jadwal/kelas ini!
+  const eligibility = await checkStudentScheduleEligibility(effectiveUserId, scheduleId, session.id);
+  if (!eligibility.isEligible) {
+    return {
+      success: false,
+      message:
+        eligibility.reason ||
+        'Anda tidak terdaftar sebagai santri pada sesi jadwal pengajian ini.',
+    };
   }
 
   // Catat atau perbarui absensi santri menjadi HADIR
@@ -541,7 +763,18 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
     return { success: false, message: verification.message };
   }
 
-  // 5. Catat kehadiran santri menjadi HADIR
+  // 5. Verifikasi kelayakan ananda: Pastikan santri terdaftar di jadwal/kelas ini!
+  const eligibility = await checkStudentScheduleEligibility(studentId, scheduleId, session.id);
+  if (!eligibility.isEligible) {
+    return {
+      success: false,
+      message:
+        eligibility.reason ||
+        `Ananda ${student?.fullName || ''} tidak terdaftar sebagai santri pada sesi jadwal pengajian ini.`,
+    };
+  }
+
+  // 6. Catat kehadiran santri menjadi HADIR
   const now = new Date();
   const attendance = await prisma.attendanceRecord.upsert({
     where: {
@@ -568,7 +801,7 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
     },
   });
 
-  // 6. Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak
+  // 7. Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak
   try {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const earlierAttendanceToday = await prisma.attendanceRecord.findFirst({
@@ -628,13 +861,31 @@ export async function recordManualAttendance(
   status: AttendanceStatus,
   notes?: string
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
+  }
+
+  const session = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    select: { scheduleId: true, isActive: true },
+  });
+
+  if (!session) {
+    throw new Error('Sesi presensi tidak ditemukan');
+  }
+
+  // Verifikasi otorisasi pengajar (Utama, Pendamping, Badal, Wali Kelas, atau Pengurus/Admin)
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, session.scheduleId);
+  if (!authCheck.isAuthorized) {
+    throw new Error('Anda tidak memiliki otorisasi pengajar untuk mengubah presensi pada sesi ini.');
+  }
+
+  // Verifikasi kelayakan santri pada jadwal ini
+  const eligibility = await checkStudentScheduleEligibility(studentId, session.scheduleId, sessionId);
+  if (!eligibility.isEligible) {
+    throw new Error(eligibility.reason || 'Santri tidak terdaftar pada sesi jadwal ini.');
   }
 
   const now = new Date();
@@ -650,7 +901,7 @@ export async function recordManualAttendance(
       status,
       checkInTime: status === 'HADIR' ? now : null,
       markedByUserId: authUser.id,
-      notes: notes || `Diperbarui manual oleh pengajar menjadi ${status}`,
+      notes: notes || `Diperbarui manual oleh ${authCheck.roleDescription || 'pengajar'} menjadi ${status}`,
     },
     create: {
       sessionId,
@@ -659,7 +910,7 @@ export async function recordManualAttendance(
       status,
       checkInTime: status === 'HADIR' ? now : null,
       markedByUserId: authUser.id,
-      notes: notes || `Dicatat manual oleh pengajar`,
+      notes: notes || `Dicatat manual oleh ${authCheck.roleDescription || 'pengajar'}`,
     },
   });
 
@@ -671,18 +922,39 @@ export async function recordManualAttendance(
  * Menandai semua santri yang belum diabsen menjadi HADIR
  */
 export async function markAllPresent(sessionId: string, studentIds: string[]) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');
+  }
+
+  const session = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    select: { scheduleId: true, isActive: true },
+  });
+
+  if (!session) {
+    throw new Error('Sesi presensi tidak ditemukan');
+  }
+
+  // Verifikasi otorisasi pengajar (Utama, Pendamping, Badal, Wali Kelas, atau Pengurus/Admin)
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, session.scheduleId);
+  if (!authCheck.isAuthorized) {
+    throw new Error('Anda tidak memiliki otorisasi pengajar untuk menandai kehadiran pada sesi ini.');
+  }
+
+  // Filter hanya santri yang sah / berhak pada sesi jadwal ini
+  const validStudentIds: string[] = [];
+  for (const sId of studentIds) {
+    const el = await checkStudentScheduleEligibility(sId, session.scheduleId, sessionId);
+    if (el.isEligible) {
+      validStudentIds.push(sId);
+    }
   }
 
   const now = new Date();
   await Promise.all(
-    studentIds.map((studentId) =>
+    validStudentIds.map((studentId) =>
       prisma.attendanceRecord.upsert({
         where: {
           sessionId_studentId: {
@@ -695,7 +967,7 @@ export async function markAllPresent(sessionId: string, studentIds: string[]) {
           status: AttendanceStatus.HADIR,
           checkInTime: now,
           markedByUserId: authUser.id,
-          notes: 'Diset Hadir massal oleh pengajar',
+          notes: `Diset Hadir massal oleh ${authCheck.roleDescription || 'pengajar'}`,
         },
         create: {
           sessionId,
@@ -704,54 +976,118 @@ export async function markAllPresent(sessionId: string, studentIds: string[]) {
           status: AttendanceStatus.HADIR,
           checkInTime: now,
           markedByUserId: authUser.id,
-          notes: 'Diset Hadir massal oleh pengajar',
+          notes: `Diset Hadir massal oleh ${authCheck.roleDescription || 'pengajar'}`,
         },
       })
     )
   );
 
   revalidatePath('/presensi');
-  return { success: true, count: studentIds.length };
+  return { success: true, count: validStudentIds.length };
 }
 
 /**
  * Memproses scan kartu fisik QR santri (Caberawit) oleh pengajar
  */
 export async function recordBatchCardScan(sessionId: string, cardQrContent: string) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!authUser) {
+  if (!authUser || !userProfile) {
     return { success: false, message: 'Tidak terautentikasi' };
   }
 
-  // Validasi format kartu santri: santri:<uuid>
-  let studentId = cardQrContent.trim();
-  if (studentId.startsWith('santri:')) {
-    studentId = studentId.replace('santri:', '');
+  if (!sessionId) {
+    return { success: false, message: 'ID Sesi presensi wajib disertakan.' };
   }
 
-  // Verifikasi santri ada di database
+  // Validasi format ID santri: santri:<uuid> atau raw uuid
+  let studentId = (cardQrContent || '').trim();
+  if (studentId.startsWith('santri:')) {
+    studentId = studentId.replace('santri:', '').trim();
+  }
+
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_REGEX.test(studentId)) {
+    return {
+      success: false,
+      message: 'Format kode QR bukan kartu identitas santri yang valid.',
+    };
+  }
+
+  // 1. Ambil data sesi presensi aktif beserta jadwalnya
+  const session = await prisma.attendanceSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      schedule: {
+        include: {
+          teachers: true,
+          class: true,
+          targetClasses: { include: { class: true } },
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    return { success: false, message: 'Sesi presensi tidak ditemukan.' };
+  }
+
+  if (!session.isActive) {
+    return { success: false, message: 'Sesi presensi pengajian telah ditutup.' };
+  }
+
+  // 2. Validasi otorisasi pengajar (Utama, Pendamping, Badal, Wali Kelas, atau Pengurus/Admin)
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, session.scheduleId);
+  if (!authCheck.isAuthorized) {
+    return {
+      success: false,
+      message: 'Anda tidak memiliki hak otorisasi pengajar pada sesi jadwal ini.',
+    };
+  }
+
+  // 3. Validasi kelayakan santri: Pastikan santri benar-benar terdaftar di jadwal/kelas ini!
+  const eligibility = await checkStudentScheduleEligibility(
+    studentId,
+    session.scheduleId,
+    session.id
+  );
+
+  if (!eligibility.isEligible) {
+    return {
+      success: false,
+      message:
+        eligibility.reason ||
+        `Santri ${eligibility.studentName || ''} tidak terdaftar pada sesi jadwal ini (${session.schedule.title}).`,
+    };
+  }
+
+  // 4. Verifikasi data santri terkini
   const student = await prisma.user.findUnique({
     where: { id: studentId },
     select: {
       id: true,
       fullName: true,
+      status: true,
       generation: { select: { name: true } },
     },
   });
 
   if (!student) {
-    return { success: false, message: 'ID Kartu Santri tidak ditemukan dalam sistem.' };
+    return { success: false, message: 'Data santri tidak ditemukan dalam sistem.' };
+  }
+
+  if (student.status !== 'ACTIVE') {
+    return {
+      success: false,
+      message: `Santri ${student.fullName} berstatus tidak aktif (${student.status}).`,
+    };
   }
 
   const now = new Date();
   await prisma.attendanceRecord.upsert({
     where: {
       sessionId_studentId: {
-        sessionId,
+        sessionId: session.id,
         studentId: student.id,
       },
     },
@@ -760,20 +1096,61 @@ export async function recordBatchCardScan(sessionId: string, cardQrContent: stri
       status: AttendanceStatus.HADIR,
       checkInTime: now,
       markedByUserId: authUser.id,
-      notes: 'Scan cepat kartu fisik ber-QR oleh pengajar',
+      notes: `Scan cepat kartu fisik ber-QR oleh ${authCheck.roleDescription || 'pengajar'}`,
     },
     create: {
-      sessionId,
+      sessionId: session.id,
       studentId: student.id,
       method: AttendanceMethod.CARD_SCAN_TEACHER,
       status: AttendanceStatus.HADIR,
       checkInTime: now,
       markedByUserId: authUser.id,
-      notes: 'Scan cepat kartu fisik ber-QR oleh pengajar',
+      notes: `Scan cepat kartu fisik ber-QR oleh ${authCheck.roleDescription || 'pengajar'}`,
     },
   });
 
+  // 5. Tambah Poin Gamifikasi Santri (+10 Poin) & Update Streak (agar konsisten dengan scan santri mandiri)
+  try {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const earlierAttendanceToday = await prisma.attendanceRecord.findFirst({
+      where: {
+        studentId: student.id,
+        status: AttendanceStatus.HADIR,
+        sessionId: { not: session.id },
+        createdAt: { gte: startOfToday },
+      },
+    });
+
+    const currentGamification = await prisma.userGamification.findUnique({
+      where: { userId: student.id },
+    });
+
+    const currentStreak = currentGamification?.currentStreakDays || 0;
+    const newStreak = earlierAttendanceToday ? currentStreak : currentStreak + 1;
+    const newHighest = Math.max(currentGamification?.highestStreakDays || 0, newStreak);
+
+    await prisma.userGamification.upsert({
+      where: { userId: student.id },
+      update: {
+        totalPoints: { increment: 10 },
+        currentStreakDays: newStreak,
+        highestStreakDays: newHighest,
+        updatedAt: now,
+      },
+      create: {
+        userId: student.id,
+        totalPoints: 10,
+        currentStreakDays: 1,
+        highestStreakDays: 1,
+        level: 1,
+      },
+    });
+  } catch (error) {
+    console.error('Gamification update warning (Batch card scan):', error);
+  }
+
   revalidatePath('/presensi');
+  revalidatePath(`/jadwal/${session.scheduleId}`);
   return {
     success: true,
     message: `${student.fullName} (${student.generation?.name || 'Santri'}) tercatat HADIR.`,

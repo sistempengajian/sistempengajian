@@ -651,18 +651,34 @@ export async function assignSubstituteTeacher(scheduleId: string, substituteTeac
     };
   }
 
+  // Validasi: Pengajar utama tidak boleh ditugaskan sebagai badal untuk jadwalnya sendiri
+  if (schedule.teachers.some((t) => t.isPrimary && t.teacherId === substituteTeacherId)) {
+    return { error: 'Pengajar utama tidak dapat ditugaskan sebagai guru badal pada sesi jadwalnya sendiri.' };
+  }
+
   try {
-    // Hapus badal lama jika ada
+    // Hapus badal lain jika ada (selain guru yang baru ditugaskan)
     await prisma.scheduleTeacher.deleteMany({
       where: {
         scheduleId,
         isSubstitute: true,
+        teacherId: { not: substituteTeacherId },
       },
     });
 
-    // Buat record badal baru
-    await prisma.scheduleTeacher.create({
-      data: {
+    // Gunakan upsert agar tidak melanggar unique constraint jika guru sebelumnya terdaftar sebagai pendamping
+    await prisma.scheduleTeacher.upsert({
+      where: {
+        scheduleId_teacherId: {
+          scheduleId,
+          teacherId: substituteTeacherId,
+        },
+      },
+      update: {
+        isPrimary: false,
+        isSubstitute: true,
+      },
+      create: {
         scheduleId,
         teacherId: substituteTeacherId,
         isPrimary: false,
