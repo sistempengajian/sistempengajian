@@ -513,6 +513,7 @@ async function handleScheduleReminders(request: NextRequest) {
                     scheduleId: schedule.id,
                     magicToken: parentDedupKey,
                     recipientUserId: parent.id,
+                    studentUserId: student.id,
                   });
                 } else {
                   res = await sendScheduleReminderCountdown({
@@ -597,6 +598,7 @@ async function handleScheduleReminders(request: NextRequest) {
                   scheduleId: schedule.id,
                   magicToken: studentDedupKey,
                   recipientUserId: student.id,
+                  studentUserId: student.id,
                 });
               } else {
                 res = await sendScheduleReminderCountdown({

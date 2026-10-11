@@ -783,11 +783,26 @@ export default async function PresensiPage({
         }
       : undefined;
 
+    // Ambil permohonan izin mandiri santri untuk jadwal ini
+    const studentAbsenceRequests = await prisma.studentAbsenceRequest.findMany({
+      where: {
+        scheduleId: activeSchedule.id,
+      },
+      include: {
+        approvals: {
+          include: {
+            approverUser: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+
     const studentItems = classStudents.map((s) => {
       const record = session?.records.find((r: any) => r.studentId === s.id);
       const matchedClass = targetClassesList.find(
         (c) => c.organizationId === s.organizationId && c.generationId === s.generationId
       );
+      const matchedAbsence = studentAbsenceRequests.find((ar) => ar.studentId === s.id);
 
       return {
         id: s.id,
@@ -813,6 +828,29 @@ export default async function PresensiPage({
               confirmedAt: record.absenceConfirmation.confirmedAt
                 ? record.absenceConfirmation.confirmedAt.toISOString()
                 : null,
+            }
+          : null,
+        studentAbsenceRequest: matchedAbsence
+          ? {
+              id: matchedAbsence.id,
+              absenceType: matchedAbsence.absenceType,
+              notes: matchedAbsence.notes,
+              attachmentUrl: matchedAbsence.attachmentUrl,
+              approvedCount: matchedAbsence.approvedCount,
+              status: matchedAbsence.status,
+              approverNames: matchedAbsence.approvals
+                .filter((a) => a.action === 'APPROVED')
+                .map(
+                  (a) =>
+                    `${a.approverUser.fullName} (${
+                      a.approverRole === 'PARENT'
+                        ? 'Ortu'
+                        : a.approverRole === 'HOMEROOM_TEACHER'
+                        ? 'Wali Kelas'
+                        : 'PJ'
+                    })`
+                )
+                .join(', '),
             }
           : null,
       };

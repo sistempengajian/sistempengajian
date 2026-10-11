@@ -90,7 +90,8 @@ Alhamdulillah Jazakumullahu Khairan.`,
       'nama_ustadz',
       'catatan_tambahan',
       'url_jadwal',
-      'magic_link_izin',
+      'url_presensi',
+      'url_ajukan_izin',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}.
@@ -111,9 +112,13 @@ Mengingatkan agenda pengajian rutin *Sistem Generasi Penerus* untuk esok hari:
 👉 *Buka Portal Belajar & Detail Materi:*
 {{url_jadwal}}
 
-⚠️ *Berhalangan Hadir?*
-Konfirmasi izin lebih awal agar tercatat di sistem:
-👉 {{magic_link_izin}}
+⚡ *AKSES CEPAT SANTRI:*
+📝 *Buka Langsung Halaman Presensi:*
+👉 {{url_presensi}}
+
+⚠️ *BERHALANGAN HADIR (IZIN / SAKIT)?*
+Ajukan permohonan izin secara mandiri melalui tautan berikut:
+👉 {{url_ajukan_izin}}
 
 Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
@@ -137,7 +142,8 @@ Alhamdulillah Jazakumullahu Khairan.
       'is_badal_text',
       'catatan_tambahan',
       'url_jadwal',
-      'url_request_badal',
+      'url_absensi',
+      'url_ajukan_badal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 Yth. *{{sapaan_ustadz}}*.
@@ -153,11 +159,186 @@ Mengingatkan amanah jadwal mengajar pengajian *Sistem Generasi Penerus* untuk es
 👉 *Buka Rincian Jadwal & Materi Ajar:*
 {{url_jadwal}}
 
-⚠️ *Berhalangan Mengajar?*
-Mohon segera ajukan permohonan Guru Badal (Pengganti) melalui sistem agar PJ kelompok dapat menugaskan pengganti tepat waktu:
-👉 {{url_request_badal}}
+⚡ *AKSES CEPAT PENGAJAR:*
+📝 *Buka Langsung Absensi Sesi Ini:*
+👉 {{url_absensi}}
+
+⚠️ *BERHALANGAN MENGAJAR?*
+Ajukan Ustadz Badal (Pengganti) secara cepat melalui tautan berikut:
+👉 {{url_ajukan_badal}}
 
 Alhamdulillah Jazakumullahu Khairan atas keikhlasan dan dedikasi {{title_ustadz}}.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  SUBSTITUTE_REQUEST_INVITATION: {
+    code: 'SUBSTITUTE_REQUEST_INVITATION',
+    name: 'Permohonan Delegasi Guru Badal (Ke Calon Badal & PJ)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_penerima',
+      'peran_penerima_text',
+      'judul_sesi',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'jenjang_kelas',
+      'judul_materi',
+      'nama_pemohon',
+      'alasan_berhalangan',
+      'url_konfirmasi_badal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{sapaan_penerima}}*.
+
+{{peran_penerima_text}} permohonan Guru Badal (Pengganti) untuk sesi pengajian berikut:
+
+📌 *Sesi:* {{judul_sesi}}
+📅 *Waktu:* {{hari_tanggal}}, {{waktu_mulai}} - {{waktu_selesai}} WIB
+🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
+👥 *Target:* {{jenjang_kelas}}
+📖 *Materi:* {{judul_materi}}
+
+👤 *Ustadz Pengampu:* {{nama_pemohon}}
+📝 *Alasan Berhalangan:*
+"{{alasan_berhalangan}}"
+
+👉 *Buka Halaman Konfirmasi Badal (Setujui / Tolak):*
+{{url_konfirmasi_badal}}
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Sistem Notifikasi Pengajian*`,
+  },
+
+  SUBSTITUTE_REQUEST_APPROVED: {
+    code: 'SUBSTITUTE_REQUEST_APPROVED',
+    name: 'Pemberitahuan Badal Disetujui (Ke Pengajar Pemohon)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_pemohon',
+      'judul_sesi',
+      'hari_tanggal',
+      'nama_badal',
+      'nama_penyetuju',
+      'catatan_persetujuan',
+      'nama_kelompok',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{sapaan_pemohon}}*.
+
+Alhamdulillah, permohonan Guru Badal Anda telah *DISETUJUI*:
+
+📌 *Sesi:* {{judul_sesi}} ({{hari_tanggal}})
+✅ *Guru Badal Pengganti:* {{nama_badal}}
+👤 *Disetujui Oleh:* {{nama_penyetuju}}
+{{catatan_persetujuan}}
+
+Tugas mengajar untuk sesi ini resmi didelegasikan kepada *{{nama_badal}}*.
+Semoga keperluan Anda diberikan kemudahan dan kelancaran.
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  SUBSTITUTE_REQUEST_REJECTED: {
+    code: 'SUBSTITUTE_REQUEST_REJECTED',
+    name: 'Pemberitahuan Badal Ditolak (Ke Pengajar Pemohon)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_pemohon',
+      'judul_sesi',
+      'hari_tanggal',
+      'nama_penyetuju',
+      'catatan_penolakan',
+      'url_ajukan_badal_ulang',
+      'nama_kelompok',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{sapaan_pemohon}}*.
+
+Pemberitahuan mengenai permohonan Guru Badal untuk sesi:
+📌 *Sesi:* {{judul_sesi}} ({{hari_tanggal}})
+
+❌ *Status:* Pengajuan *BELUM DISETUJUI* oleh {{nama_penyetuju}}.
+
+📝 *Catatan / Alasan:*
+"{{catatan_penolakan}}"
+
+Mohon segera pilih dan ajukan kembali ke Ustadz Badal pengganti lainnya melalui tautan berikut:
+👉 {{url_ajukan_badal_ulang}}
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  STUDENT_ABSENCE_REQUEST_INVITATION: {
+    code: 'STUDENT_ABSENCE_REQUEST_INVITATION',
+    name: 'Permohonan Izin/Sakit Santri (Ke Ortu, Wali Kelas, PJ)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_penerima',
+      'peran_penerima_text',
+      'nama_santri',
+      'nama_kelas',
+      'judul_sesi',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'jenis_izin_text',
+      'catatan_alasan',
+      'lampiran_text',
+      'url_konfirmasi_izin',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Yth. *{{sapaan_penerima}}*.
+
+{{peran_penerima_text}} permohonan {{jenis_izin_text}} santri untuk sesi pengajian berikut:
+
+📌 *Sesi:* {{judul_sesi}}
+📅 *Waktu:* {{hari_tanggal}}, {{waktu_mulai}} - {{waktu_selesai}} WIB
+🕌 *Tempat:* {{nama_tempat}} ({{nama_kelompok}})
+
+👤 *Santri:* {{nama_santri}} ({{nama_kelas}})
+📝 *Keterangan:*
+"{{catatan_alasan}}"
+{{lampiran_text}}
+👉 *Buka Halaman Konfirmasi (Setujui / Tolak):*
+{{url_konfirmasi_izin}}
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Sistem Notifikasi Pengajian*`,
+  },
+
+  STUDENT_ABSENCE_DECISION_NOTIFICATION: {
+    code: 'STUDENT_ABSENCE_DECISION_NOTIFICATION',
+    name: 'Pemberitahuan Konfirmasi Izin Santri (Ke Santri / Ortu)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_penerima',
+      'nama_santri',
+      'judul_sesi',
+      'hari_tanggal',
+      'jenis_izin',
+      'peran_penyetuju',
+      'nama_penyetuju',
+      'catatan_penyetuju',
+      'status_persetujuan_text',
+      'nama_kelompok',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+{{sapaan_penerima}}.
+
+Pemberitahuan permohonan {{jenis_izin}} ananda *{{nama_santri}}* untuk sesi *{{judul_sesi}}* ({{hari_tanggal}}):
+
+✅ Telah *DIKONFIRMASI* oleh {{peran_penyetuju}} (*{{nama_penyetuju}}*).
+{{catatan_penyetuju}}
+📊 *Status Verifikasi:* {{status_persetujuan_text}}
+
+Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 

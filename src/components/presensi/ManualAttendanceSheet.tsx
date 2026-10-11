@@ -35,6 +35,16 @@ export interface AbsenceConfirmationItem {
   confirmedAt?: string | null;
 }
 
+export interface StudentAbsenceRequestItem {
+  id: string;
+  absenceType: 'IZIN' | 'SAKIT';
+  notes: string;
+  attachmentUrl?: string | null;
+  approvedCount: number;
+  status: string;
+  approverNames?: string;
+}
+
 export interface StudentAttendanceItem {
   id: string;
   fullName: string;
@@ -47,6 +57,7 @@ export interface StudentAttendanceItem {
   notes?: string | null;
   checkInTime?: string | null;
   absenceConfirmation?: AbsenceConfirmationItem | null;
+  studentAbsenceRequest?: StudentAbsenceRequestItem | null;
 }
 
 interface ManualAttendanceSheetProps {
@@ -75,6 +86,10 @@ export default function ManualAttendanceSheet({
   const [savingStudentIds, setSavingStudentIds] = useState<Set<string>>(new Set());
   const [isMarkingAll, setIsMarkingAll] = useState<boolean>(false);
   const [selectedReviewStudent, setSelectedReviewStudent] = useState<StudentAttendanceItem | null>(null);
+  const [selectedAbsenceModal, setSelectedAbsenceModal] = useState<{
+    studentName: string;
+    request: StudentAbsenceRequestItem;
+  } | null>(null);
   const [reviewDecisionPending, setReviewDecisionPending] = useState<boolean>(false);
   const [reviewNoteInput, setReviewNoteInput] = useState<string>('');
   const debounceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -568,7 +583,25 @@ export default function ManualAttendanceSheet({
                           </button>
                         )
                       )}
-                      {student.notes && !student.absenceConfirmation && (
+                      {student.studentAbsenceRequest && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedAbsenceModal({
+                              studentName: student.fullName,
+                              request: student.studentAbsenceRequest!,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 text-[10px] hover:bg-indigo-100 transition-colors cursor-pointer"
+                          title="Klik untuk melihat catatan & dokumen pendukung"
+                        >
+                          <FileText className="w-2.5 h-2.5 text-indigo-600" />
+                          <span>
+                            {student.studentAbsenceRequest.absenceType} Mandiri ({student.studentAbsenceRequest.approvedCount}/2)
+                          </span>
+                        </button>
+                      )}
+                      {student.notes && !student.absenceConfirmation && !student.studentAbsenceRequest && (
                         <span className="text-slate-500 italic truncate max-w-[160px]" title={student.notes}>
                           • {student.notes}
                         </span>
@@ -826,6 +859,86 @@ export default function ManualAttendanceSheet({
                   Surat izin ini telah diproses.
                 </div>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Detail Info Izin/Sakit Mandiri Santri & Dokumen Pendukung */}
+      {selectedAbsenceModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200/80 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                  📝
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Izin Mandiri Santri
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {selectedAbsenceModal.studentName}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                  selectedAbsenceModal.request.absenceType === 'SAKIT'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                {selectedAbsenceModal.request.absenceType}
+              </span>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-1">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  Keterangan Alasan:
+                </p>
+                <p className="font-medium text-slate-800 italic">
+                  &quot;{selectedAbsenceModal.request.notes}&quot;
+                </p>
+              </div>
+
+              {selectedAbsenceModal.request.approverNames && (
+                <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 space-y-1">
+                  <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                    Dikonfirmasi Oleh:
+                  </p>
+                  <p className="font-semibold text-emerald-950">
+                    {selectedAbsenceModal.request.approverNames}
+                  </p>
+                </div>
+              )}
+
+              {selectedAbsenceModal.request.attachmentUrl && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Foto Dokumen Pendukung:
+                  </p>
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                    <img
+                      src={selectedAbsenceModal.request.attachmentUrl}
+                      alt="Dokumen Bukti"
+                      className="max-h-56 w-full object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedAbsenceModal(null)}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Tutup Info
+              </button>
             </div>
           </div>
         </div>,

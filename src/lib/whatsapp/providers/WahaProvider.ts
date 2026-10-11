@@ -103,4 +103,66 @@ export class WahaProvider implements IWhatsAppGateway {
       return { isConnected: false, deviceStatus: 'ERROR' };
     }
   }
+
+  /**
+   * Menarik / menghapus pesan yang telah terkirim sebelumnya di WhatsApp via WAHA
+   * Endpoint WAHA: DELETE /api/{session}/chats/{chatId}/messages/{messageId}
+   */
+  async deleteMessage(chatId: string, messageId: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.apiUrl || !this.apiKey) {
+      console.warn('[WahaProvider] Simulasi deleteMessage (kredensial belum lengkap) untuk msgId:', messageId);
+      return { success: true };
+    }
+
+    // Pastikan format chatId sesuai dengan standar WAHA (nomor@c.us)
+    let formattedChatId = chatId;
+    if (!formattedChatId.includes('@')) {
+      const normalized = normalizePhoneNumber(chatId) || chatId;
+      formattedChatId = `${normalized}@c.us`;
+    }
+
+    try {
+      // Primary WAHA endpoint: DELETE /api/{session}/chats/{chatId}/messages/{messageId}
+      const encodedChatId = encodeURIComponent(formattedChatId);
+      const encodedMsgId = encodeURIComponent(messageId);
+      const endpoint = `${this.apiUrl}/api/${this.session}/chats/${encodedChatId}/messages/${encodedMsgId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'X-Api-Key': this.apiKey,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.ok) {
+        console.log(`[WahaProvider] ✅ Berhasil menghapus/menarik pesan lama ${messageId} di chat ${formattedChatId}`);
+        return { success: true };
+      }
+
+      // Fallback alternative endpoint untuk versi WAHA tertentu:
+      const fallbackEndpoint = `${this.apiUrl}/api/chats/${encodedChatId}/messages/${encodedMsgId}?session=${this.session}`;
+      const fallbackRes = await fetch(fallbackEndpoint, {
+        method: 'DELETE',
+        headers: {
+          'X-Api-Key': this.apiKey,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (fallbackRes.ok) {
+        console.log(`[WahaProvider] ✅ Berhasil menghapus/menarik pesan lama via fallback ${messageId}`);
+        return { success: true };
+      }
+
+      const errData = await response.json().catch(() => null);
+      const errorMsg = errData?.message || errData?.error || `HTTP ${response.status} saat menghapus pesan WAHA`;
+      console.warn(`[WahaProvider] ⚠️ Gagal menghapus pesan ${messageId}:`, errorMsg);
+      return { success: false, error: errorMsg };
+    } catch (err: any) {
+      console.error(`[WahaProvider] ❌ Error saat memanggil deleteMessage WAHA:`, err);
+      return { success: false, error: err.message || 'Gagal terhubung ke gateway WAHA' };
+    }
+  }
 }
+

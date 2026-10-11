@@ -6,6 +6,8 @@ import {
   sendScheduleChangeEmergencyAlert,
 } from './triggers';
 import { RollingTargetScope, ScheduleStatus, ApprovalStatus } from '@prisma/client';
+import { whatsAppClient } from './WhatsAppClient';
+import { normalizePhoneNumber } from './utils';
 
 export function isScheduleToday(date: Date): boolean {
   const scheduleDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
@@ -150,8 +152,17 @@ export async function getTargetStudentsForSchedule(schedule: NonNullable<Awaited
 }
 
 /**
- * 1. Pemicu Notifikasi Perubahan Jadwal Darurat (HANYA DIKIRIM JIKA TERJADI PADA HARI-H)
- * Aturan: Jika perubahan dibuat sebelum Hari-H (misal H-2, H-3), notifikasi WhatsApp tidak dikirim.
+ * 1. Pemicu Notifikasi Perubahan Jadwal (SCHEDULE_CHANGE_EMERGENCY) dengan Penarikan Pesan Lama (Revoke / Delete)
+ *
+ * Aturan Pengiriman:
+ * - Jika notifikasi jadwal H-1 atau H-2 jam BELUM PERNAH DIKIRIMKAN ke penerima, maka pesan Emergency Alert
+ *   TIDAK PERLU DIKIRIMKAN (dilewati). Informasi terbaru akan otomatis tersampaikan saat cron pengingat reguler berjalan.
+ * - Jika notifikasi jadwal H-1 atau H-2 jam SUDAH PERNAH DIKIRIMKAN:
+ *   1. Sistem menarik / menghapus (revoke/delete) pesan pengingat lama tersebut dari WhatsApp penerima via WAHA
+ *      berdasarkan gatewayMessageId pesan sebelumnya.
+ *   2. Setelah pesan lama ditarik/dihapus, barulah pesan Emergency Alert (SCHEDULE_CHANGE_EMERGENCY) dikirimkan.
+ *
+ * Tujuannya: Mencegah spam pesan dan mencegah kebingungan akibat pesan lama yang infonya sudah tidak berlaku.
  */
 export async function notifyScheduleChangeIfHariH(params: {
   scheduleId: string;
@@ -162,21 +173,71 @@ export async function notifyScheduleChangeIfHariH(params: {
     return { success: false, message: 'Jadwal tidak ditemukan' };
   }
 
-  // Cek Aturan Hari-H
-  const isToday = isScheduleToday(schedule.startTime);
-  if (!isToday) {
+  // 1. Ambil seluruh log pesan pengingat jadwal (H-1 atau H-2 jam) yang sebelumnya SUDAH TERKIRIM ('SENT') untuk sesi ini
+  const allPreviousReminders = await prisma.whatsAppMessageLog.findMany({
+    where: {
+      referenceId: params.scheduleId,
+      status: 'SENT',
+      gatewayMessageId: { not: null },
+      AND: [
+        {
+          OR: [
+            {
+              templateCode: {
+                in: [
+                  'SCHEDULE_REMINDER_H1_STUDENT',
+                  'SCHEDULE_REMINDER_H1_TEACHER',
+                  'SCHEDULE_REMINDER_COUNTDOWN',
+                  'SCHEDULE_REMINDER',
+                ],
+              },
+            },
+            {
+              AND: [
+                { templateCode: null },
+                { messageType: 'SCHEDULE_REMINDER' },
+                {
+                  NOT: {
+                    messageBody: {
+                      contains: 'PEMBARUAN JADWAL DARURAT',
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Jika BELUM PERNAH ada notifikasi jadwal (H-1 maupun H-2 jam) yang terkirim untuk sesi ini:
+  // Sesuai aturan: Emergency Alert TIDAK PERLU dikirimkan sama sekali!
+  if (allPreviousReminders.length === 0) {
     console.log(
-      `[EmergencyScheduleChange] Dilewati: Perubahan jadwal ${schedule.title} (${params.scheduleId}) bukan pada Hari-H. Tanggal sesi: ${schedule.startTime.toISOString()}`
+      `[EmergencyScheduleChange] ⏩ Dilewati: Belum ada pengingat H-1 / H-2 jam yang terkirim untuk sesi "${schedule.title}" (${params.scheduleId}). Emergency Alert tidak perlu ditampilkan.`
     );
     return {
       success: true,
       skipped: true,
-      reason: 'NOT_HARI_H',
-      message: 'Perubahan jadwal disimpan. Notifikasi instan tidak dikirim karena jadwal bukan untuk hari ini (akan terkirim di pengingat H-1 otomatis).',
+      reason: 'NO_PREVIOUS_REMINDERS',
+      message: 'Perubahan jadwal disimpan. Pesan Emergency Alert tidak dikirim karena belum ada pengingat jadwal sebelumnya.',
     };
   }
 
-  console.log(`[EmergencyScheduleChange] Mengirim pemberitahuan darurat Hari-H untuk jadwal: ${schedule.title}`);
+  console.log(
+    `[EmergencyScheduleChange] 🔄 Ditemukan ${allPreviousReminders.length} pesan pengingat sebelumnya untuk "${schedule.title}". Memproses penarikan pesan lama & pengiriman Emergency Alert...`
+  );
+
+  // Petakan pesan pengingat lama berdasarkan nomor HP yang telah dinormalisasi
+  const oldRemindersByPhone = new Map<string, typeof allPreviousReminders>();
+  for (const oldLog of allPreviousReminders) {
+    const norm = normalizePhoneNumber(oldLog.recipientPhone) || oldLog.recipientPhone;
+    const list = oldRemindersByPhone.get(norm) || [];
+    list.push(oldLog);
+    oldRemindersByPhone.set(norm, list);
+  }
 
   const dayDateStr = formatIndonesianDate(schedule.startTime);
   const startTimeStr = formatTime(schedule.startTime);
@@ -186,14 +247,50 @@ export async function notifyScheduleChangeIfHariH(params: {
   const teacherNames = schedule.teachers.map((t) => t.teacher.fullName).join(', ') || 'Dewan Pengajar';
 
   let sentCount = 0;
+  let revokedCount = 0;
   const contactedPhones = new Set<string>();
 
-  // A. Kirim ke Dewan Pengajar / Ustadz
+  // Helper untuk menarik pesan lama sebelum kirim pesan baru
+  const revokeOldMessagesForPhone = async (phone: string) => {
+    const norm = normalizePhoneNumber(phone) || phone;
+    const oldMsgs = oldRemindersByPhone.get(norm);
+    if (!oldMsgs || oldMsgs.length === 0) return 0;
+
+    let count = 0;
+    for (const msg of oldMsgs) {
+      if (msg.gatewayMessageId) {
+        try {
+          console.log(`[EmergencyScheduleChange] 🗑️ Menarik pesan WA lama (${msg.gatewayMessageId}) dari ${norm}...`);
+          const delRes = await whatsAppClient.deleteMessage(norm, msg.gatewayMessageId);
+          if (delRes.success) count++;
+        } catch (err) {
+          console.error(`[EmergencyScheduleChange] Gagal menarik pesan ${msg.gatewayMessageId}:`, err);
+        }
+      }
+    }
+    return count;
+  };
+
+  // A. Kirim ke Dewan Pengajar / Ustadz (HANYA JIKA SUDAH PERNAH MENERIMA PESAN JADWAL)
   for (const st of schedule.teachers) {
     const teacher = st.teacher;
-    if (!teacher.phoneNumber || contactedPhones.has(teacher.phoneNumber)) continue;
-    contactedPhones.add(teacher.phoneNumber);
+    if (!teacher.phoneNumber) continue;
+    const normPhone = normalizePhoneNumber(teacher.phoneNumber) || teacher.phoneNumber;
+    if (contactedPhones.has(normPhone)) continue;
 
+    // Cek apakah guru ini sudah pernah menerima notifikasi jadwal sebelumnya
+    if (!oldRemindersByPhone.has(normPhone)) {
+      console.log(`[EmergencyScheduleChange] Guru ${teacher.fullName} (${normPhone}) belum pernah terima jadwal sesi ini. Lewati Emergency Alert.`);
+      continue;
+    }
+
+    contactedPhones.add(normPhone);
+
+    // Langkah 1: Tarik / hapus pesan lama terlebih dahulu
+    const revoked = await revokeOldMessagesForPhone(normPhone);
+    revokedCount += revoked;
+
+    // Langkah 2: Kirim Emergency Alert yang baru
     const res = await sendScheduleChangeEmergencyAlert({
       recipientPhone: teacher.phoneNumber,
       recipientName: teacher.fullName,
@@ -213,16 +310,28 @@ export async function notifyScheduleChangeIfHariH(params: {
     if (res.success) sentCount++;
   }
 
-  // B. Kirim ke Orang Tua dan Santri Target
+  // B. Kirim ke Orang Tua dan Santri Target (HANYA JIKA SUDAH PERNAH MENERIMA PESAN JADWAL)
   const targetStudents = await getTargetStudentsForSchedule(schedule);
 
   for (const student of targetStudents) {
     // 1. Orang Tua
     for (const rel of student.parents) {
       const parent = rel.parent;
-      if (!parent || !parent.phoneNumber || contactedPhones.has(parent.phoneNumber)) continue;
-      contactedPhones.add(parent.phoneNumber);
+      if (!parent || !parent.phoneNumber) continue;
+      const normPhone = normalizePhoneNumber(parent.phoneNumber) || parent.phoneNumber;
+      if (contactedPhones.has(normPhone)) continue;
 
+      if (!oldRemindersByPhone.has(normPhone)) {
+        continue; // Belum pernah terima jadwal lama -> lewati
+      }
+
+      contactedPhones.add(normPhone);
+
+      // Langkah 1: Tarik pesan lama
+      const revoked = await revokeOldMessagesForPhone(normPhone);
+      revokedCount += revoked;
+
+      // Langkah 2: Kirim pesan baru
       const res = await sendScheduleChangeEmergencyAlert({
         recipientPhone: parent.phoneNumber,
         recipientName: parent.fullName,
@@ -246,35 +355,48 @@ export async function notifyScheduleChangeIfHariH(params: {
     }
 
     // 2. Santri langsung jika memiliki nomor WA sendiri
-    if (student.phoneNumber && !contactedPhones.has(student.phoneNumber)) {
-      contactedPhones.add(student.phoneNumber);
+    if (student.phoneNumber) {
+      const normPhone = normalizePhoneNumber(student.phoneNumber) || student.phoneNumber;
+      if (!contactedPhones.has(normPhone)) {
+        if (!oldRemindersByPhone.has(normPhone)) {
+          continue; // Belum pernah terima jadwal lama -> lewati
+        }
 
-      const res = await sendScheduleChangeEmergencyAlert({
-        recipientPhone: student.phoneNumber,
-        recipientName: student.fullName,
-        recipientGender: student.gender,
-        isStudent: true,
-        organizationName: orgName,
-        scheduleTitle: schedule.title,
-        changeDescription: params.changeDescription,
-        dayDate: dayDateStr,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        venueName,
-        teacherName: teacherNames,
-        notes: schedule.notes,
-        scheduleId: schedule.id,
-        recipientUserId: student.id,
-      });
+        contactedPhones.add(normPhone);
 
-      if (res.success) sentCount++;
+        // Langkah 1: Tarik pesan lama
+        const revoked = await revokeOldMessagesForPhone(normPhone);
+        revokedCount += revoked;
+
+        // Langkah 2: Kirim pesan baru
+        const res = await sendScheduleChangeEmergencyAlert({
+          recipientPhone: student.phoneNumber,
+          recipientName: student.fullName,
+          recipientGender: student.gender,
+          isStudent: true,
+          organizationName: orgName,
+          scheduleTitle: schedule.title,
+          changeDescription: params.changeDescription,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          teacherName: teacherNames,
+          notes: schedule.notes,
+          scheduleId: schedule.id,
+          recipientUserId: student.id,
+        });
+
+        if (res.success) sentCount++;
+      }
     }
   }
 
   return {
     success: true,
     sentCount,
-    message: `Pemberitahuan darurat berhasil dikirim ke ${sentCount} nomor WhatsApp (Pengajar, Orang Tua, dan Santri).`,
+    revokedCount,
+    message: `Pembaruan jadwal selesai: Berhasil menarik ${revokedCount} pesan lama dan mengirimkan ${sentCount} pesan Emergency Alert terbaru.`,
   };
 }
 

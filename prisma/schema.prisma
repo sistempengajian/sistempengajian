@@ -115,6 +115,13 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum SubstituteRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum AttendanceMethod {
   QR_SCAN_STUDENT
   CARD_SCAN_TEACHER
@@ -139,6 +146,24 @@ enum AbsenceConfirmationStatus {
   CONFIRMED
   EXPIRED
   REJECTED
+}
+
+enum StudentAbsenceType {
+  IZIN
+  SAKIT
+}
+
+enum StudentAbsenceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AbsenceApproverRole {
+  PARENT
+  HOMEROOM_TEACHER
+  PJ
 }
 
 enum WhatsAppMessageStatus {
@@ -255,6 +280,12 @@ model User {
   rollingPrimaryAssignments   TeacherRollingQueueItem[] @relation("RollingPrimaryTeachers")
   rollingSubstituteAssignments TeacherRollingQueueItem[] @relation("RollingSubstituteTeachers")
   whatsappLoginTokens      WhatsAppLoginToken[]
+  requestedSubstituteRequests SubstituteRequest[] @relation("RequesterSubstituteRequests")
+  assignedSubstituteRequests  SubstituteRequest[] @relation("TargetSubstituteRequests")
+  actedSubstituteRequests     SubstituteRequest[] @relation("ActionSubstituteRequests")
+  studentAbsenceRequests      StudentAbsenceRequest[] @relation("StudentAbsenceRequests")
+  submittedAbsenceRequests    StudentAbsenceRequest[] @relation("SubmittedAbsenceRequests")
+  studentAbsenceApprovals     StudentAbsenceApproval[] @relation("AbsenceApproverUsers")
 
   @@index([organizationId])
   @@index([generationId])
@@ -517,7 +548,9 @@ model Schedule {
   teachers           ScheduleTeacher[]
   scheduleMaterials  ScheduleMaterial[]
   attendanceSessions AttendanceSession[]
-  studentEvaluations StudentEvaluation[]
+  studentEvaluations     StudentEvaluation[]
+  substituteRequests     SubstituteRequest[]
+  studentAbsenceRequests StudentAbsenceRequest[]
 
   @@index([organizationId])
   @@index([classId])
@@ -540,6 +573,75 @@ model ScheduleTeacher {
 
   @@unique([scheduleId, teacherId])
   @@map("schedule_teachers")
+}
+
+model SubstituteRequest {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  scheduleId          String                  @map("schedule_id") @db.Uuid
+  requesterTeacherId  String                  @map("requester_teacher_id") @db.Uuid
+  substituteTeacherId String                  @map("substitute_teacher_id") @db.Uuid
+  reason              String?                 @db.Text
+  status              SubstituteRequestStatus @default(PENDING)
+  actionNotes         String?                 @map("action_notes") @db.Text
+  actionByUserId      String?                 @map("action_by_user_id") @db.Uuid
+  actionAt            DateTime?               @map("action_at") @db.Timestamptz(6)
+  magicToken          String?                 @unique @map("magic_token") @db.VarChar(255)
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  schedule          Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  requesterTeacher  User     @relation("RequesterSubstituteRequests", fields: [requesterTeacherId], references: [id], onDelete: Cascade)
+  substituteTeacher User     @relation("TargetSubstituteRequests", fields: [substituteTeacherId], references: [id], onDelete: Cascade)
+  actionByUser      User?    @relation("ActionSubstituteRequests", fields: [actionByUserId], references: [id], onDelete: SetNull)
+
+  @@index([scheduleId])
+  @@index([requesterTeacherId])
+  @@index([substituteTeacherId])
+  @@index([status])
+  @@map("substitute_requests")
+}
+
+model StudentAbsenceRequest {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  scheduleId         String                      @map("schedule_id") @db.Uuid
+  studentId          String                      @map("student_id") @db.Uuid
+  submittedByUserId  String                      @map("submitted_by_user_id") @db.Uuid
+  submittedByRole    String                      @map("submitted_by_role") @db.VarChar(50) // STUDENT atau PARENT
+  absenceType        StudentAbsenceType          @map("absence_type")
+  notes              String                      @db.Text
+  attachmentUrl      String?                     @map("attachment_url") @db.Text
+  status             StudentAbsenceRequestStatus @default(PENDING)
+  approvedCount      Int                         @default(0) @map("approved_count")
+  rejectedCount      Int                         @default(0) @map("rejected_count")
+  createdAt          DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  schedule           Schedule                    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  student            User                        @relation("StudentAbsenceRequests", fields: [studentId], references: [id], onDelete: Cascade)
+  submittedByUser    User                        @relation("SubmittedAbsenceRequests", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  approvals          StudentAbsenceApproval[]
+
+  @@index([scheduleId])
+  @@index([studentId])
+  @@index([status])
+  @@map("student_absence_requests")
+}
+
+model StudentAbsenceApproval {
+  id                 String               @id @default(uuid()) @db.Uuid
+  requestId          String               @map("request_id") @db.Uuid
+  approverUserId     String               @map("approver_user_id") @db.Uuid
+  approverRole       AbsenceApproverRole  @map("approver_role")
+  action             String               @db.VarChar(20) // APPROVED atau REJECTED
+  notes              String?              @db.Text        // Catatan/doa untuk santri
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request            StudentAbsenceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverUser       User                 @relation("AbsenceApproverUsers", fields: [approverUserId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, approverUserId])
+  @@unique([requestId, approverRole])
+  @@map("student_absence_approvals")
 }
 
 // 11. Attendance Sessions, Records & Absence Confirmations (Smart Absensi)
@@ -1009,6 +1111,7 @@ model WhatsAppMessageLog {
   recipientUserId  String?               @map("recipient_user_id") @db.Uuid
   messageType      WhatsAppMessageType   @map("message_type")
   templateId       String?               @map("template_id") @db.Uuid
+  templateCode     String?               @map("template_code") @db.VarChar(100)
   messageBody      String                @map("message_body") @db.Text
   mediaUrl         String?               @map("media_url") @db.Text
   status           WhatsAppMessageStatus @default(QUEUED)

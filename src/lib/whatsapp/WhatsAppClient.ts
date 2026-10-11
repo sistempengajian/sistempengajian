@@ -94,6 +94,7 @@ export class WhatsAppClient {
           recipientUserId: sanitizeUuid(options.recipientUserId),
           messageType: options.messageType || 'CUSTOM_DIRECT',
           templateId: sanitizeUuid(templateId),
+          templateCode: options.templateCode || null,
           messageBody: actualMessageToSend,
           mediaUrl: options.mediaUrl || null,
           status: isMockMode ? 'SENT' : 'SENDING',
@@ -213,6 +214,43 @@ export class WhatsAppClient {
     }
 
     return status;
+  }
+
+  /**
+   * Menarik / menghapus pesan WhatsApp yang telah terkirim via provider aktif
+   */
+  async deleteMessage(
+    to: string,
+    gatewayMessageId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (process.env.WA_MOCK_MODE === 'true') {
+      console.log(`[WhatsAppClient] 📱 [WA_MOCK_MODE] Simulasi deleteMessage untuk ${to} (ID: ${gatewayMessageId})`);
+      return { success: true };
+    }
+
+    if (!this.provider.deleteMessage) {
+      console.warn(`[WhatsAppClient] Provider ${this.provider.providerName} belum mendukung penarikan pesan.`);
+      return { success: false, error: 'Provider does not support deleteMessage' };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(to) || to;
+    const result = await this.provider.deleteMessage(normalizedPhone, gatewayMessageId);
+
+    // Jika berhasil ditarik/dihapus, update status log terkait di database
+    if (result.success) {
+      try {
+        await prisma.whatsAppMessageLog.updateMany({
+          where: { gatewayMessageId },
+          data: {
+            errorMessage: '[REVOKED/DELETED_BY_SCHEDULE_UPDATE]',
+          },
+        });
+      } catch (err) {
+        console.error('[WhatsAppClient] Gagal update status pesan yang ditarik di log:', err);
+      }
+    }
+
+    return result;
   }
 }
 

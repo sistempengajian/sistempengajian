@@ -17,4 +17,9 @@ export interface IWhatsAppGateway {
    * Mendapatkan QR Code sesi jika provider mendukung pairing multi-device
    */
   fetchQrCode?(): Promise<{ qrCode: string; expiresAt?: Date }>;
+
+  /**
+   * Menghapus / menarik (revoke) pesan yang telah terkirim sebelumnya di WhatsApp
+   */
+  deleteMessage?(chatId: string, messageId: string): Promise<{ success: boolean; error?: string }>;
 }
