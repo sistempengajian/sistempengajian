@@ -537,7 +537,10 @@ export async function closeAttendanceSession(sessionId: string) {
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
   revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   return { success: true, message: 'Sesi presensi berhasil ditutup.' };
 }
 
@@ -580,7 +583,10 @@ export async function reopenAttendanceSession(sessionId: string) {
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
   revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   revalidatePath(`/jadwal/${session.scheduleId}`);
   return { success: true, message: 'Sesi presensi berhasil dibuka kembali.' };
 }
@@ -696,7 +702,11 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
   }
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
   revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
+  revalidatePath(`/jadwal/${scheduleId}`);
 
   return {
     success: true,
@@ -842,6 +852,10 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
   }
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   revalidatePath(`/jadwal/${scheduleId}`);
 
   return {
@@ -915,6 +929,11 @@ export async function recordManualAttendance(
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
+  revalidatePath(`/jadwal/${session.scheduleId}`);
   return { success: true, record };
 }
 
@@ -983,6 +1002,11 @@ export async function markAllPresent(sessionId: string, studentIds: string[]) {
   );
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
+  revalidatePath(`/jadwal/${session.scheduleId}`);
   return { success: true, count: validStudentIds.length };
 }
 
@@ -1150,6 +1174,10 @@ export async function recordBatchCardScan(sessionId: string, cardQrContent: stri
   }
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   revalidatePath(`/jadwal/${session.scheduleId}`);
   return {
     success: true,
@@ -1548,8 +1576,11 @@ export async function saveBulkComprehensiveEvaluation({
   }
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
   revalidatePath('/dashboard');
   revalidatePath('/kurikulum');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   revalidatePath(`/jadwal/${scheduleId}`);
 
   return {
@@ -1802,6 +1833,10 @@ export async function submitParentAbsenceRequest({
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   revalidatePath(`/jadwal/${scheduleId}`);
 
   return {
@@ -1896,6 +1931,10 @@ export async function verifyAbsenceConfirmation({
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   if (confirmation.attendanceRecord?.session?.scheduleId) {
     revalidatePath(`/jadwal/${confirmation.attendanceRecord.session.scheduleId}`);
   }
@@ -1952,6 +1991,10 @@ export async function cancelParentAbsenceRequest(confirmationId: string) {
   });
 
   revalidatePath('/presensi');
+  revalidatePath('/laporan');
+  revalidatePath('/dashboard');
+  revalidatePath('/kelas');
+  revalidatePath('/analisis');
   if (scheduleId) {
     revalidatePath(`/jadwal/${scheduleId}`);
   }

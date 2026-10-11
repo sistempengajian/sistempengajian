@@ -23,7 +23,7 @@ import {
   ChevronRight,
   QrCode,
 } from 'lucide-react';
-import { AttendanceStatus, AttendanceMethod } from '@prisma/client';
+import { AttendanceStatus, AttendanceMethod, ApprovalStatus } from '@prisma/client';
 import { generateSessionSecret, generateQrPayload, TOTP_STEP_SECONDS } from '@/lib/totp';
 import { resolveMaterialsForSchedule } from '@/lib/curriculumVersionResolver';
 import { getParentAbsenceHistory, populateDefaultAbsenceForSession } from '@/app/(protected)/presensi/actions';
@@ -243,31 +243,55 @@ export default async function PresensiPage({
     // Gunakan jadwal dari query param jika ada, jika tidak cari jadwal aktif milik pengajar ini sendiri
     let activeSchedule = directSchedule;
 
-    if (!activeSchedule && isPengajar) {
+    if (!activeSchedule && (isPengajar || isPjOrAdmin)) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
 
-      // 1. Prioritaskan jadwal yang saat ini sedang ACTIVE
+      const teacherCondition = !isPjOrAdmin
+        ? { teachers: { some: { teacherId: userProfile.id } } }
+        : {
+            organizationId: {
+              in: [
+                userProfile.organizationId,
+                userProfile.organization?.parentId,
+              ].filter(Boolean) as string[],
+            },
+          };
+
+      // 1. Prioritaskan jadwal yang saat ini sedang ACTIVE untuk HARI INI
       activeSchedule = await prisma.schedule.findFirst({
         where: {
           status: 'ACTIVE',
-          teachers: { some: { teacherId: userProfile.id } },
+          startTime: { gte: startOfToday, lte: endOfToday },
+          ...teacherCondition,
         },
         orderBy: { startTime: 'asc' },
         include: scheduleInclude,
       });
 
-      // 2. Jika tidak ada yang ACTIVE, cari jadwal HARI INI yang berstatus SCHEDULED
+      // 2. Jika tidak ada yang ACTIVE hari ini, cari jadwal HARI INI yang berstatus SCHEDULED
       if (!activeSchedule) {
         activeSchedule = await prisma.schedule.findFirst({
           where: {
             status: 'SCHEDULED',
             startTime: { gte: startOfToday, lte: endOfToday },
-            teachers: { some: { teacherId: userProfile.id } },
+            ...teacherCondition,
           },
           orderBy: { startTime: 'asc' },
+          include: scheduleInclude,
+        });
+      }
+
+      // 3. Fallback jika tidak ada jadwal hari ini: ambil jadwal ACTIVE paling baru (descending, bukan tertua dari hari-hari lampau!)
+      if (!activeSchedule) {
+        activeSchedule = await prisma.schedule.findFirst({
+          where: {
+            status: 'ACTIVE',
+            ...teacherCondition,
+          },
+          orderBy: { startTime: 'desc' },
           include: scheduleInclude,
         });
       }
@@ -905,38 +929,74 @@ export default async function PresensiPage({
       });
       const studentClassIds = studentClasses.map((c) => c.id);
 
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      const studentScheduleBaseWhere = {
+        organizationId: { in: userOrgIds },
+        OR: [{ approvalStatus: ApprovalStatus.APPROVED }, { approvalStatus: null }],
+        AND: [
+          {
+            OR: [
+              ...(studentClassIds.length > 0
+                ? [
+                    { classId: { in: studentClassIds } },
+                    { targetClasses: { some: { classId: { in: studentClassIds } } } },
+                  ]
+                : []),
+              ...(userProfile.generationId
+                ? [
+                    { targetGenerations: { some: { generationId: userProfile.generationId } } },
+                    { class: { generationId: userProfile.generationId } },
+                  ]
+                : []),
+              {
+                classId: null,
+                targetClasses: { none: {} },
+                targetGenerations: { none: {} },
+              },
+            ],
+          },
+        ],
+      };
+
+      // 1. Prioritaskan jadwal santri yang ACTIVE untuk HARI INI
       activeSchedule = await prisma.schedule.findFirst({
         where: {
-          status: { in: ['ACTIVE', 'SCHEDULED'] },
-          organizationId: { in: userOrgIds },
-          OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
-          AND: [
-            {
-              OR: [
-                ...(studentClassIds.length > 0
-                  ? [
-                      { classId: { in: studentClassIds } },
-                      { targetClasses: { some: { classId: { in: studentClassIds } } } },
-                    ]
-                  : []),
-                ...(userProfile.generationId
-                  ? [
-                      { targetGenerations: { some: { generationId: userProfile.generationId } } },
-                      { class: { generationId: userProfile.generationId } },
-                    ]
-                  : []),
-                {
-                  classId: null,
-                  targetClasses: { none: {} },
-                  targetGenerations: { none: {} },
-                },
-              ],
-            },
-          ],
+          ...studentScheduleBaseWhere,
+          status: 'ACTIVE',
+          startTime: { gte: startOfToday, lte: endOfToday },
         },
         orderBy: { startTime: 'asc' },
         include: sessionInclude,
       });
+
+      // 2. Jika tidak ada yang ACTIVE hari ini, cari jadwal santri HARI INI yang berstatus SCHEDULED
+      if (!activeSchedule) {
+        activeSchedule = await prisma.schedule.findFirst({
+          where: {
+            ...studentScheduleBaseWhere,
+            status: 'SCHEDULED',
+            startTime: { gte: startOfToday, lte: endOfToday },
+          },
+          orderBy: { startTime: 'asc' },
+          include: sessionInclude,
+        });
+      }
+
+      // 3. Fallback jika tidak ada hari ini: ambil jadwal ACTIVE paling baru (descending)
+      if (!activeSchedule) {
+        activeSchedule = await prisma.schedule.findFirst({
+          where: {
+            ...studentScheduleBaseWhere,
+            status: 'ACTIVE',
+          },
+          orderBy: { startTime: 'desc' },
+          include: sessionInclude,
+        });
+      }
     }
 
     // Cek apakah santri sudah diabsen pada jadwal aktif ini

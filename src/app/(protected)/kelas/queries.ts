@@ -1132,7 +1132,10 @@ export async function getHomeroomTeacherClassData(
               where: {
                 session: {
                   schedule: {
-                    OR: [{ classId: cls.id }, { organizationId: cls.organizationId }],
+                    OR: [
+                      { classId: cls.id },
+                      { targetClasses: { some: { classId: cls.id } } },
+                    ],
                   },
                 },
               },
@@ -1141,7 +1144,7 @@ export async function getHomeroomTeacherClassData(
             assignmentSubmissions: {
               where: {
                 assignment: {
-                  OR: [{ classId: cls.id }, { organizationId: cls.organizationId }],
+                  classId: cls.id,
                 },
                 status: { in: ['SUBMITTED', 'VERIFIED_BY_PARENT', 'GRADED'] },
               },
@@ -1215,7 +1218,7 @@ export async function getHomeroomTeacherClassData(
           ['HADIR', 'TERLAMBAT'].includes(a.status)
         ).length;
         const attendancePercentage =
-          totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 100;
+          totalSessions > 0 ? Math.round((attendedSessions / totalSessions) * 100) : 0;
 
         return {
           id: s.id,

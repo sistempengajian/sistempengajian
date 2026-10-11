@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
+import { AttendanceStatus, AttendanceMethod } from '@prisma/client';
 import {
   ChildDevelopmentReport,
   ChildSelectorItem,
@@ -521,54 +522,98 @@ export async function getChildDevelopmentReport(
       : null,
   };
 
-  // 3. Rekap Presensi & Kehadiran
-  const now = new Date();
-  const scheduleConditions: any[] = [
-    { status: { not: 'CANCELLED' } },
-    {
+  // Ambil kelas yang terasosiasi dengan santri
+  const matchingClasses = await prisma.class.findMany({
+    where: {
       OR: [
-        { status: { in: ['COMPLETED', 'ACTIVE'] } },
-        { startTime: { lte: now } },
+        {
+          generationId: student.generationId || undefined,
+          organizationId: student.organizationId || undefined,
+        },
+        ...(studentClass?.id ? [{ id: studentClass.id }] : []),
       ],
     },
-  ];
-  if (startDate) {
-    scheduleConditions.push({ startTime: { gte: startDate } });
-  }
-  if (endDate) {
-    scheduleConditions.push({ startTime: { lte: endDate } });
-  }
+    select: { id: true },
+  });
+  const studentClassIds = matchingClasses.map((c) => c.id);
 
-  const attendanceWhere: any = {
-    studentId,
-    session: {
-      schedule: {
-        AND: scheduleConditions,
+  // Filter jadwal santri yang sesuai dengan periode terpilih
+  const scheduleWhere: any = {
+    AND: [
+      { status: { not: 'CANCELLED' } },
+      { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
+      {
+        OR: [
+          ...(studentClassIds.length > 0
+            ? [
+              { classId: { in: studentClassIds } },
+              { targetClasses: { some: { classId: { in: studentClassIds } } } },
+            ]
+            : []),
+          ...(student.generationId
+            ? [{ targetGenerations: { some: { generationId: student.generationId } } }]
+            : []),
+          {
+            classId: null,
+            targetClasses: { none: {} },
+            targetGenerations: { none: {} },
+            organizationId: {
+              in: [
+                student.organizationId,
+                student.organization?.parentId,
+                student.organization?.parent?.parentId,
+              ].filter(Boolean) as string[],
+            },
+          },
+        ],
       },
-    },
+    ],
   };
 
-  const attendanceRecords = await prisma.attendanceRecord.findMany({
-    where: attendanceWhere,
+  if (startDate) {
+    scheduleWhere.AND.push({ startTime: { gte: startDate } });
+  }
+  if (endDate) {
+    scheduleWhere.AND.push({ startTime: { lte: endDate } });
+  }
+
+  // Ambil seluruh jadwal yang relevan untuk santri (mencakup materi dan sesi presensi santri ini)
+  const relevantSchedules = await prisma.schedule.findMany({
+    where: scheduleWhere,
     include: {
-      session: {
+      scheduleMaterials: {
         include: {
-          schedule: {
-            select: { id: true, title: true, startTime: true, status: true },
+          material: {
+            include: {
+              checklistItems: {
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
           },
         },
+        orderBy: { slotIndex: 'asc' },
       },
-      absenceConfirmation: {
-        select: { parentNotes: true, status: true },
-      },
-    },
-    orderBy: {
-      session: {
-        schedule: {
-          startTime: 'asc',
+      attendanceSessions: {
+        include: {
+          records: {
+            where: { studentId },
+            include: {
+              absenceConfirmation: {
+                select: { parentNotes: true, status: true },
+              },
+            },
+          },
         },
+        orderBy: { openedAt: 'desc' },
       },
     },
+    orderBy: { startTime: 'asc' },
+  });
+
+  // 3. Rekap Presensi & Kehadiran (Hanya sesi yang sudah/sedang berlangsung pada jadwal milik santri)
+  const now = new Date();
+  const attendanceSchedules = relevantSchedules.filter((sched) => {
+    return sched.status === 'COMPLETED' || sched.status === 'ACTIVE' || sched.startTime <= now;
   });
 
   let onTime = 0;
@@ -581,46 +626,48 @@ export async function getChildDevelopmentReport(
   const absenceHistory: AbsenceRecordItem[] = [];
   const checkInMinutes: number[] = [];
 
-  for (const rec of attendanceRecords) {
-    const rawDate = rec.session?.schedule?.startTime || rec.createdAt;
-    const dateObj = new Date(rawDate);
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    const sessionTitle = rec.session?.schedule?.title || 'Pengajian Rutin';
+  for (const sched of attendanceSchedules) {
+    const record = sched.attendanceSessions.flatMap((s) => s.records)[0];
+    const status: AttendanceStatus = record ? record.status : AttendanceStatus.ALPA;
+    const checkInTime = record?.checkInTime;
+    const method = record?.method || AttendanceMethod.MANUAL_TEACHER;
+    const notes = record?.absenceConfirmation?.parentNotes || record?.notes || (record ? null : 'Tidak tercatat hadir pada sesi ini');
 
-    if (rec.status === 'HADIR') onTime++;
-    else if (rec.status === 'TERLAMBAT') late++;
-    else if (rec.status === 'IZIN') permission++;
-    else if (rec.status === 'SAKIT') sick++;
-    else if (rec.status === 'ALPA') absent++;
+    if (status === 'HADIR') onTime++;
+    else if (status === 'TERLAMBAT') late++;
+    else if (status === 'IZIN') permission++;
+    else if (status === 'SAKIT') sick++;
+    else if (status === 'ALPA') absent++;
 
-    if (rec.checkInTime) {
-      const d = new Date(rec.checkInTime);
+    if (checkInTime) {
+      const d = new Date(checkInTime);
       checkInMinutes.push(d.getHours() * 60 + d.getMinutes());
     }
 
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(sched.startTime));
+    const sessionTitle = sched.title || 'Pengajian Rutin';
+
     const sessionItem: AttendanceHeatmapSession = {
-      id: rec.id,
+      id: record?.id || sched.id,
       sessionTitle,
-      status: rec.status,
-      checkInTime: rec.checkInTime
-        ? new Date(rec.checkInTime).toLocaleTimeString('id-ID', {
+      status,
+      checkInTime: checkInTime
+        ? new Date(checkInTime).toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit',
+            timeZone: 'Asia/Jakarta',
           })
         : null,
-      method: rec.method,
+      method,
     };
 
     if (!heatmapDaysMap[dateStr]) {
       heatmapDaysMap[dateStr] = {
         date: dateStr,
-        status: rec.status,
+        status,
         sessionTitle,
         checkInTime: sessionItem.checkInTime,
-        method: rec.method,
+        method,
         sessions: [sessionItem],
       };
     } else {
@@ -628,27 +675,31 @@ export async function getChildDevelopmentReport(
       existing.sessions = existing.sessions || [];
       existing.sessions.push(sessionItem);
 
-      // Prioritas status kalender: HADIR > TERLAMBAT > IZIN > SAKIT > ALPA
-      const statusPriority: Record<string, number> = {
-        HADIR: 5,
-        TERLAMBAT: 4,
-        IZIN: 3,
-        SAKIT: 2,
-        ALPA: 1,
-      };
-      if ((statusPriority[rec.status] || 0) > (statusPriority[existing.status] || 0)) {
-        existing.status = rec.status;
+      // Prioritas status kalender: Jika ada ALPA, jangan biarkan tertutup status lain
+      if (status === 'ALPA' || existing.status === 'ALPA') {
+        existing.status = 'ALPA';
+      } else {
+        const statusPriority: Record<string, number> = {
+          HADIR: 5,
+          TERLAMBAT: 4,
+          IZIN: 3,
+          SAKIT: 2,
+          ALPA: 1,
+        };
+        if ((statusPriority[status] || 0) > (statusPriority[existing.status] || 0)) {
+          existing.status = status;
+        }
       }
       existing.sessionTitle = `${existing.sessions.length} Sesi (${existing.sessions.map((s) => s.sessionTitle).join(', ')})`;
     }
 
-    if (rec.status === 'IZIN' || rec.status === 'SAKIT' || rec.status === 'ALPA') {
+    if (status === 'IZIN' || status === 'SAKIT' || status === 'ALPA') {
       absenceHistory.push({
-        id: rec.id,
+        id: record?.id || sched.id,
         date: dateStr,
-        status: rec.status,
+        status,
         sessionTitle,
-        reason: rec.absenceConfirmation?.parentNotes || rec.notes || null,
+        reason: notes || null,
       });
     }
   }
@@ -671,8 +722,12 @@ export async function getChildDevelopmentReport(
   let currentStreak = 0;
   const sortedDates = Object.keys(heatmapDaysMap).sort().reverse();
   for (const d of sortedDates) {
-    const status = heatmapDaysMap[d].status;
-    if (status === 'HADIR' || status === 'TERLAMBAT') {
+    const dayItem = heatmapDaysMap[d];
+    const hasAbsent = dayItem.sessions?.some((s) => s.status === 'ALPA');
+    if (hasAbsent) {
+      break;
+    }
+    if (dayItem.status === 'HADIR' || dayItem.status === 'TERLAMBAT') {
       currentStreak++;
     } else {
       break;
@@ -721,79 +776,6 @@ export async function getChildDevelopmentReport(
   const completedChecklistIds = new Set(
     studentProgress.filter((p) => p.isCompleted).map((p) => p.checklistItemId)
   );
-
-  // Ambil kelas yang terasosiasi dengan santri
-  const matchingClasses = await prisma.class.findMany({
-    where: {
-      OR: [
-        {
-          generationId: student.generationId || undefined,
-          organizationId: student.organizationId || undefined,
-        },
-        ...(studentClass?.id ? [{ id: studentClass.id }] : []),
-      ],
-    },
-    select: { id: true },
-  });
-  const studentClassIds = matchingClasses.map((c) => c.id);
-
-  // Query jadwal santri yang sesuai dengan periode terpilih
-  const scheduleWhere: any = {
-    AND: [
-      { OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }] },
-      {
-        OR: [
-          ...(studentClassIds.length > 0
-            ? [
-              { classId: { in: studentClassIds } },
-              { targetClasses: { some: { classId: { in: studentClassIds } } } },
-            ]
-            : []),
-          ...(student.generationId
-            ? [{ targetGenerations: { some: { generationId: student.generationId } } }]
-            : []),
-          {
-            classId: null,
-            targetClasses: { none: {} },
-            targetGenerations: { none: {} },
-            organizationId: {
-              in: [
-                student.organizationId,
-                student.organization?.parentId,
-                student.organization?.parent?.parentId,
-              ].filter(Boolean) as string[],
-            },
-          },
-        ],
-      },
-    ],
-  };
-
-  if (startDate) {
-    scheduleWhere.AND.push({ startTime: { gte: startDate } });
-  }
-  if (endDate) {
-    scheduleWhere.AND.push({ startTime: { lte: endDate } });
-  }
-
-  const relevantSchedules = await prisma.schedule.findMany({
-    where: scheduleWhere,
-    include: {
-      scheduleMaterials: {
-        include: {
-          material: {
-            include: {
-              checklistItems: {
-                orderBy: { orderIndex: 'asc' },
-              },
-            },
-          },
-        },
-        orderBy: { slotIndex: 'asc' },
-      },
-    },
-    orderBy: { startTime: 'asc' },
-  });
 
   // Agregasi materi yang terdaftar di jadwal santri
   const scheduledMaterialsMap = new Map<

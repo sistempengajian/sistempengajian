@@ -254,7 +254,18 @@ export async function getStudentCurriculumMetrics(
             })
           : Promise.resolve([]),
         prisma.attendanceRecord.findMany({
-          where: { studentId },
+          where: {
+            studentId,
+            session: {
+              schedule: {
+                status: { not: 'CANCELLED' },
+                OR: [
+                  ...(generationId ? [{ targetGenerations: { some: { generationId } } }, { class: { generationId } }] : []),
+                  { classId: null, targetClasses: { none: {} }, targetGenerations: { none: {} } },
+                ],
+              },
+            },
+          },
           select: { status: true },
         }),
         prisma.studentBadge.findMany({
@@ -415,7 +426,18 @@ export async function getChildrenProgressMetrics(
                 })
               : Promise.resolve(0),
             prisma.attendanceRecord.findMany({
-              where: { studentId: student.id },
+              where: {
+                studentId: student.id,
+                session: {
+                  schedule: {
+                    status: { not: 'CANCELLED' },
+                    OR: [
+                      ...(student.generationId ? [{ targetGenerations: { some: { generationId: student.generationId } } }, { class: { generationId: student.generationId } }] : []),
+                      { classId: null, targetClasses: { none: {} }, targetGenerations: { none: {} } },
+                    ],
+                  },
+                },
+              },
               select: { status: true },
             }),
           ]);
