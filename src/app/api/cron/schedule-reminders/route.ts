@@ -733,11 +733,13 @@ async function handleScheduleReminders(request: NextRequest) {
 
     // =========================================================================
     // 10. Fitur Rekap Laporan Admin Komprehensif (Observabilitas Penuh)
-    // Dikirim ke nomor CRON_ADMIN_REPORT_PHONE jika ada aktivitas atau ada kondisi skip/penolakan
+    // Dikirim ke nomor CRON_ADMIN_REPORT_PHONE HANYA jika ada aktivitas pengiriman riil
     // =========================================================================
     const adminPhoneRaw = process.env.CRON_ADMIN_REPORT_PHONE || '0882007730579';
     const adminPhone = normalizePhoneNumber(adminPhoneRaw);
 
+    // PENTING: Laporan batch admin HANYA dikirimkan jika ada aktivitas pengiriman riil (berhasil atau gagal)
+    // pada batch menit tersebut. Ini mencegah spam pesan berulang ke nomor admin saat antrean sudah selesai / 0 pesan.
     const hasActivity = sentCount > 0 || failedCount > 0;
     const hasAuditFindings =
       auditMetrics.homeroomDisabledClasses.size > 0 ||
@@ -748,8 +750,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
     const remainingInQueue = Math.max(0, dispatchQueue.length - (sentCount + failedCount));
 
-    // Kirim laporan jika ada pengiriman pesan ATAU jika ada jadwal yang diproses dengan temuan audit
-    if ((hasActivity || (upcomingSchedules.length > 0 && hasAuditFindings)) && !isDryRun && adminPhone) {
+    if (hasActivity && !isDryRun && adminPhone) {
       try {
         const timeStr = new Intl.DateTimeFormat('id-ID', {
           weekday: 'long',
