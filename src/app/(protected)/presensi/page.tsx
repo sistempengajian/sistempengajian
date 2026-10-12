@@ -30,6 +30,7 @@ import { getParentAbsenceHistory, populateDefaultAbsenceForSession } from '@/app
 
 import { getEffectiveAuthUser } from '@/lib/auth';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
+import { formatWibTime, formatWibDate, getWibTodayRange } from '@/lib/utils';
 
 export default async function PresensiPage({
   searchParams,
@@ -244,10 +245,7 @@ export default async function PresensiPage({
     let activeSchedule = directSchedule;
 
     if (!activeSchedule && (isPengajar || isPjOrAdmin)) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
+      const { startOfToday, endOfToday } = getWibTodayRange();
 
       const teacherCondition = !isPjOrAdmin
         ? { teachers: { some: { teacherId: userProfile.id } } }
@@ -553,10 +551,7 @@ export default async function PresensiPage({
       };
     }
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    const { startOfToday, endOfToday } = getWibTodayRange();
 
     // Ambil daftar santri, sesi pengajian hari ini, seluruh jenjang, & materi kurikulum secara paralel
     const [classStudents, todaySchedules, allGenerations, totalMaterialsCount, rawMaterials] =
@@ -720,8 +715,8 @@ export default async function PresensiPage({
     const availableSchedulesProp = todaySchedules.map((s) => ({
       id: s.id,
       title: s.title,
-      startTime: new Date(s.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      endTime: new Date(s.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      startTime: formatWibTime(s.startTime),
+      endTime: formatWibTime(s.endTime),
       className: s.class?.name,
       venueName: s.venuePlaceName || undefined,
       tierLevel: s.tierLevel,
@@ -731,8 +726,8 @@ export default async function PresensiPage({
       availableSchedulesProp.unshift({
         id: activeSchedule.id,
         title: activeSchedule.title,
-        startTime: new Date(activeSchedule.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        endTime: new Date(activeSchedule.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        startTime: formatWibTime(activeSchedule.startTime),
+        endTime: formatWibTime(activeSchedule.endTime),
         className: activeSchedule.class?.name,
         venueName: activeSchedule.venuePlaceName || undefined,
         tierLevel: activeSchedule.tierLevel,
@@ -740,12 +735,7 @@ export default async function PresensiPage({
     }
 
     // Tanggal jadwal terformat
-    const scheduleDate = new Date(activeSchedule.startTime).toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const scheduleDate = formatWibDate(activeSchedule.startTime);
 
     // Tentukan daftar seluruh pengajar sesi (utama, pendamping, badal)
     const teachersList = activeSchedule.teachers.map((t) => ({
@@ -815,7 +805,7 @@ export default async function PresensiPage({
         method: record?.method,
         notes: record?.notes,
         checkInTime: record?.checkInTime
-          ? new Date(record.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          ? formatWibTime(record.checkInTime)
           : null,
         absenceConfirmation: record?.absenceConfirmation
           ? {
@@ -873,8 +863,8 @@ export default async function PresensiPage({
           organizationName={activeSchedule.organization?.name}
           venueName={activeSchedule.venuePlaceName}
           scheduleDate={scheduleDate}
-          startTime={new Date(activeSchedule.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-          endTime={new Date(activeSchedule.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+          startTime={formatWibTime(activeSchedule.startTime)}
+          endTime={formatWibTime(activeSchedule.endTime)}
           students={studentItems}
           materials={resolvedMaterials}
           initialTotalMaterials={totalMaterialsCount}
@@ -967,10 +957,7 @@ export default async function PresensiPage({
       });
       const studentClassIds = studentClasses.map((c) => c.id);
 
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
+      const { startOfToday, endOfToday } = getWibTodayRange();
 
       const studentScheduleBaseWhere = {
         organizationId: { in: userOrgIds },
@@ -1047,7 +1034,7 @@ export default async function PresensiPage({
       if (myRecord && (myRecord.status === 'HADIR' || myRecord.status === 'TERLAMBAT')) {
         isAlreadyPresent = true;
         checkInTimeStr = myRecord.checkInTime
-          ? new Date(myRecord.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          ? formatWibTime(myRecord.checkInTime)
           : null;
       }
     }
@@ -1073,8 +1060,8 @@ export default async function PresensiPage({
                   id: activeSchedule.id,
                   title: activeSchedule.title,
                   venuePlaceName: activeSchedule.venuePlaceName,
-                  startTime: new Date(activeSchedule.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-                  endTime: new Date(activeSchedule.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                  startTime: formatWibTime(activeSchedule.startTime),
+                  endTime: formatWibTime(activeSchedule.endTime),
                 }
               : null
           }
@@ -1096,10 +1083,7 @@ export default async function PresensiPage({
     const children = userProfile.children || [];
     const childStudentIds = children.map((c) => c.student.id);
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const { startOfToday: startOfDay, endOfToday: endOfDay } = getWibTodayRange();
 
     // Kueri batch paralel untuk semua anak (Zero N+1):
     // 1. Batch seluruh catatan presensi 30 hari untuk seluruh anak
@@ -1227,14 +1211,8 @@ export default async function PresensiPage({
           childScheduleInfo = {
             scheduleId: todaySchedule.id,
             scheduleTitle: todaySchedule.title,
-            startTime: new Date(todaySchedule.startTime).toLocaleTimeString('id-ID', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            endTime: new Date(todaySchedule.endTime).toLocaleTimeString('id-ID', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
+            startTime: formatWibTime(todaySchedule.startTime),
+            endTime: formatWibTime(todaySchedule.endTime),
             venueName: todaySchedule.venuePlaceName,
             teacherName: primaryTeacher?.teacher?.fullName,
             isSubstitute: primaryTeacher?.isSubstitute,
@@ -1248,10 +1226,7 @@ export default async function PresensiPage({
             todayAttendanceStatus = record.status as any;
             todayNotes = record.notes;
             todayCheckInTime = record.checkInTime
-              ? new Date(record.checkInTime).toLocaleTimeString('id-ID', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+              ? formatWibTime(record.checkInTime)
               : null;
           } else if (todaySchedule.status === 'ACTIVE') {
             todayAttendanceStatus = 'ALPA';

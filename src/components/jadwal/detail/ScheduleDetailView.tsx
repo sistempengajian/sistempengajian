@@ -109,6 +109,7 @@ export interface StudentPersonalData {
 export interface ScheduleProgressData {
   mode: 'COLLECTIVE' | 'PERSONAL';
   totalTargetStudents?: number;
+  targetStudentIds?: string[];
   combined?: {
     totalStudents: number;
     scopeLabel: string;
@@ -267,8 +268,16 @@ export default function ScheduleDetailView({
     progressData?.combined?.totalStudents ??
     (isPersonal ? (progressData?.studentsPersonal?.length || 1) : 0);
 
-  // Hitung ringkasan presensi jika ada catatan
-  const attendanceRecords = latestSession?.records || [];
+  // Hitung ringkasan presensi jika ada catatan (filter hanya santri target jadwal jika targetStudentIds tersedia)
+  const rawRecords = latestSession?.records || [];
+  const targetStudentSet =
+    progressData?.targetStudentIds && progressData.targetStudentIds.length > 0
+      ? new Set(progressData.targetStudentIds)
+      : null;
+  const attendanceRecords = targetStudentSet
+    ? rawRecords.filter((r: any) => targetStudentSet.has(r.studentId))
+    : rawRecords;
+
   const hadirCount = attendanceRecords.filter((r: any) => r.status === 'HADIR' || r.status === 'TERLAMBAT').length;
   const izinCount = attendanceRecords.filter((r: any) => r.status === 'IZIN').length;
   const sakitCount = attendanceRecords.filter((r: any) => r.status === 'SAKIT').length;
@@ -276,10 +285,9 @@ export default function ScheduleDetailView({
 
   const totalAccountedPresentOrExcused = hadirCount + izinCount + sakitCount;
   // Jika ada totalTargetStudents, santri yang belum absen otomatis terhitung sebagai ALPA / Belum Absen
-  const alpaCount = Math.max(
-    explicitAlpaCount,
-    Math.max(0, totalTargetStudents - totalAccountedPresentOrExcused)
-  );
+  const alpaCount = totalTargetStudents > 0
+    ? Math.max(0, totalTargetStudents - totalAccountedPresentOrExcused)
+    : explicitAlpaCount;
 
   const handleStatusChange = (newStatus: ScheduleStatus) => {
     startTransition(async () => {
@@ -751,8 +759,8 @@ export default function ScheduleDetailView({
               })}
             </div>
             <div className="text-xs text-slate-600 font-medium">
-              {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} -{' '}
-              {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+              {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} -{' '}
+              {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
             </div>
             <div className="text-[11px] text-teal-700 font-semibold pt-1">
               Durasi: {durationMinutes} Menit
@@ -1683,7 +1691,7 @@ export default function ScheduleDetailView({
                   <span className="font-semibold text-slate-500">Waktu Pelaksanaan:</span>
                   <span className="font-medium text-slate-900 text-right">
                     {start.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' })},{' '}
-                    {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                    {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-slate-700">

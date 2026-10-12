@@ -195,11 +195,13 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                 {startTime.toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: 'Asia/Jakarta',
                 })}{' '}
                 -{' '}
                 {endTime.toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: 'Asia/Jakarta',
                 })}{' '}
                 WIB
               </span>
@@ -226,6 +228,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                   {new Date(sch.checkInTime).toLocaleTimeString('id-ID', {
                     hour: '2-digit',
                     minute: '2-digit',
+                    timeZone: 'Asia/Jakarta',
                   })}{' '}
                   WIB
                   {sch.attendanceMethod === 'QR_CODE'

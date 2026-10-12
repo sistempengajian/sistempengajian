@@ -1762,6 +1762,7 @@ export default function ParentAttendanceMonitor({
                                 day: 'numeric',
                                 month: 'long',
                                 year: 'numeric',
+                                timeZone: 'Asia/Jakarta',
                               })}
                             </span>
                             <span className="flex items-center gap-1">
@@ -1769,9 +1770,10 @@ export default function ParentAttendanceMonitor({
                               {new Date(selectedSchedule.startTime).toLocaleTimeString('id-ID', {
                                 hour: '2-digit',
                                 minute: '2-digit',
+                                timeZone: 'Asia/Jakarta',
                               })}
                               {selectedSchedule.endTime && (
-                                <> – {new Date(selectedSchedule.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</>
+                                <> – {new Date(selectedSchedule.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}</>
                               )}
                             </span>
                           </p>
@@ -2080,9 +2082,9 @@ export default function ParentAttendanceMonitor({
                                 <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                                   <span className="flex items-center gap-1">
                                     <Clock className="w-3 h-3 text-slate-400" />
-                                    {schDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                    {schDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}
                                     {sch.endTime && (
-                                      <> – {new Date(sch.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</>
+                                      <> – {new Date(sch.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}</>
                                     )}
                                   </span>
                                   {sch.venuePlaceName && (

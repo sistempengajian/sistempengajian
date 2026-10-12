@@ -318,8 +318,9 @@ export default async function DetailKelasPage({ params }: PageProps) {
                               weekday: 'short',
                               day: 'numeric',
                               month: 'short',
+                              timeZone: 'Asia/Jakarta',
                             })}
-                            , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                            , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                           </span>
                         </span>
                       </p>

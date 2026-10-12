@@ -581,6 +581,7 @@ export default async function ScheduleDetailPage({
     progressData = {
       mode: 'PERSONAL',
       totalTargetStudents: allTargetStudentIds.length,
+      targetStudentIds: allTargetStudentIds,
       studentsPersonal,
       activeStudentId: studentsPersonal[0]?.studentId,
       userRoleCategory,
@@ -737,6 +738,7 @@ export default async function ScheduleDetailPage({
     progressData = {
       mode: 'COLLECTIVE',
       totalTargetStudents: allTargetStudentIds.length,
+      targetStudentIds: allTargetStudentIds,
       combined: {
         totalStudents: allTargetStudentIds.length,
         scopeLabel:

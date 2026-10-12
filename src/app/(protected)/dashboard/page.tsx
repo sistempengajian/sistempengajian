@@ -171,9 +171,11 @@ async function DashboardMetrics({
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short',
+                timeZone: 'Asia/Jakarta',
               })} • ${new Date(nextSchedule.startTime).toLocaleTimeString('id-ID', {
                 hour: '2-digit',
                 minute: '2-digit',
+                timeZone: 'Asia/Jakarta',
               })} WIB`
             : undefined,
           nextScheduleVenue: nextSchedule?.venuePlaceName,

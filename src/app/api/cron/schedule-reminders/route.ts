@@ -41,7 +41,7 @@ function getRandomDelayMs(minSec = 3, maxSec = 15): number {
  * - Pre-flight Health Check WAHA
  * - Anti-Pesan Basi (Context Expiry Guard)
  * - Pengaturan Mandiri Wali Kelas: Toggle ON/OFF, Target Scope (Keduanya/Hanya Ortu/Hanya Santri), dan Opsi Ortu (Keduanya/Salah Satu)
- * - Pesan ke Pengajar SELALU dikirimkan (23 jam sebelum sesi)
+ * - Pesan ke Pengajar SELALU dikirimkan (20 jam sebelum sesi)
  * - Laporan BATCH NOTIFIKASI WA Admin dengan observabilitas komprehensif seluruh penyebab tidak terkirim
  */
 export async function GET(request: NextRequest) {
@@ -133,9 +133,9 @@ async function handleScheduleReminders(request: NextRequest) {
     }
 
     // 4. Rentang Waktu Pemindaian Database:
-    // A. Jendela H-1: Jadwal yang dimulai dalam rentang 21 jam s/d 25 jam ke depan (Target ~23 jam)
-    const h1Start = new Date(now.getTime() + 21 * 60 * 60 * 1000);
-    const h1End = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    // A. Jendela H-1: Jadwal yang dimulai dalam rentang 18 jam s/d 22 jam ke depan (Target 20 jam)
+    const h1Start = new Date(now.getTime() + 18 * 60 * 60 * 1000);
+    const h1End = new Date(now.getTime() + 22 * 60 * 60 * 1000);
 
     // B. Jendela Hari-H: Countdown 45 menit s/d 180 menit (3 jam) ke depan (Target ~2 jam)
     const countdownStart = new Date(now.getTime() + 45 * 60 * 1000);
@@ -247,7 +247,7 @@ async function handleScheduleReminders(request: NextRequest) {
       const scheduleTimeMs = schedule.startTime.getTime();
       const diffHours = (scheduleTimeMs - now.getTime()) / (1000 * 60 * 60);
 
-      const isH1Reminder = diffHours >= 22.0 && diffHours <= 24.0;
+      const isH1Reminder = diffHours >= 18.0 && diffHours <= 20.0;
       const isCountdownReminder = diffHours >= 0.75 && diffHours <= 3.0;
 
       // Anti-Pesan Basi (Context Expiry Guard)
@@ -295,7 +295,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
       // =========================================================================
       // 5. Target Pengajar (Ustadz / Ustadzah, Badal)
-      // Aturan: SELALU DIKIRIMKAN 23 jam sebelum jadwal dilaksanakan tanpa terpengaruh switch kelas
+      // Aturan: SELALU DIKIRIMKAN 20 jam sebelum jadwal dilaksanakan tanpa terpengaruh switch kelas
       // =========================================================================
       if (isH1Reminder) {
         for (const st of schedule.teachers) {

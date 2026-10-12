@@ -567,7 +567,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                                           day: 'numeric',
                                           month: 'short',
                                         })}
-                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                                       </span>
                                     </div>
 
@@ -641,7 +641,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                                           day: 'numeric',
                                           month: 'short',
                                         })}
-                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                        , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                                       </span>
                                     </div>
 
@@ -718,7 +718,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                                       day: 'numeric',
                                       month: 'short',
                                     })}
-                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                                   </span>
                                 </div>
 
@@ -794,7 +794,7 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                                       day: 'numeric',
                                       month: 'short',
                                     })}
-                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                    , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} - {endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                                   </span>
                                 </div>
 

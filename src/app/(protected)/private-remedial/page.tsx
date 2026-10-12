@@ -136,9 +136,9 @@ export default async function PrivateRemedialPage() {
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         <span>
-                          {start.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })} •{' '}
-                          {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} -{' '}
-                          {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                          {start.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' })} •{' '}
+                          {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} -{' '}
+                          {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">

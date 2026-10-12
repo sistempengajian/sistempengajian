@@ -13,6 +13,7 @@ import {
 import { AttendanceStatus, AttendanceMethod, AbsenceReasonType, AbsenceConfirmationStatus } from '@prisma/client';
 import crypto from 'crypto';
 import { uploadTaskImage } from '@/lib/storage/mediaUploader';
+import { formatWibTime } from '@/lib/utils';
 
 /**
  * Memeriksa apakah seorang santri terdaftar / berhak mengikuti jadwal pengajian tertentu
@@ -711,7 +712,7 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
   return {
     success: true,
     message: 'Alhamdulillah! Presensi Anda berhasil tercatat tepat waktu.',
-    checkInTime: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    checkInTime: formatWibTime(now),
     pointsEarned: 10,
   };
 }
@@ -861,7 +862,7 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
   return {
     success: true,
     message: `Alhamdulillah! Presensi untuk ${student?.fullName || 'ananda'} berhasil dicatat tepat waktu.`,
-    checkInTime: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    checkInTime: formatWibTime(now),
     pointsEarned: 10,
   };
 }
@@ -1645,9 +1646,7 @@ export async function getSessionAttendanceRecords(sessionId: string) {
         studentId: r.studentId,
         status: r.status,
         method: r.method,
-        checkInTime: r.checkInTime
-          ? new Date(r.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-          : null,
+        checkInTime: formatWibTime(r.checkInTime) || null,
         absenceConfirmation: r.absenceConfirmation
           ? {
               id: r.absenceConfirmation.id,

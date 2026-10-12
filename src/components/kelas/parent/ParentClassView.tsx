@@ -574,7 +574,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                                   month: 'short',
                                   year: startTime.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
                                 })}
-                                , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                , {startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                               </span>
                             </div>
 
@@ -588,7 +588,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                               <div className="mt-1 text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1 border border-emerald-100">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                                 <span>
-                                  Ananda hadir tercatat pk. {new Date(sch.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                                  Ananda hadir tercatat pk. {new Date(sch.checkInTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                                 </span>
                               </div>
                             )}

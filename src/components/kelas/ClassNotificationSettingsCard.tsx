@@ -327,7 +327,7 @@ export function ClassNotificationSettingsCard({
           <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
             <strong>Catatan Pengajar:</strong> Pesan pengingat jadwal tugas mengajar untuk Ustadz/Ustadzah dan Badal
-            tetap <strong>selalu dikirimkan 23 jam sebelum sesi</strong> tanpa dipengaruhi oleh pengaturan kelas di atas.
+            tetap <strong>selalu dikirimkan 20 jam sebelum sesi</strong> tanpa dipengaruhi oleh pengaturan kelas di atas.
           </p>
         </div>
 
