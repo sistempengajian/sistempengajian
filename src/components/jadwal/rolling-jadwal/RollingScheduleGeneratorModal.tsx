@@ -47,6 +47,14 @@ type PreviewData = {
   totalMaterialRotations: number;
   totalTeacherRotations: number;
   sessionDates: string[]; // ISO strings
+  sampleSessions?: {
+    date: string;
+    dayName: string;
+    timeRange: string;
+    materialTitle: string;
+    teacherName: string;
+    stepOrder: number;
+  }[];
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -74,6 +82,7 @@ const DAY_ACTIVE = [
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('id-ID', {
     weekday: 'short', day: 'numeric', month: 'short',
+    timeZone: 'Asia/Jakarta',
   });
 }
 
@@ -166,15 +175,27 @@ export default function RollingScheduleGeneratorModal({
   // ── Build preview input ───────────────────────────────────────────────────
   const buildInput = useCallback((): PreviewInput | null => {
     if (!selectedBlueprintId || selectedDays.length === 0 || !dateRange.startDate || !dateRange.endDate) return null;
+
+    const toYMD = (val: Date | string | null | undefined): string => {
+      if (!val) return '';
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      const d = typeof val === 'string' ? new Date(val) : val;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     return {
       rollingPengajianId: selectedBlueprintId,
       selectedDays,
       startTime,
       endTime,
-      startDate: dateRange.startDate.toISOString(),
-      endDate: dateRange.endDate.toISOString(),
+      startDate: toYMD(dateRange.startDate),
+      endDate: toYMD(dateRange.endDate),
       startMaterialStep,
       startTeacherStep,
+      timeZone: 'Asia/Jakarta',
     };
   }, [selectedBlueprintId, selectedDays, startTime, endTime, dateRange, startMaterialStep, startTeacherStep]);
 
@@ -193,6 +214,7 @@ export default function RollingScheduleGeneratorModal({
           sessionDates: res.data.summary.sessionDates.map((d) =>
             d instanceof Date ? d.toISOString() : String(d)
           ),
+          sampleSessions: res.data.summary.sampleSessions,
         });
       } else {
         setPreviewError(res.error ?? 'Gagal memuat preview');
@@ -276,7 +298,7 @@ export default function RollingScheduleGeneratorModal({
                     <button
                       key={bp.id}
                       type="button"
-                      onClick={() => { setSelectedBlueprintId(bp.id); setPreview(null); }}
+                      onClick={() => { setSelectedBlueprintId(bp.id); setStartMaterialStep(0); setStartTeacherStep(0); setPreview(null); }}
                       className={`text-left w-full p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${isSelected
                         ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-400/30 shadow-xs'
                         : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 shadow-2xs'
@@ -427,8 +449,8 @@ export default function RollingScheduleGeneratorModal({
                           onChange={(e) => setStartMaterialStep(Number(e.target.value))}
                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
                         >
-                          {selectedBlueprint?.materialRolling.queues.map((q) => (
-                            <option key={q.stepOrder} value={q.stepOrder - 1}>
+                          {selectedBlueprint?.materialRolling.queues.map((q, idx) => (
+                            <option key={q.stepOrder} value={idx}>
                               Antrean #{q.stepOrder} {q.title ? `— ${q.title}` : ''}
                             </option>
                           ))}
@@ -441,8 +463,8 @@ export default function RollingScheduleGeneratorModal({
                           onChange={(e) => setStartTeacherStep(Number(e.target.value))}
                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
                         >
-                          {selectedBlueprint?.teacherRolling.queues.map((q) => (
-                            <option key={q.stepOrder} value={q.stepOrder - 1}>
+                          {selectedBlueprint?.teacherRolling.queues.map((q, idx) => (
+                            <option key={q.stepOrder} value={idx}>
                               Antrean #{q.stepOrder} {q.title ? `— ${q.title}` : ''}
                             </option>
                           ))}
@@ -501,6 +523,44 @@ export default function RollingScheduleGeneratorModal({
                         </div>
                       </div>
 
+                      {/* Sample Session Simulation Preview */}
+                      {preview.sampleSessions && preview.sampleSessions.length > 0 && (
+                        <div className="border-t border-slate-200 bg-white p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                              Simulasi Rotasi & Waktu Pertemuan:
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                              {startTime} - {endTime} WIB
+                            </span>
+                          </div>
+                          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                            {preview.sampleSessions.map((samp, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors text-[11px]"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-800 w-28 shrink-0">
+                                    {samp.dayName}, {samp.date.split('-').reverse().join('/')}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold shrink-0">
+                                    Antrean #{samp.stepOrder}
+                                  </span>
+                                  <span className="text-slate-700 font-medium truncate max-w-[200px]" title={samp.materialTitle}>
+                                    {samp.materialTitle}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 shrink-0 sm:text-right">
+                                  Ust. {samp.teacherName}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Session date list */}
                       {preview.sessionDates.length > 0 && (
                         <div className="border-t border-slate-200 bg-slate-50">
@@ -510,7 +570,7 @@ export default function RollingScheduleGeneratorModal({
                             className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                           >
                             <span>
-                              {previewExpanded ? 'Sembunyikan' : 'Lihat'} tanggal sesi ({preview.sessionDates.length} hari)
+                              {previewExpanded ? 'Sembunyikan' : 'Lihat'} semua tanggal sesi ({preview.sessionDates.length} hari)
                             </span>
                             {previewExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                           </button>

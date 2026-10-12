@@ -143,10 +143,11 @@ export interface PreviewInput {
   selectedDays: number[];
   startTime: string;
   endTime: string;
-  startDate: string; // ISO string
-  endDate: string; // ISO string
+  startDate: string; // "YYYY-MM-DD" or ISO string
+  endDate: string; // "YYYY-MM-DD" or ISO string
   startMaterialStep?: number;
   startTeacherStep?: number;
+  timeZone?: string;
 }
 
 /**
@@ -278,10 +279,11 @@ export async function previewRollingScheduleSessions(
       selectedDays: input.selectedDays,
       startTime: input.startTime,
       endTime: input.endTime,
-      startDate: new Date(input.startDate),
-      endDate: new Date(input.endDate),
+      startDate: input.startDate,
+      endDate: input.endDate,
       startMaterialStep: input.startMaterialStep ?? 0,
       startTeacherStep: input.startTeacherStep ?? 0,
+      timeZone: input.timeZone ?? 'Asia/Jakarta',
     };
 
     const result = generateRollingScheduleSessions(generatorInput);

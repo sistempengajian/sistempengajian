@@ -58,14 +58,16 @@ export interface GeneratorInput {
   selectedDays: number[];
   startTime: string; // "HH:mm"
   endTime: string; // "HH:mm"
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | string;
+  endDate: Date | string;
   /** Indeks awal antrean materi (0-based, default 0) */
   startMaterialStep?: number;
   /** Indeks awal antrean pengajar (0-based, default 0) */
   startTeacherStep?: number;
   /** ID batch unik untuk grouping (akan di-generate jika tidak diberikan) */
   batchId?: string;
+  /** Timezone name (default: "Asia/Jakarta") */
+  timeZone?: string;
 }
 
 export interface GeneratedSessionTeacher {
@@ -108,6 +110,15 @@ export interface GeneratedSession {
   substituteTeacherName: string | null;
 }
 
+export interface GeneratorSummarySession {
+  date: string; // "YYYY-MM-DD"
+  dayName: string;
+  timeRange: string;
+  materialTitle: string;
+  teacherName: string;
+  stepOrder: number;
+}
+
 export interface GeneratorResult {
   batchId: string;
   sessions: GeneratedSession[];
@@ -117,67 +128,186 @@ export interface GeneratorResult {
     totalMaterialRotations: number;
     totalTeacherRotations: number;
     sessionDates: Date[];
+    sampleSessions: GeneratorSummarySession[];
   };
 }
 
-// ── Internal Helpers ──────────────────────────────────────────────────────────
+// ── Calendar Date Helpers ─────────────────────────────────────────────────────
 
-/** Kumpulkan semua tanggal dalam rentang yang sesuai hari yang dipilih */
-function collectSessionDates(
-  startDate: Date,
-  endDate: Date,
-  selectedDays: number[]
-): Date[] {
-  const dates: Date[] = [];
-  const current = new Date(startDate);
-  current.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
-
-  while (current <= end) {
-    if (selectedDays.includes(current.getDay())) {
-      dates.push(new Date(current));
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
+export interface CalendarDate {
+  year: number;
+  month: number; // 1-12
+  day: number; // 1-31
+  dayOfWeek: number; // 0=Ahad, 1=Sen, ..., 6=Sab
+  dateString: string; // "YYYY-MM-DD"
 }
 
-/** Hitung indeks antrian berdasarkan tipe rolling */
-function resolveQueueStepIndex(params: {
+const DAY_NAMES_ID = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu'];
+
+/**
+ * Parsing input tanggal (string "YYYY-MM-DD", ISO string, atau objek Date)
+ * menjadi representasi kalender murni pada timezone tertentu (default: Asia/Jakarta).
+ */
+export function parseCalendarDate(
+  input: string | Date,
+  timeZone: string = 'Asia/Jakarta'
+): CalendarDate {
+  let year: number;
+  let month: number;
+  let day: number;
+
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
+    const parts = input.trim().split('-').map(Number);
+    year = parts[0];
+    month = parts[1];
+    day = parts[2];
+  } else {
+    const dateObj = typeof input === 'string' ? new Date(input) : input;
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.format(dateObj); // "YYYY-MM-DD"
+    const [y, m, d] = parts.split('-').map(Number);
+    year = y;
+    month = m;
+    day = d;
+  }
+
+  // Hari dalam seminggu dihitung deterministik via UTC date
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  const dayOfWeek = utcDate.getUTCDay(); // 0 = Ahad, 1 = Senin, ...
+  const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  return { year, month, day, dayOfWeek, dateString };
+}
+
+/**
+ * Kumpulkan semua tanggal kalender dalam rentang [startDate, endDate]
+ * yang cocok dengan hari yang dipilih (selectedDays: 0=Ahad..6=Sabtu).
+ */
+export function collectSessionCalendarDates(
+  startDateInput: string | Date,
+  endDateInput: string | Date,
+  selectedDays: number[],
+  timeZone: string = 'Asia/Jakarta'
+): CalendarDate[] {
+  const start = parseCalendarDate(startDateInput, timeZone);
+  const end = parseCalendarDate(endDateInput, timeZone);
+
+  const curUtc = new Date(Date.UTC(start.year, start.month - 1, start.day));
+  const endUtc = new Date(Date.UTC(end.year, end.month - 1, end.day));
+
+  const results: CalendarDate[] = [];
+
+  while (curUtc <= endUtc) {
+    const dow = curUtc.getUTCDay();
+    if (selectedDays.includes(dow)) {
+      const year = curUtc.getUTCFullYear();
+      const month = curUtc.getUTCMonth() + 1;
+      const day = curUtc.getUTCDate();
+      const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      results.push({
+        year,
+        month,
+        day,
+        dayOfWeek: dow,
+        dateString,
+      });
+    }
+    curUtc.setUTCDate(curUtc.getUTCDate() + 1);
+  }
+
+  return results;
+}
+
+/**
+ * Menggabungkan tanggal kalender dan string jam "HH:mm" menjadi objek Date
+ * dengan timezone offset yang eksplisit (+07:00 untuk Asia/Jakarta / WIB).
+ */
+export function buildDateTimeWithTimezone(
+  dateInfo: CalendarDate,
+  timeStr: string,
+  timeZone: string = 'Asia/Jakarta'
+): Date {
+  const [hoursStr, minutesStr] = timeStr.split(':');
+  const hours = String(Number(hoursStr) || 0).padStart(2, '0');
+  const minutes = String(Number(minutesStr) || 0).padStart(2, '0');
+  const offset = timeZone === 'Asia/Jakarta' ? '+07:00' : '+07:00';
+  return new Date(`${dateInfo.dateString}T${hours}:${minutes}:00${offset}`);
+}
+
+/**
+ * Menggabungkan tanggal kalender dan jam selesai "HH:mm".
+ * Jika jam selesai lebih awal atau sama dengan jam mulai (misal 23:00 - 00:00),
+ * jam selesai otomatis berpindah ke keesokan harinya.
+ */
+export function buildEndDateTimeWithTimezone(
+  dateInfo: CalendarDate,
+  startTimeStr: string,
+  endTimeStr: string,
+  timeZone: string = 'Asia/Jakarta'
+): Date {
+  const [startH, startM] = startTimeStr.split(':').map(Number);
+  const [endH, endM] = endTimeStr.split(':').map(Number);
+
+  const isNextDay = endH < startH || (endH === startH && endM <= startM);
+
+  if (!isNextDay) {
+    return buildDateTimeWithTimezone(dateInfo, endTimeStr, timeZone);
+  }
+
+  const nextUtc = new Date(Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day));
+  nextUtc.setUTCDate(nextUtc.getUTCDate() + 1);
+  const nextDateInfo: CalendarDate = {
+    year: nextUtc.getUTCFullYear(),
+    month: nextUtc.getUTCMonth() + 1,
+    day: nextUtc.getUTCDate(),
+    dayOfWeek: nextUtc.getUTCDay(),
+    dateString: `${nextUtc.getUTCFullYear()}-${String(nextUtc.getUTCMonth() + 1).padStart(2, '0')}-${String(nextUtc.getUTCDate()).padStart(2, '0')}`,
+  };
+
+  return buildDateTimeWithTimezone(nextDateInfo, endTimeStr, timeZone);
+}
+
+/** Hitung indeks antrian berdasarkan tipe rolling secara deterministik murni */
+export function resolveQueueStepIndex(params: {
   sessionIndex: number;
-  sessionDate: Date;
-  startDate: Date;
+  sessionDateInfo: CalendarDate;
+  startDateInfo: CalendarDate;
   rollingType: RollingIntervalType;
   totalSteps: number;
   startStep: number;
 }): number {
-  const { sessionIndex, sessionDate, startDate, rollingType, totalSteps, startStep } = params;
+  const { sessionIndex, sessionDateInfo, startDateInfo, rollingType, totalSteps, startStep } = params;
   if (totalSteps === 0) return 0;
 
   let rawStep: number;
 
   switch (rollingType) {
-    case "PER_PENGAJIAN":
+    case 'PER_PENGAJIAN':
       rawStep = startStep + sessionIndex;
       break;
 
-    case "MINGGUAN": {
-      // Hitung selisih minggu dari startDate
-      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-      const weeksDiff = Math.floor(
-        (sessionDate.getTime() - startDate.getTime()) / msPerWeek
-      );
-      rawStep = startStep + weeksDiff;
+    case 'MINGGUAN': {
+      // Hitung selisih minggu kalender berbasis Senin
+      const startUtc = Date.UTC(startDateInfo.year, startDateInfo.month - 1, startDateInfo.day);
+      const sessionUtc = Date.UTC(sessionDateInfo.year, sessionDateInfo.month - 1, sessionDateInfo.day);
+      const daysDiff = Math.round((sessionUtc - startUtc) / 86400000);
+      const startDowMon = (startDateInfo.dayOfWeek + 6) % 7; // Senin = 0, Ahad = 6
+      const weeksDiff = Math.floor((daysDiff + startDowMon) / 7);
+      rawStep = startStep + Math.max(0, weeksDiff);
       break;
     }
 
-    case "BULANAN": {
-      // Hitung selisih bulan dari startDate
+    case 'BULANAN': {
+      // Hitung selisih bulan kalender dari bulan mulai
       const monthsDiff =
-        (sessionDate.getFullYear() - startDate.getFullYear()) * 12 +
-        (sessionDate.getMonth() - startDate.getMonth());
-      rawStep = startStep + monthsDiff;
+        (sessionDateInfo.year - startDateInfo.year) * 12 +
+        (sessionDateInfo.month - startDateInfo.month);
+      rawStep = startStep + Math.max(0, monthsDiff);
       break;
     }
 
@@ -185,15 +315,7 @@ function resolveQueueStepIndex(params: {
       rawStep = startStep + sessionIndex;
   }
 
-  return rawStep % totalSteps;
-}
-
-/** Buat objek Date dari tanggal sesi + string jam */
-function combineDateTime(date: Date, timeStr: string): Date {
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  const dt = new Date(date);
-  dt.setHours(hours, minutes, 0, 0);
-  return dt;
+  return ((rawStep % totalSteps) + totalSteps) % totalSteps;
 }
 
 // ── Main Generator ────────────────────────────────────────────────────────────
@@ -210,13 +332,14 @@ export function generateRollingScheduleSessions(
     endDate,
     startMaterialStep = 0,
     startTeacherStep = 0,
+    timeZone = 'Asia/Jakarta',
   } = input;
 
   const batchId = input.batchId ?? crypto.randomUUID();
 
-  // 1. Kumpulkan semua tanggal sesi
-  const sessionDates = collectSessionDates(startDate, endDate, selectedDays);
-  if (sessionDates.length === 0) {
+  // 1. Kumpulkan semua tanggal sesi kalender
+  const sessionCalendarDates = collectSessionCalendarDates(startDate, endDate, selectedDays, timeZone);
+  if (sessionCalendarDates.length === 0) {
     return {
       batchId,
       sessions: [],
@@ -225,9 +348,12 @@ export function generateRollingScheduleSessions(
         totalMaterialRotations: 0,
         totalTeacherRotations: 0,
         sessionDates: [],
+        sampleSessions: [],
       },
     };
   }
+
+  const startDateInfo = parseCalendarDate(startDate, timeZone);
 
   const matQueues = blueprint.materialRolling.queues.sort(
     (a, b) => a.stepOrder - b.stepOrder
@@ -254,12 +380,12 @@ export function generateRollingScheduleSessions(
   // 3. Generate sesi gabungan per tanggal pertemuan
   const sessions: GeneratedSession[] = [];
 
-  sessionDates.forEach((date, sessionIndex) => {
+  sessionCalendarDates.forEach((dateInfo, sessionIndex) => {
     // Resolve material step
     const matStepIdx = resolveQueueStepIndex({
       sessionIndex,
-      sessionDate: date,
-      startDate,
+      sessionDateInfo: dateInfo,
+      startDateInfo,
       rollingType: blueprint.materialRolling.rollingType,
       totalSteps: matQueues.length,
       startStep: startMaterialStep,
@@ -268,8 +394,8 @@ export function generateRollingScheduleSessions(
     // Resolve teacher step
     const tchStepIdx = resolveQueueStepIndex({
       sessionIndex,
-      sessionDate: date,
-      startDate,
+      sessionDateInfo: dateInfo,
+      startDateInfo,
       rollingType: blueprint.teacherRolling.rollingType,
       totalSteps: tchQueues.length,
       startStep: startTeacherStep,
@@ -312,6 +438,9 @@ export function generateRollingScheduleSessions(
     // Judul sesi: Cukup nama blueprint saja sesuai instruksi user
     const title = blueprint.name;
 
+    const startDateTime = buildDateTimeWithTimezone(dateInfo, startTime, timeZone);
+    const endDateTime = buildEndDateTimeWithTimezone(dateInfo, startTime, endTime, timeZone);
+
     sessions.push({
       title,
       organizationId: blueprint.organizationId,
@@ -323,12 +452,12 @@ export function generateRollingScheduleSessions(
       generationTargetId: primaryGenerationId,
       venuePlaceName: blueprint.venuePlaceName,
       venueType: blueprint.venueType ?? null,
-      startTime: combineDateTime(date, startTime),
-      endTime: combineDateTime(date, endTime),
+      startTime: startDateTime,
+      endTime: endDateTime,
       rollingPengajianId: blueprint.id,
       rollingBatchId: batchId,
-      rollingMaterialStepOrder: matStepIdx,
-      rollingTeacherStepOrder: tchStepIdx,
+      rollingMaterialStepOrder: matQueue ? matQueue.stepOrder : matStepIdx + 1,
+      rollingTeacherStepOrder: tchQueue ? tchQueue.stepOrder : tchStepIdx + 1,
       scheduleMaterials,
       teachers: sessionTeachers,
       primaryTeacherId: primaryItem.teacherId,
@@ -338,9 +467,30 @@ export function generateRollingScheduleSessions(
     });
   });
 
-  // 4. Hitung statistik
+  // 4. Hitung statistik & sample sesi untuk preview
   const matStepSet = new Set(sessions.map((s) => s.rollingMaterialStepOrder));
   const tchStepSet = new Set(sessions.map((s) => s.rollingTeacherStepOrder));
+
+  const sampleSessions: GeneratorSummarySession[] = [];
+  const seenStepOrders = new Set<number>();
+
+  sessions.forEach((s, idx) => {
+    const isFirstFew = idx < 3;
+    const isNewRotation = !seenStepOrders.has(s.rollingMaterialStepOrder);
+    seenStepOrders.add(s.rollingMaterialStepOrder);
+
+    if ((isFirstFew || isNewRotation) && sampleSessions.length < 12) {
+      const cal = parseCalendarDate(s.startTime, timeZone);
+      sampleSessions.push({
+        date: cal.dateString,
+        dayName: DAY_NAMES_ID[cal.dayOfWeek] || '',
+        timeRange: `${startTime} - ${endTime} WIB`,
+        materialTitle: s.scheduleMaterials.map((m) => m.materialTitle).join(', ') || 'Tanpa Materi',
+        teacherName: s.primaryTeacherName,
+        stepOrder: s.rollingMaterialStepOrder,
+      });
+    }
+  });
 
   return {
     batchId,
@@ -349,7 +499,8 @@ export function generateRollingScheduleSessions(
       totalSessions: sessions.length,
       totalMaterialRotations: matStepSet.size,
       totalTeacherRotations: tchStepSet.size,
-      sessionDates,
+      sessionDates: sessions.map((s) => s.startTime),
+      sampleSessions,
     },
   };
 }
