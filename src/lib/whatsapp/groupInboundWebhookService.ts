@@ -516,14 +516,9 @@ export async function processGroupInboundWhatsAppMessage(
   if (targetAction === 'BAYAR_KAS') {
     const qrisImageUrl = getQrisImageUrl();
     const replyMessage =
-      `💳 *PEMBAYARAN KAS & INFAQ PENGAJIAN*\n` +
-      `🏷️ *Jenjang:* ${groupTargetName}\n` +
-      `🏛️ *Organisasi:* ${orgName}\n\n` +
-      `Berikut adalah barcode QRIS resmi untuk pembayaran uang kas / iuran / infaq pengajian:\n\n` +
-      `• *Nama Merchant:* WAROENG.KITA, ADIWERNA\n` +
-      `• *NMID:* ID1025447324233\n` +
-      `• *Metode Pembayaran:* Scan melalui seluruh aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI, BSI, dll) atau E-Wallet (GoPay, OVO, DANA, ShopeePay, LinkAja)\n\n` +
-      `📝 *Catatan:* Setelah melakukan scan/transfer, mohon simpan bukti transaksi dan konfirmasikan ke bendahara / pengurus kelas masing-masing.\n\n` +
+      `*PEMBAYARAN KAS & INFAQ PENGAJIAN*\n` +
+      `*• Metode Pembayaran:* Scan melalui seluruh aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI, BSI, dll) atau E-Wallet (GoPay, OVO, DANA, ShopeePay, LinkAja)\n\n` +
+      `*• Catatan:* Setelah melakukan scan/transfer, mohon simpan bukti transaksi dan konfirmasikan ke bendahara\n\n` +
       `Semoga kas dan infaq yang ditunaikan senantiasa barokah dan menjadi amal jariyah yang berlipat ganda. 🤲\n` +
       `${orgSignature}`;
 
@@ -569,17 +564,17 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `📅 *JADWAL PENGAJIAN HARI INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*JADWAL PENGAJIAN HARI INI*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Semoga Allah SWT memberikan kemudahan dan kelancaran untuk hadir tepat waktu. 🌟\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `📅 *JADWAL PENGAJIAN HARI INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*JADWAL PENGAJIAN HARI INI*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `Alhamdulillah, tidak ada jadwal pengajian terjadwal untuk hari ini. Selamat beristirahat atau muraja'ah mandiri di rumah! 🌿\n\n` +
         `${orgSignature}`;
     }
@@ -624,18 +619,18 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `📋 *AGENDA PENGAJIAN PEKAN INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *Periode:* ${periodLabel}\n\n` +
+        `*AGENDA PENGAJIAN PEKAN INI*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n` +
+        `*• Periode:* _${periodLabel}_\n\n` +
         `${itemsText}\n\n` +
         `Total ada *${schedules.length} sesi pengajian* terjadwal untuk sepekan ini.\n` +
         `Alhamdulillah Jazakumullahu Khairan.\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `📋 *AGENDA PENGAJIAN PEKAN INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *Periode:* ${periodLabel}\n\n` +
+        `*AGENDA PENGAJIAN PEKAN INI*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n` +
+        `*• Periode:* _${periodLabel}_\n\n` +
         `Belum ada sesi pengajian yang diagendakan pada rentang pekan ini.\n\n` +
         `${orgSignature}`;
     }
@@ -680,17 +675,17 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `🔔 *JADWAL PENGAJIAN BESOK*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*JADWAL PENGAJIAN BESOK*\n` +
+        `*Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Persiapkan diri dan perlengkapan mengaji dari sekarang ya! 🌟\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `🔔 *JADWAL PENGAJIAN BESOK*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*JADWAL PENGAJIAN BESOK*\n` +
+        `*Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `Alhamdulillah, tidak ada jadwal pengajian untuk esok hari.\n\n` +
         `${orgSignature}`;
     }
@@ -745,17 +740,17 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `📚 *TARGET KURIKULUM BULAN INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `🗓️ *Bulan:* ${monthName} ${currentYear}\n\n` +
+        `*TARGET KURIKULUM BULAN INI*\n` +
+        `*Jenjang:* _${groupTargetName}_\n` +
+        `*Bulan:* _${monthName} ${currentYear}_\n\n` +
         `${itemsText}\n\n` +
         `Mari bersama-sama kita capai target materi kurikulum ini dengan tekun dan istiqomah! 💪\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `📚 *TARGET KURIKULUM BULAN INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `🗓️ *Bulan:* ${monthName} ${currentYear}\n\n` +
+        `*TARGET KURIKULUM BULAN INI*\n` +
+        `*Jenjang:* _${groupTargetName}_\n` +
+        `*Bulan:* _${monthName} ${currentYear}_\n\n` +
         `Target kurikulum bulanan khusus belum diset oleh PJ Kurikulum. Kegiatan pengajian berjalan mengacu pada silabus materi rutin aktif.\n\n` +
         `${orgSignature}`;
     }
@@ -792,17 +787,17 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `👨‍🏫 *PENGAJAR BERTUGAS HARI INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*PENGAJAR BERTUGAS HARI INI*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Mari kita doakan para Ustadz/Ustadzah senantiasa diberikan kelancaran dan kesehatan dalam membimbing kita. 🤲\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `👨‍🏫 *INFORMASI PENGAJAR*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n` +
-        `📆 *${dateLabel}*\n\n` +
+        `*INFORMASI PENGAJAR*\n` +
+        `*Jenjang:* _${groupTargetName}_\n` +
+        `*${dateLabel}*\n\n` +
         `Tidak ada sesi pengajian terjadwal untuk hari ini.\n\n` +
         `${orgSignature}`;
     }
@@ -841,15 +836,15 @@ export async function processGroupInboundWhatsAppMessage(
         .join('\n\n');
 
       replyMessage =
-        `📍 *LOKASI PENGAJIAN HARI INI*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n\n` +
+        `*LOKASI PENGAJIAN HARI INI*\n` +
+        `*• Jenjang:* ${groupTargetName}\n\n` +
         `${itemsText}\n` +
         `Mari hadir tepat waktu dengan pakaian rapi dan sopan. 🕌\n` +
         `${orgSignature}`;
     } else {
       replyMessage =
-        `📍 *INFORMASI LOKASI PENGAJIAN*\n` +
-        `🏷️ *Jenjang:* ${groupTargetName}\n\n` +
+        `*INFORMASI LOKASI PENGAJIAN*\n` +
+        `*• Jenjang:* _${groupTargetName}_\n\n` +
         `Hari ini tidak ada sesi pengajian terjadwal. Lokasi pengajian reguler jenjang ini bertempat di Masjid / Aula binaan *${orgName}*.\n\n` +
         `Ketik *@no_bot jadwal besok* atau *@no_bot jadwal mingguan* untuk melihat tempat sesi berikutnya! 🌿\n\n` +
         `${orgSignature}`;
@@ -872,9 +867,9 @@ export async function processGroupInboundWhatsAppMessage(
   // =========================================================================
   if (targetAction === 'KONTAK_PENGURUS') {
     const replyMessage =
-      `📞 *INFORMASI PENGURUS & ADMINISTRASI*\n` +
-      `🏷️ *Jenjang:* ${groupTargetName}\n` +
-      `🏛️ *Organisasi:* ${orgName}\n\n` +
+      `*INFORMASI PENGURUS & ADMINISTRASI*\n` +
+      `*• Jenjang:* _${groupTargetName}_\n` +
+      `*• Organisasi:* _${orgName}_\n\n` +
       `Bagi Bapak/Ibu atau Santri yang memiliki pertanyaan seputar administrasi, pendaftaran, kurikulum, atau konfirmasi khusus, silakan menghubungi:\n` +
       `• *Musyrif / PJ Jenjang:* Hubungi kontak pengurus grup ini\n` +
       `• *Hotline Chatbot WhatsApp:* wa.me/6285165868482\n\n` +
@@ -898,8 +893,8 @@ export async function processGroupInboundWhatsAppMessage(
   // =========================================================================
   if (targetAction === 'IZIN_INFO') {
     const replyMessage =
-      `ℹ️ *PANDUAN PENGAJUAN IZIN SANTRI*\n` +
-      `🏷️ *Grup:* ${groupTargetName}\n\n` +
+      `*PANDUAN PENGAJUAN IZIN SANTRI*\n` +
+      `*• Grup:* _${groupTargetName}_\n\n` +
       `Untuk menjaga ketertiban administrasi dan privasi keluarga, permohonan izin santri dimohon untuk diajukan melalui *chat pribadi (japri)* ke nomor bot ini:\n` +
       `👉 wa.me/6285165868482\n\n` +
       `Cukup ketik *'izin'* atau *'sakit'* di chat pribadi bot untuk mendapatkan formulir konfirmasi digital instan tanpa login.\n\n` +
@@ -922,8 +917,8 @@ export async function processGroupInboundWhatsAppMessage(
   // AKSI 10: MENU BANTUAN & PERINTAH GRUP
   // =========================================================================
   const helpMessage =
-    `🤖 *LAYANAN ASISTEN PENGAJIAN GRUP*\n` +
-    `🏷️ *Grup:* ${groupTargetName}\n\n` +
+    `*LAYANAN ASISTEN PENGAJIAN GRUP*\n` +
+    `*Grup:* _${groupTargetName}_\n\n` +
     `Halo Bapak/Ibu & Rekan-Rekan sekalian! Saya adalah asisten bot sistem pengajian.\n` +
     `Agar bot merespon di grup, awali pesan dengan tag *@no_bot* atau *@bot* diikuti perintah berikut:\n\n` +
     `• *@no_bot bayar kas* — Barcode QRIS iuran kas & infaq\n` +
