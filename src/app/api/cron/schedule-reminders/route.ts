@@ -74,6 +74,29 @@ async function handleScheduleReminders(request: NextRequest) {
     return handleBroadcastMagicLogin(request);
   }
 
+  // 0b. Cek pemicu pengiriman manual Rangkuman Jadwal 1 Pekan Grup WA
+  if (action === 'weekly_digest' || action === 'weekly_group_digest') {
+    try {
+      const { dispatchAllWeeklyScheduleDigests } = await import(
+        '@/lib/whatsapp/groupScheduleNotificationService'
+      );
+      const result = await dispatchAllWeeklyScheduleDigests({
+        force: request.nextUrl.searchParams.get('force') === 'true',
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Rangkuman mingguan grup diproses: ${result.totalSent} terkirim, ${result.totalSkipped} dilewati.`,
+        result,
+      });
+    } catch (digestErr: any) {
+      console.error('[CRON WeeklyDigest Error]:', digestErr);
+      return NextResponse.json(
+        { success: false, error: digestErr.message || 'Gagal memproses rangkuman mingguan grup' },
+        { status: 500 }
+      );
+    }
+  }
+
   // 1. Validasi Keamanan Token Cron
   const authHeader = request.headers.get('authorization');
   const secretParam = request.nextUrl.searchParams.get('key');
@@ -1109,6 +1132,60 @@ async function handleScheduleReminders(request: NextRequest) {
           },
         });
       }
+
+      // =========================================================================
+      // 7B. Pengingat Sesi H-1 ke Grup WhatsApp Jenjang Sasaran
+      // =========================================================================
+      if (isH1Reminder) {
+        dispatchQueue.push({
+          type: 'ORANG_TUA' as any,
+          name: `Grup WA Jenjang [${schedule.title}]`,
+          phone: 'Grup WA',
+          execute: async () => {
+            const { dispatchGroupScheduleReminderH1 } = await import(
+              '@/lib/whatsapp/groupScheduleNotificationService'
+            );
+            const res = await dispatchGroupScheduleReminderH1(schedule.id);
+            return {
+              success: res.success || res.skippedCount > 0,
+              log: `[Grup WA H-1: ${schedule.title}] ${res.sentCount} grup terkirim, ${res.skippedCount} dilewati/idempoten`,
+            };
+          },
+        });
+      }
+    }
+
+    // =========================================================================
+    // 7C. Rangkuman Jadwal Mingguan Otomatis ke Grup WA (Setiap Ahad 16:00 - 20:00 WIB)
+    // =========================================================================
+    const jakartaFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hour12: false,
+    });
+    const parts = jakartaFormatter.formatToParts(now);
+    const jHour = Number(parts.find((p) => p.type === 'hour')?.value || '0');
+    const jDayOfWeek = new Date(now.getTime() + 7 * 3600 * 1000).getUTCDay();
+
+    if (jDayOfWeek === 0 && jHour >= 16 && jHour <= 20) {
+      dispatchQueue.push({
+        type: 'ORANG_TUA' as any,
+        name: 'Rangkuman Jadwal Mingguan Grup Jenjang',
+        phone: 'Grup WA Mingguan',
+        execute: async () => {
+          const { dispatchAllWeeklyScheduleDigests } = await import(
+            '@/lib/whatsapp/groupScheduleNotificationService'
+          );
+          const res = await dispatchAllWeeklyScheduleDigests();
+          return {
+            success: true,
+            log: `[Rangkuman Mingguan Otomatis Ahad] ${res.totalSent} grup terkirim, ${res.totalSkipped} dilewati.`,
+          };
+        },
+      });
     }
 
     // =========================================================================

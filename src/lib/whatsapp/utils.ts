@@ -1,6 +1,32 @@
 /**
- * Helper utility untuk manipulasi nomor telepon dan URL WhatsApp
+ * Memeriksa apakah tujuan merupakan ID / JID Grup WhatsApp (akhiran @g.us)
  */
+export function isWhatsAppGroupJid(target: string | null | undefined): boolean {
+  if (!target) return false;
+  const trimmed = target.trim();
+  return trimmed.endsWith('@g.us') || trimmed.endsWith('@temp');
+}
+
+/**
+ * Memeriksa apakah tujuan merupakan ID / JID WhatsApp bertipe LID (akhiran @lid)
+ */
+export function isWhatsAppLidJid(target: string | null | undefined): boolean {
+  if (!target) return false;
+  const trimmed = target.trim();
+  return trimmed.endsWith('@lid');
+}
+
+/**
+ * Menormalisasi target tujuan pesan WhatsApp, mendukung nomor HP personal (628xxx), JID Grup (@g.us), maupun LID (@lid)
+ */
+export function normalizeRecipientDestination(rawTarget: string | null | undefined): string | null {
+  if (!rawTarget) return null;
+  const trimmed = rawTarget.trim();
+  if (isWhatsAppGroupJid(trimmed) || isWhatsAppLidJid(trimmed) || trimmed.endsWith('@c.us')) {
+    return trimmed;
+  }
+  return normalizePhoneNumber(trimmed);
+}
 
 export function normalizePhoneNumber(rawPhone: string | null | undefined): string | null {
   if (!rawPhone) return null;

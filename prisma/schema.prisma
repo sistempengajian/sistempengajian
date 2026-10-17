@@ -226,6 +226,11 @@ model Generation {
   maxAge      Int            @map("max_age")
   description String?        @db.Text
   color       String?        @default("emerald") @db.VarChar(50)
+  // Integrasi Notifikasi WhatsApp Grup Jenjang
+  whatsappGroupId      String?        @map("whatsapp_group_id") @db.VarChar(100)
+  whatsappGroupName    String?        @map("whatsapp_group_name") @db.VarChar(255)
+  waGroupH1Enabled     Boolean        @default(true) @map("wa_group_h1_enabled")
+  waGroupWeeklyEnabled Boolean        @default(true) @map("wa_group_weekly_enabled")
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -343,6 +348,8 @@ model Class {
   waNotificationEnabled Boolean @default(true) @map("wa_notification_enabled")
   waRecipientScope      String  @default("BOTH") @map("wa_recipient_scope") @db.VarChar(50)
   waParentOption        String  @default("ALL_PARENTS") @map("wa_parent_option") @db.VarChar(50)
+  whatsappGroupId       String? @map("whatsapp_group_id") @db.VarChar(100)
+  whatsappGroupName     String? @map("whatsapp_group_name") @db.VarChar(255)
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

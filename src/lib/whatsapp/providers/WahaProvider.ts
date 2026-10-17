@@ -1,6 +1,6 @@
 import { IWhatsAppGateway } from './IWhatsAppGateway';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from '../types';
-import { normalizePhoneNumber } from '../utils';
+import { normalizePhoneNumber, isWhatsAppGroupJid, isWhatsAppLidJid } from '../utils';
 
 export class WahaProvider implements IWhatsAppGateway {
   readonly providerName = 'waha';
@@ -15,17 +15,28 @@ export class WahaProvider implements IWhatsAppGateway {
   }
 
   async sendMessage(options: SendMessageOptions): Promise<SendMessageResult> {
-    const normalizedTo = normalizePhoneNumber(options.to);
-    if (!normalizedTo) {
+    const isGroup = isWhatsAppGroupJid(options.to);
+    const isLid = isWhatsAppLidJid(options.to);
+    const isExplicitChat = typeof options.to === 'string' && options.to.includes('@');
+
+    let targetChatId: string | null = null;
+    if (isGroup || isLid || isExplicitChat) {
+      targetChatId = options.to.trim();
+    } else {
+      const normalizedPhone = normalizePhoneNumber(options.to);
+      targetChatId = normalizedPhone ? `${normalizedPhone}@c.us` : null;
+    }
+
+    if (!targetChatId) {
       return {
         success: false,
         status: 'FAILED',
-        error: `Nomor tujuan tidak valid: ${options.to}`,
+        error: `Tujuan tidak valid: ${options.to}`,
       };
     }
 
     if (!this.apiUrl || !this.apiKey) {
-      console.warn('[WahaProvider] WAHA Credentials belum lengkap. Simulasi pengiriman ke:', normalizedTo);
+      console.warn('[WahaProvider] WAHA Credentials belum lengkap. Simulasi pengiriman ke:', targetChatId);
       return {
         success: true,
         gatewayMessageId: `sim_waha_${Date.now()}`,
@@ -36,7 +47,7 @@ export class WahaProvider implements IWhatsAppGateway {
     try {
       const endpoint = `${this.apiUrl}/api/sendText`;
       const payload = {
-        chatId: `${normalizedTo}@c.us`,
+        chatId: targetChatId,
         text: options.message,
         session: this.session,
       };
@@ -55,7 +66,7 @@ export class WahaProvider implements IWhatsAppGateway {
 
       if (response.ok && data) {
         const rawId = data.key?.id || data.id || data.messageId;
-        const formattedChatId = normalizedTo.includes('@') ? normalizedTo : `${normalizedTo}@c.us`;
+        const formattedChatId = targetChatId;
         const msgId = rawId
           ? (String(rawId).includes('_') ? String(rawId) : `true_${formattedChatId}_${rawId}`)
           : `waha_${Date.now()}`;
@@ -180,6 +191,62 @@ export class WahaProvider implements IWhatsAppGateway {
     } catch (err: any) {
       console.error(`[WahaProvider] ❌ Error saat memanggil deleteMessage WAHA:`, err);
       return { success: false, error: err.message || 'Gagal terhubung ke gateway WAHA' };
+    }
+  }
+
+  /**
+   * Mengambil daftar grup WhatsApp aktif dari WAHA
+   * Endpoint: GET /api/{session}/groups atau fallback GET /api/{session}/chats?limit=100
+   */
+  async fetchGroups(): Promise<Array<{ id: string; name: string }>> {
+    if (!this.apiUrl || !this.apiKey) {
+      return [];
+    }
+
+    try {
+      // 1. Coba endpoint grup WAHA
+      const res = await fetch(`${this.apiUrl}/api/${this.session}/groups`, {
+        headers: { 'X-Api-Key': this.apiKey },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => []);
+        if (Array.isArray(data) && data.length > 0) {
+          return data
+            .map((g: any) => ({
+              id: (g.id?._serialized || g.id || g.chatId || '').trim(),
+              name: (g.name || g.subject || g.id || 'Grup WA').trim(),
+            }))
+            .filter((g) => g.id.endsWith('@g.us'));
+        }
+      }
+
+      // 2. Fallback ke endpoint chats
+      const fallbackRes = await fetch(`${this.apiUrl}/api/${this.session}/chats?limit=100`, {
+        headers: { 'X-Api-Key': this.apiKey },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (fallbackRes.ok) {
+        const data = await fallbackRes.json().catch(() => []);
+        if (Array.isArray(data)) {
+          return data
+            .filter((c: any) => {
+              const id = (c.id?._serialized || c.id || '').trim();
+              return id.endsWith('@g.us');
+            })
+            .map((c: any) => ({
+              id: (c.id?._serialized || c.id || '').trim(),
+              name: (c.name || c.subject || 'Grup WA').trim(),
+            }));
+        }
+      }
+
+      return [];
+    } catch (err) {
+      console.warn('[WahaProvider] Gagal memuat daftar grup dari WAHA:', err);
+      return [];
     }
   }
 }

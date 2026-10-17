@@ -20,9 +20,19 @@ import {
   Lock,
   Users,
   GraduationCap,
+  MessageSquare,
+  Send,
+  Radio,
+  RefreshCw,
+  Bell,
+  CalendarDays,
 } from 'lucide-react';
 import { GenerationWithStats } from '../types';
-import { updateGeneration } from '@/app/(protected)/generasi/actions';
+import {
+  updateGeneration,
+  testSendGroupPing,
+  triggerGenerationWeeklyDigest,
+} from '@/app/(protected)/generasi/actions';
 
 const COLOR_OPTIONS = [
   { id: 'emerald', label: 'Emerald', bgClass: 'bg-emerald-500', ringClass: 'ring-emerald-400', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
@@ -47,6 +57,22 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
   const [description, setDescription] = useState(generation.description || '');
   const [color, setColor] = useState(generation.color || 'emerald');
 
+  // Integrasi Notifikasi WhatsApp Grup
+  const [whatsappGroupId, setWhatsappGroupId] = useState(generation.whatsappGroupId || '');
+  const [whatsappGroupName, setWhatsappGroupName] = useState(generation.whatsappGroupName || '');
+  const [waGroupH1Enabled, setWaGroupH1Enabled] = useState(generation.waGroupH1Enabled ?? true);
+  const [waGroupWeeklyEnabled, setWaGroupWeeklyEnabled] = useState(generation.waGroupWeeklyEnabled ?? true);
+
+  // States untuk pemilihan grup dari gateway WAHA
+  const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
+
+  // States untuk pengujian interaktif (Ping & Weekly Broadcast)
+  const [isTestingPing, setIsTestingPing] = useState(false);
+  const [isSendingDigest, setIsSendingDigest] = useState(false);
+  const [testFeedback, setTestFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -56,7 +82,82 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
     setMaxAge(generation.maxAge);
     setDescription(generation.description || '');
     setColor(generation.color || 'emerald');
+    setWhatsappGroupId(generation.whatsappGroupId || '');
+    setWhatsappGroupName(generation.whatsappGroupName || '');
+    setWaGroupH1Enabled(generation.waGroupH1Enabled ?? true);
+    setWaGroupWeeklyEnabled(generation.waGroupWeeklyEnabled ?? true);
   }, [generation]);
+
+  const fetchWahaGroups = async () => {
+    setIsLoadingGroups(true);
+    setTestFeedback(null);
+    try {
+      const res = await fetch('/api/whatsapp/groups');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.groups)) {
+        setAvailableGroups(data.groups);
+        setShowGroupPicker(true);
+        if (data.groups.length === 0) {
+          setTestFeedback({
+            type: 'error',
+            message: 'Tidak ada grup WA ditemukan dari gateway WAHA. Anda dapat memasukkan ID Grup secara manual.',
+          });
+        }
+      } else {
+        setTestFeedback({
+          type: 'error',
+          message: data.message || 'Gagal memuat grup dari gateway WAHA. Pastikan gateway aktif.',
+        });
+      }
+    } catch (err: any) {
+      setTestFeedback({
+        type: 'error',
+        message: err.message || 'Gagal terhubung ke endpoint grup WhatsApp.',
+      });
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
+  const handleTestPing = async () => {
+    if (!whatsappGroupId.trim()) {
+      setTestFeedback({ type: 'error', message: 'Silakan isi ID Grup WhatsApp terlebih dahulu.' });
+      return;
+    }
+    setIsTestingPing(true);
+    setTestFeedback(null);
+    try {
+      const res = await testSendGroupPing(generation.id);
+      setTestFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message,
+      });
+    } catch (err: any) {
+      setTestFeedback({ type: 'error', message: err.message || 'Gagal mengirim pesan uji coba.' });
+    } finally {
+      setIsTestingPing(false);
+    }
+  };
+
+  const handleSendWeeklyDigest = async () => {
+    if (!whatsappGroupId.trim()) {
+      setTestFeedback({ type: 'error', message: 'Silakan isi ID Grup WhatsApp terlebih dahulu.' });
+      return;
+    }
+    setIsSendingDigest(true);
+    setTestFeedback(null);
+    try {
+      const res = await triggerGenerationWeeklyDigest(generation.id);
+      setTestFeedback({
+        type: res.success ? 'success' : 'error',
+        message: res.message,
+      });
+    } catch (err: any) {
+      setTestFeedback({ type: 'error', message: err.message || 'Gagal memicu rangkuman jadwal.' });
+    } finally {
+      setIsSendingDigest(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +190,10 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
         maxAge: parsedMaxAge,
         description: description.trim() || null,
         color,
+        whatsappGroupId: whatsappGroupId.trim() || null,
+        whatsappGroupName: whatsappGroupName.trim() || null,
+        waGroupH1Enabled,
+        waGroupWeeklyEnabled,
       });
 
       if (!res.success || !res.generation) {
@@ -305,6 +410,226 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all resize-none"
                 />
               </div>
+            </div>
+
+            {/* Card 5: Integrasi Notifikasi WhatsApp Grup Jenjang */}
+            <div className="rounded-3xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-800">Notifikasi Grup WhatsApp Jenjang</h2>
+                    <p className="text-[11px] text-slate-500">Pengingat H-1 dan rangkuman jadwal mingguan ke grup WA santri/wali</p>
+                  </div>
+                </div>
+
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  WAHA GATEWAY
+                </span>
+              </div>
+
+              {/* Feedback Alert for Group Testing */}
+              {testFeedback && (
+                <div
+                  className={`p-3 rounded-2xl border text-xs flex items-start gap-2.5 animate-fade-in ${
+                    testFeedback.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}
+                >
+                  {testFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  )}
+                  <span className="flex-1 font-medium">{testFeedback.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTestFeedback(null)}
+                    className="text-slate-400 hover:text-slate-600 font-bold ml-1 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Form Input: Nama Grup & ID Grup */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Nama / Label Grup WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Grup WA Pra-Remaja Kelompok"
+                    value={whatsappGroupName}
+                    onChange={(e) => setWhatsappGroupName(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      ID Grup WhatsApp (ChatId / JID)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={fetchWahaGroups}
+                      disabled={isLoadingGroups}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 disabled:text-slate-400 transition-colors cursor-pointer"
+                    >
+                      {isLoadingGroups ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Memuat Grup WAHA...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Tarik Daftar Grup dari WAHA</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="12036302839482910@g.us"
+                    value={whatsappGroupId}
+                    onChange={(e) => setWhatsappGroupId(e.target.value)}
+                    className="w-full px-4 py-2.5 font-mono rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"
+                  />
+
+                  {/* Dropdown Selector jika grup berhasil ditarik dari WAHA */}
+                  {showGroupPicker && availableGroups.length > 0 && (
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 mt-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                        <span>Pilih dari Grup WA yang Terdeteksi ({availableGroups.length}):</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowGroupPicker(false)}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+                      <select
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 cursor-pointer"
+                        onChange={(e) => {
+                          const selected = availableGroups.find((g) => g.id === e.target.value);
+                          if (selected) {
+                            setWhatsappGroupId(selected.id);
+                            setWhatsappGroupName(selected.name);
+                            setShowGroupPicker(false);
+                          }
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>-- Pilih salah satu grup --</option>
+                        {availableGroups.map((grp) => (
+                          <option key={grp.id} value={grp.id}>
+                            {grp.name} ({grp.id})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-slate-500">
+                    ID grup berakhiran <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">@g.us</code>. Sistem mengirimkan pengingat tanpa membuka tautan token login pribadi ke grup.
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggles Pengingat Otomatis */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <label className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/70 hover:bg-slate-50 border border-slate-150 transition-colors cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={waGroupH1Enabled}
+                    onChange={(e) => setWaGroupH1Enabled(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Bell className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Pengingat Sesi H-1 Otomatis ke Grup</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Otomatis memposting ringkasan pengajian esok hari ke grup jenjang ini ~20 jam sebelum sesi dimulai.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/70 hover:bg-slate-50 border border-slate-150 transition-colors cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={waGroupWeeklyEnabled}
+                    onChange={(e) => setWaGroupWeeklyEnabled(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <CalendarDays className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Rangkuman Jadwal 1 Minggu ke Depan (Weekly Digest)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Otomatis mengirimkan daftar seluruh sesi pengajian jenjang ini (Senin s/d Ahad) setiap Ahad sore (17:00 WIB).
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Uji Coba & Aksi Cepat Manual */}
+              {whatsappGroupId && (
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 block">
+                    Aksi Uji Coba &amp; Pengiriman Manual:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestPing}
+                      disabled={isTestingPing || !whatsappGroupId.trim()}
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isTestingPing ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                          <span>Menguji...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Radio className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Uji Coba Ping Grup</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendWeeklyDigest}
+                      disabled={isSendingDigest || !whatsappGroupId.trim()}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isSendingDigest ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          <span>Mengirim Rangkuman...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Kirim Jadwal Pekan Ini Sekarang</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -143,6 +143,7 @@ export interface InboundMessagePayload {
   fromMe?: boolean;
   messageId?: string;
   timestamp?: number;
+  authorPhone?: string;
 }
 
 export interface InboundProcessResult {
@@ -180,19 +181,32 @@ export async function processInboundWhatsAppMessage(
     return { handled: false, intent: 'OTHER' };
   }
 
-  // 2. Normalisasi nomor telepon pengirim
-  let cleanSender = payload.from.replace(/@.*$/, '').trim();
-  const normalizedPhone = normalizePhoneNumber(cleanSender) || cleanSender;
+  // Tujuan balasan pesan (chat thread asal: bisa @c.us atau @lid)
+  const replyDestination = payload.from.trim();
 
   // Proteksi Rate Limiting
-  if (isRateLimited(normalizedPhone)) {
+  if (isRateLimited(replyDestination)) {
     return {
       handled: true,
       intent: 'RATE_LIMITED',
       replySent: false,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
+
+  // 2. Normalisasi nomor telepon pengirim untuk pencarian database profil pengguna
+  let cleanPhoneCandidate: string | null = null;
+  if (payload.authorPhone) {
+    cleanPhoneCandidate = normalizePhoneNumber(payload.authorPhone);
+  }
+  if (!cleanPhoneCandidate && payload.from.endsWith('@c.us')) {
+    cleanPhoneCandidate = normalizePhoneNumber(payload.from.replace(/@c\.us$/, ''));
+  }
+  if (!cleanPhoneCandidate && !payload.from.includes('@')) {
+    cleanPhoneCandidate = normalizePhoneNumber(payload.from);
+  }
+
+  const normalizedPhone = cleanPhoneCandidate;
 
   const baseUrl = getBaseAppUrl();
 
@@ -207,30 +221,30 @@ export async function processInboundWhatsAppMessage(
   // KASUS A: INTENT IZIN / SAKIT (SMART ABSENCE AUTO-RESPONDER)
   // =========================================================================
   if (isAbsence) {
-    const variants = getCanonicalPhoneVariants(normalizedPhone);
-
-    // Cari User di database berdasarkan nomor HP
-    const user = await prisma.user.findFirst({
-      where: {
-        phoneNumber: { in: variants },
-        status: 'ACTIVE',
-      },
-      include: {
-        roles: true,
-        children: {
+    // Cari User di database berdasarkan nomor HP (jika nomor HP berhasil diidentifikasi)
+    const user = normalizedPhone
+      ? await prisma.user.findFirst({
+          where: {
+            phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) },
+            status: 'ACTIVE',
+          },
           include: {
-            student: {
+            roles: true,
+            children: {
               include: {
-                generation: true,
-                organization: true,
+                student: {
+                  include: {
+                    generation: true,
+                    organization: true,
+                  },
+                },
               },
             },
+            generation: true,
+            organization: true,
           },
-        },
-        generation: true,
-        organization: true,
-      },
-    });
+        })
+      : null;
 
     const now = new Date();
     const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 jam ke belakang
@@ -296,7 +310,7 @@ export async function processInboundWhatsAppMessage(
       }
 
       await whatsAppClient.sendMessage({
-        to: normalizedPhone,
+        to: replyDestination,
         recipientName: user.fullName,
         recipientUserId: user.id,
         messageType: 'CUSTOM_DIRECT',
@@ -308,7 +322,7 @@ export async function processInboundWhatsAppMessage(
         intent: 'ABSENCE',
         replySent: true,
         replyMessage: replyBody,
-        recipientPhone: normalizedPhone,
+        recipientPhone: replyDestination,
       };
     }
 
@@ -396,7 +410,7 @@ export async function processInboundWhatsAppMessage(
           `— *Sistem Notifikasi Pengajian*`;
 
         await whatsAppClient.sendMessage({
-          to: normalizedPhone,
+          to: replyDestination,
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -408,7 +422,7 @@ export async function processInboundWhatsAppMessage(
           intent: 'ABSENCE',
           replySent: true,
           replyMessage: replyBody,
-          recipientPhone: normalizedPhone,
+          recipientPhone: replyDestination,
         };
       }
 
@@ -434,7 +448,7 @@ export async function processInboundWhatsAppMessage(
           `— *Sistem Notifikasi Pengajian ${sch.organization?.name || ''}*`;
 
         await whatsAppClient.sendMessage({
-          to: normalizedPhone,
+          to: replyDestination,
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -446,7 +460,7 @@ export async function processInboundWhatsAppMessage(
           intent: 'ABSENCE',
           replySent: true,
           replyMessage: replyBody,
-          recipientPhone: normalizedPhone,
+          recipientPhone: replyDestination,
         };
       }
 
@@ -482,7 +496,7 @@ export async function processInboundWhatsAppMessage(
           `— *Sistem Notifikasi Pengajian ${matchedSchedule.organization?.name || ''}*`;
 
         await whatsAppClient.sendMessage({
-          to: normalizedPhone,
+          to: replyDestination,
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -494,7 +508,7 @@ export async function processInboundWhatsAppMessage(
           intent: 'ABSENCE',
           replySent: true,
           replyMessage: replyBody,
-          recipientPhone: normalizedPhone,
+          recipientPhone: replyDestination,
         };
       }
 
@@ -512,7 +526,7 @@ export async function processInboundWhatsAppMessage(
         `— *Sistem Notifikasi Pengajian*`;
 
       await whatsAppClient.sendMessage({
-        to: normalizedPhone,
+        to: replyDestination,
         recipientName: user.fullName,
         recipientUserId: user.id,
         messageType: 'CUSTOM_DIRECT',
@@ -524,7 +538,7 @@ export async function processInboundWhatsAppMessage(
         intent: 'ABSENCE',
         replySent: true,
         replyMessage: replyBody,
-        recipientPhone: normalizedPhone,
+        recipientPhone: replyDestination,
       };
     }
 
@@ -537,7 +551,7 @@ export async function processInboundWhatsAppMessage(
       `— *Layanan Notifikasi Sistem Pengajian*`;
 
     await whatsAppClient.sendMessage({
-      to: normalizedPhone,
+      to: replyDestination,
       messageType: 'CUSTOM_DIRECT',
       message: fallbackUnregistered,
     });
@@ -547,7 +561,7 @@ export async function processInboundWhatsAppMessage(
       intent: 'ABSENCE',
       replySent: true,
       replyMessage: fallbackUnregistered,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
 
@@ -557,12 +571,12 @@ export async function processInboundWhatsAppMessage(
   // =========================================================================
   const isCourtesyGesture = /^[\p{Emoji}\s.!-]{1,4}$/u.test(rawText);
   if (isClosingPrayer || isCourtesyGesture) {
-    console.log(`[WhatsApp Inbound] Doa penutup/Aamiin/gestur diterima dari ${normalizedPhone}. Menutup percakapan secara tenang.`);
+    console.log(`[WhatsApp Inbound] Doa penutup/Aamiin/gestur diterima dari ${replyDestination}. Menutup percakapan secara tenang.`);
     return {
       handled: true,
       intent: 'CLOSING_PRAYER',
       replySent: false,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
 
@@ -571,11 +585,12 @@ export async function processInboundWhatsAppMessage(
   // Pengguna membalas pengingat jadwal dengan kesiapan hadir
   // =========================================================================
   if (isAffirmation) {
-    const variants = getCanonicalPhoneVariants(normalizedPhone);
-    const userSender = await prisma.user.findFirst({
-      where: { phoneNumber: { in: variants }, status: 'ACTIVE' },
-      include: { roles: true },
-    });
+    const userSender = normalizedPhone
+      ? await prisma.user.findFirst({
+          where: { phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) }, status: 'ACTIVE' },
+          include: { roles: true },
+        })
+      : null;
 
     const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
     const affirmationReply = isTeacher
@@ -587,7 +602,7 @@ export async function processInboundWhatsAppMessage(
         `— *Pengurus Pengajian*`;
 
     await whatsAppClient.sendMessage({
-      to: normalizedPhone,
+      to: replyDestination,
       messageType: 'CUSTOM_DIRECT',
       message: affirmationReply,
     });
@@ -597,7 +612,7 @@ export async function processInboundWhatsAppMessage(
       intent: 'AFFIRMATION',
       replySent: true,
       replyMessage: affirmationReply,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
 
@@ -616,7 +631,7 @@ export async function processInboundWhatsAppMessage(
       `— *Pengurus Pengajian*`;
 
     await whatsAppClient.sendMessage({
-      to: normalizedPhone,
+      to: replyDestination,
       messageType: 'CUSTOM_DIRECT',
       message: greetingReply,
     });
@@ -626,7 +641,7 @@ export async function processInboundWhatsAppMessage(
       intent: 'GREETING',
       replySent: true,
       replyMessage: greetingReply,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
 
@@ -640,7 +655,7 @@ export async function processInboundWhatsAppMessage(
       `— *Pengurus Pengajian*`;
 
     await whatsAppClient.sendMessage({
-      to: normalizedPhone,
+      to: replyDestination,
       messageType: 'CUSTOM_DIRECT',
       message: thanksReply,
     });
@@ -650,7 +665,7 @@ export async function processInboundWhatsAppMessage(
       intent: 'THANKS',
       replySent: true,
       replyMessage: thanksReply,
-      recipientPhone: normalizedPhone,
+      recipientPhone: replyDestination,
     };
   }
 
@@ -669,7 +684,7 @@ export async function processInboundWhatsAppMessage(
     `— *Pengurus Pengajian*`;
 
   await whatsAppClient.sendMessage({
-    to: normalizedPhone,
+    to: replyDestination,
     messageType: 'CUSTOM_DIRECT',
     message: generalReply,
   });
@@ -679,6 +694,6 @@ export async function processInboundWhatsAppMessage(
     intent: 'OTHER',
     replySent: true,
     replyMessage: generalReply,
-    recipientPhone: normalizedPhone,
+    recipientPhone: replyDestination,
   };
 }

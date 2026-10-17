@@ -6,6 +6,10 @@ export interface GenerationWithStats {
   maxAge: number;
   description: string | null;
   color: string | null;
+  whatsappGroupId: string | null;
+  whatsappGroupName: string | null;
+  waGroupH1Enabled: boolean;
+  waGroupWeeklyEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
   studentCount: number;
@@ -36,6 +40,10 @@ export interface CreateGenerationInput {
   maxAge: number;
   description?: string | null;
   color?: string | null;
+  whatsappGroupId?: string | null;
+  whatsappGroupName?: string | null;
+  waGroupH1Enabled?: boolean;
+  waGroupWeeklyEnabled?: boolean;
 }
 
 export interface UpdateGenerationInput {
@@ -44,4 +52,9 @@ export interface UpdateGenerationInput {
   maxAge: number;
   description?: string | null;
   color?: string | null;
+  whatsappGroupId?: string | null;
+  whatsappGroupName?: string | null;
+  waGroupH1Enabled?: boolean;
+  waGroupWeeklyEnabled?: boolean;
 }
+

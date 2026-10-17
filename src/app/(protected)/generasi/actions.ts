@@ -106,6 +106,10 @@ export async function createGeneration(
         maxAge,
         description: input.description?.trim() || null,
         color: chosenColor,
+        whatsappGroupId: input.whatsappGroupId?.trim() || null,
+        whatsappGroupName: input.whatsappGroupName?.trim() || null,
+        waGroupH1Enabled: input.waGroupH1Enabled !== undefined ? Boolean(input.waGroupH1Enabled) : true,
+        waGroupWeeklyEnabled: input.waGroupWeeklyEnabled !== undefined ? Boolean(input.waGroupWeeklyEnabled) : true,
       },
     });
 
@@ -218,6 +222,10 @@ export async function updateGeneration(
         maxAge,
         description: input.description?.trim() || null,
         color: chosenColor,
+        whatsappGroupId: input.whatsappGroupId !== undefined ? (input.whatsappGroupId?.trim() || null) : existing.whatsappGroupId,
+        whatsappGroupName: input.whatsappGroupName !== undefined ? (input.whatsappGroupName?.trim() || null) : existing.whatsappGroupName,
+        waGroupH1Enabled: input.waGroupH1Enabled !== undefined ? Boolean(input.waGroupH1Enabled) : existing.waGroupH1Enabled,
+        waGroupWeeklyEnabled: input.waGroupWeeklyEnabled !== undefined ? Boolean(input.waGroupWeeklyEnabled) : existing.waGroupWeeklyEnabled,
       },
     });
 
@@ -340,6 +348,91 @@ export async function deleteGeneration(
     return {
       success: false,
       message: err.message || 'Terjadi kesalahan sistem saat menghapus jenjang generasi.',
+    };
+  }
+}
+
+/**
+ * Memicu pengiriman manual rangkuman jadwal 1 pekan ke depan ke grup WhatsApp jenjang
+ */
+export async function triggerGenerationWeeklyDigest(
+  generationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    if (!authUser) {
+      return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
+    }
+
+    const { dispatchWeeklyScheduleDigestForGeneration } = await import(
+      '@/lib/whatsapp/groupScheduleNotificationService'
+    );
+
+    const result = await dispatchWeeklyScheduleDigestForGeneration(generationId, { force: true });
+
+    if (result.success) {
+      return {
+        success: true,
+        message: `Rangkuman jadwal mingguan (${result.schedulesCount} sesi) berhasil dikirimkan ke grup WA!`,
+      };
+    }
+
+    return {
+      success: false,
+      message: result.error || 'Gagal mengirimkan rangkuman jadwal mingguan ke grup WA.',
+    };
+  } catch (err: any) {
+    console.error('Gagal mengirimkan rangkuman mingguan:', err);
+    return {
+      success: false,
+      message: err.message || 'Terjadi kesalahan sistem saat memicu pesan grup.',
+    };
+  }
+}
+
+/**
+ * Mengirim pesan tes uji coba konektivitas ke Grup WhatsApp Jenjang
+ */
+export async function testSendGroupPing(
+  generationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const gen = await prisma.generation.findUnique({
+      where: { id: generationId },
+    });
+
+    if (!gen || !gen.whatsappGroupId) {
+      return { success: false, message: 'Jenjang belum memiliki ID Grup WhatsApp yang valid.' };
+    }
+
+    const { whatsAppClient } = await import('@/lib/whatsapp/WhatsAppClient');
+
+    const res = await whatsAppClient.sendMessage({
+      to: gen.whatsappGroupId,
+      recipientName: gen.whatsappGroupName || `Grup WA ${gen.name}`,
+      message: `🔔 *Uji Coba Integrasi Notifikasi Pengajian*\n\nAlhamdulillah, koneksi sistem dengan Grup WhatsApp *${gen.name}* (${gen.whatsappGroupName || gen.whatsappGroupId}) berhasil terhubung dengan lancar! 🚀\n\n_Pesan otomatis dikirim oleh Sistem Informasi Manajemen Pengajian._`,
+      messageType: 'CUSTOM_DIRECT',
+    });
+
+    if (res.success) {
+      return {
+        success: true,
+        message: `Pesan uji coba berhasil terkirim ke "${gen.whatsappGroupName || gen.whatsappGroupId}"!`,
+      };
+    }
+
+    return {
+      success: false,
+      message: res.error || 'Gagal mengirim pesan uji coba ke grup WA.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Terjadi kesalahan saat menguji pesan grup.',
     };
   }
 }
