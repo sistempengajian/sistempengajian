@@ -277,6 +277,26 @@ export class WhatsAppClient {
 
     return result;
   }
+
+  /**
+   * Menampilkan status sedang mengetik (typing indicator) pada obrolan tujuan
+   */
+  async startTyping(chatId: string): Promise<boolean> {
+    if (this.provider.startTyping) {
+      return this.provider.startTyping(chatId);
+    }
+    return true;
+  }
+
+  /**
+   * Menghentikan status sedang mengetik pada obrolan tujuan
+   */
+  async stopTyping(chatId: string): Promise<boolean> {
+    if (this.provider.stopTyping) {
+      return this.provider.stopTyping(chatId);
+    }
+    return true;
+  }
 }
 
 export const whatsAppClient = WhatsAppClient.getInstance();
