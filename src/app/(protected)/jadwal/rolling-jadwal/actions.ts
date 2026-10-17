@@ -237,20 +237,22 @@ export async function previewRollingScheduleSessions(
         tierLevel: bp.tierLevel,
         venuePlaceName: bp.venuePlaceName,
         venueType: bp.venueType,
-        materialRolling: {
-          id: bp.materialRolling.id,
-          rollingType: bp.materialRolling.rollingType,
-          itemsPerSession: bp.materialRolling.itemsPerSession,
-          queues: bp.materialRolling.queues.map((q) => ({
-            stepOrder: q.stepOrder,
-            title: q.title,
-            items: q.items.map((i) => ({
-              slotIndex: i.slotIndex,
-              materialId: i.materialId,
-              materialTitle: i.material.title,
-            })),
-          })),
-        },
+        materialRolling: bp.materialRolling
+          ? {
+              id: bp.materialRolling.id,
+              rollingType: bp.materialRolling.rollingType,
+              itemsPerSession: bp.materialRolling.itemsPerSession,
+              queues: bp.materialRolling.queues.map((q) => ({
+                stepOrder: q.stepOrder,
+                title: q.title,
+                items: q.items.map((i) => ({
+                  slotIndex: i.slotIndex,
+                  materialId: i.materialId,
+                  materialTitle: i.material.title,
+                })),
+              })),
+            }
+          : null,
         teacherRolling: {
           id: bp.teacherRolling.id,
           rollingType: bp.teacherRolling.rollingType,

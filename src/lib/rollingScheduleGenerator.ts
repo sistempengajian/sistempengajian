@@ -36,12 +36,12 @@ export interface RollingBlueprint {
   tierLevel: "KELOMPOK" | "DESA" | "DAERAH";
   venuePlaceName: string;
   venueType?: string | null;
-  materialRolling: {
+  materialRolling?: {
     id: string;
     rollingType: RollingIntervalType;
     itemsPerSession: number;
     queues: MaterialQueue[];
-  };
+  } | null;
   teacherRolling: {
     id: string;
     rollingType: RollingIntervalType;
@@ -355,9 +355,9 @@ export function generateRollingScheduleSessions(
 
   const startDateInfo = parseCalendarDate(startDate, timeZone);
 
-  const matQueues = blueprint.materialRolling.queues.sort(
-    (a, b) => a.stepOrder - b.stepOrder
-  );
+  const matQueues = blueprint.materialRolling?.queues
+    ? blueprint.materialRolling.queues.sort((a, b) => a.stepOrder - b.stepOrder)
+    : [];
   const tchQueues = blueprint.teacherRolling.queues.sort(
     (a, b) => a.stepOrder - b.stepOrder
   );
@@ -382,14 +382,17 @@ export function generateRollingScheduleSessions(
 
   sessionCalendarDates.forEach((dateInfo, sessionIndex) => {
     // Resolve material step
-    const matStepIdx = resolveQueueStepIndex({
-      sessionIndex,
-      sessionDateInfo: dateInfo,
-      startDateInfo,
-      rollingType: blueprint.materialRolling.rollingType,
-      totalSteps: matQueues.length,
-      startStep: startMaterialStep,
-    });
+    const matStepIdx =
+      blueprint.materialRolling && matQueues.length > 0
+        ? resolveQueueStepIndex({
+            sessionIndex,
+            sessionDateInfo: dateInfo,
+            startDateInfo,
+            rollingType: blueprint.materialRolling.rollingType,
+            totalSteps: matQueues.length,
+            startStep: startMaterialStep,
+          })
+        : 0;
 
     // Resolve teacher step
     const tchStepIdx = resolveQueueStepIndex({
@@ -405,16 +408,17 @@ export function generateRollingScheduleSessions(
     const tchQueue = tchQueues[tchStepIdx];
 
     // Materi sesi ini
-    const scheduleMaterials = matQueue
-      ? matQueue.items
-          .sort((a, b) => a.slotIndex - b.slotIndex)
-          .slice(0, blueprint.materialRolling.itemsPerSession)
-          .map((item) => ({
-            materialId: item.materialId,
-            materialTitle: item.materialTitle,
-            slotIndex: item.slotIndex,
-          }))
-      : [];
+    const scheduleMaterials =
+      matQueue && blueprint.materialRolling
+        ? matQueue.items
+            .sort((a, b) => a.slotIndex - b.slotIndex)
+            .slice(0, blueprint.materialRolling.itemsPerSession)
+            .map((item) => ({
+              materialId: item.materialId,
+              materialTitle: item.materialTitle,
+              slotIndex: item.slotIndex,
+            }))
+        : [];
 
     // Pengajar sesi ini (seluruh slot aktif)
     const sortedTchItems = (tchQueue?.items || [])
@@ -485,7 +489,7 @@ export function generateRollingScheduleSessions(
         date: cal.dateString,
         dayName: DAY_NAMES_ID[cal.dayOfWeek] || '',
         timeRange: `${startTime} - ${endTime} WIB`,
-        materialTitle: s.scheduleMaterials.map((m) => m.materialTitle).join(', ') || 'Tanpa Materi',
+        materialTitle: s.scheduleMaterials.map((m) => m.materialTitle).join(', ') || 'Kurikulum Bulanan',
         teacherName: s.primaryTeacherName,
         stepOrder: s.rollingMaterialStepOrder,
       });

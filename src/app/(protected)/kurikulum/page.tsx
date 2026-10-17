@@ -76,6 +76,7 @@ export default async function KurikulumPage({
 
     const classStudents = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         roles: { some: { role: 'SANTRI' } },
         OR: classPairs,
       },
@@ -210,6 +211,7 @@ export default async function KurikulumPage({
   if (isTeacher && formattedHomeroomClasses.length === 0 && userProfile?.organizationId) {
     const students = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         roles: {
           some: {
             role: 'SANTRI',

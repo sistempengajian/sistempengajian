@@ -320,7 +320,7 @@ export default function RollingScheduleGeneratorModal({
                             {SCOPE_LABELS[bp.targetScope] ?? bp.targetScope}
                           </span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
-                            Materi: {ROLLING_TYPE_LABELS[bp.materialRolling.rollingType]}
+                            Materi: {bp.materialRolling ? ROLLING_TYPE_LABELS[bp.materialRolling.rollingType] : 'Kurikulum Bulanan'}
                           </span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
                             Pengajar: {ROLLING_TYPE_LABELS[bp.teacherRolling.rollingType]}
@@ -449,11 +449,15 @@ export default function RollingScheduleGeneratorModal({
                           onChange={(e) => setStartMaterialStep(Number(e.target.value))}
                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
                         >
-                          {selectedBlueprint?.materialRolling.queues.map((q, idx) => (
-                            <option key={q.stepOrder} value={idx}>
-                              Antrean #{q.stepOrder} {q.title ? `— ${q.title}` : ''}
-                            </option>
-                          ))}
+                          {selectedBlueprint?.materialRolling ? (
+                            selectedBlueprint.materialRolling.queues.map((q, idx) => (
+                              <option key={q.stepOrder} value={idx}>
+                                Antrean #{q.stepOrder} {q.title ? `— ${q.title}` : ''}
+                              </option>
+                            ))
+                          ) : (
+                            <option value={0}>Otomatis Kurikulum Bulanan</option>
+                          )}
                         </select>
                       </div>
                       <div>

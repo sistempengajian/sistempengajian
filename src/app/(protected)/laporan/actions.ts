@@ -18,6 +18,8 @@ import {
   ScheduledMaterialProgressItem,
   RecentMilestoneItem,
   NeedsAttentionItem,
+  UnfinishedChecklistItem,
+  UnfinishedMonthlyBacklogItem,
   CharacterAnalytics,
   CharacterTrendPoint,
   FeedbackTagCount,
@@ -819,7 +821,74 @@ export async function getChildDevelopmentReport(
     }
   }
 
-  // Jika belum ada jadwal yang memiliki scheduleMaterials pada periode ini, fallback ke materi jenjang santri
+  // 4B. Ambil Target Materi Bulanan Kalender untuk Jenjang Santri
+  // Mencakup materi target sesuai periode terpilih (atau seluruh target aktif tahun berjalan s/d saat ini)
+  let monthlyTargets: Array<{
+    year: number;
+    month: number;
+    orderIndex: number;
+    material: any;
+  }> = [];
+
+  if (student.generationId) {
+    const targetMonths: Array<{ year: number; month: number }> = [];
+    const now = new Date();
+
+    // Tentukan rentang bulan berdasarkan filter periode
+    const startRange = startDate || new Date(now.getFullYear(), 0, 1);
+    const endRange = endDate || now;
+
+    const cursor = new Date(startRange.getFullYear(), startRange.getMonth(), 1);
+    const stopDate = new Date(endRange.getFullYear(), endRange.getMonth(), 1);
+
+    while (cursor <= stopDate) {
+      targetMonths.push({
+        year: cursor.getFullYear(),
+        month: cursor.getMonth() + 1,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    const fetchedTargets = await prisma.materialMonthlyTarget.findMany({
+      where: {
+        generationId: student.generationId,
+        isActive: true,
+        OR: targetMonths.map((tm) => ({
+          year: tm.year,
+          month: tm.month,
+        })),
+      },
+      include: {
+        material: {
+          include: {
+            checklistItems: {
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' },
+        { orderIndex: 'asc' },
+      ],
+    });
+
+    monthlyTargets = fetchedTargets;
+
+    // Integrasikan materi target bulanan ke dalam scheduledMaterialsMap agar terhitung di Peta Capaian
+    for (const mt of monthlyTargets) {
+      if (!mt.material || !mt.material.isActive) continue;
+      if (!scheduledMaterialsMap.has(mt.material.id)) {
+        scheduledMaterialsMap.set(mt.material.id, {
+          material: mt.material,
+          occurrences: [],
+        });
+      }
+    }
+  }
+
+  // Jika belum ada jadwal maupun target bulanan yang terdaftar pada periode ini, fallback ke materi jenjang santri
   if (scheduledMaterialsMap.size === 0 && student.generationId) {
     const fallbackMaterials = await prisma.material.findMany({
       where: {
@@ -956,6 +1025,53 @@ export async function getChildDevelopmentReport(
       }),
     }));
 
+  // 4C. Rekapitulasi Materi Belum Tuntas (Hutang Materi / Backlog Lintas Bulan)
+  // Menghimpun seluruh poin checklist dari target materi bulanan yang belum diselesaikan
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ];
+
+  const unfinishedMonthlyBacklogs: UnfinishedMonthlyBacklogItem[] = [];
+
+  for (const mt of monthlyTargets) {
+    const mat = mt.material;
+    if (!mat) continue;
+
+    const items = mat.checklistItems || [];
+    const unfinishedList: UnfinishedChecklistItem[] = [];
+
+    let completedInMaterial = 0;
+    for (const item of items) {
+      const isCompleted = completedChecklistIds.has(item.id);
+      if (isCompleted) {
+        completedInMaterial++;
+      } else {
+        unfinishedList.push({
+          id: item.id,
+          itemTitle: item.itemTitle,
+          description: item.description || null,
+          pointsWeight: item.pointsWeight || 10,
+          targetType: (item.pointsWeight || 10) >= 20 ? 'Target Utama' : 'Sub-Capaian',
+        });
+      }
+    }
+
+    if (unfinishedList.length > 0) {
+      unfinishedMonthlyBacklogs.push({
+        year: mt.year,
+        month: mt.month,
+        monthName: `${monthNames[mt.month - 1]} ${mt.year}`,
+        materialId: mat.id,
+        materialTitle: mat.title,
+        category: categorizeMaterialTitle(mat.title),
+        totalItems: items.length,
+        completedItems: completedInMaterial,
+        unfinishedItems: unfinishedList,
+      });
+    }
+  }
+
   const curriculumAnalytics: CurriculumMasteryAnalytics = {
     totalChecklistItems,
     completedItems,
@@ -963,6 +1079,7 @@ export async function getChildDevelopmentReport(
     categories,
     recentMilestones,
     needsAttentionItems,
+    unfinishedMonthlyBacklogs,
   };
 
   // 5. Evaluasi Karakter & Adab Sesi

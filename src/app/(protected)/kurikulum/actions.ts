@@ -1546,4 +1546,340 @@ export async function getStudentsByClassId(classId: string) {
   };
 }
 
+// ==============================================================================
+// TARGET KURIKULUM BULANAN (MONTHLY CURRICULUM TARGETS ACTIONS)
+// ==============================================================================
+
+export interface MonthlyTargetWithMaterial {
+  id: string;
+  materialId: string;
+  generationId: string;
+  organizationId: string | null;
+  tierLevel: TierLevel;
+  year: number;
+  month: number;
+  orderIndex: number;
+  notes: string | null;
+  isActive: boolean;
+  material: {
+    id: string;
+    title: string;
+    description: string | null;
+    fileUrl: string | null;
+    isMandatoryForTarget: boolean;
+    creatorTierLevel: TierLevel;
+    checklistItems: Array<{
+      id: string;
+      itemTitle: string;
+      pointsWeight: number;
+    }>;
+    targetGeneration?: {
+      id: string;
+      name: string;
+      code: string;
+    } | null;
+  };
+}
+
+/**
+ * Mengambil daftar target kurikulum bulanan untuk jenjang, tahun, dan bulan tertentu.
+ */
+export async function getMonthlyCurriculumTargets({
+  generationId,
+  year,
+  month,
+  organizationId,
+}: {
+  generationId: string;
+  year: number;
+  month: number;
+  organizationId?: string | null;
+}): Promise<{
+  success: boolean;
+  data: MonthlyTargetWithMaterial[];
+  error?: string;
+}> {
+  try {
+    const targets = await prisma.materialMonthlyTarget.findMany({
+      where: {
+        generationId,
+        year,
+        month,
+        isActive: true,
+        OR: [
+          { organizationId: null },
+          { tierLevel: 'DAERAH' },
+          ...(organizationId ? [{ organizationId }] : []),
+        ],
+      },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        material: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            fileUrl: true,
+            isMandatoryForTarget: true,
+            creatorTierLevel: true,
+            checklistItems: {
+              select: {
+                id: true,
+                itemTitle: true,
+                pointsWeight: true,
+              },
+              orderBy: { orderIndex: 'asc' },
+            },
+            targetGeneration: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return { success: true, data: targets as MonthlyTargetWithMaterial[] };
+  } catch (error: any) {
+    console.error('getMonthlyCurriculumTargets error:', error);
+    return { success: false, data: [], error: error.message };
+  }
+}
+
+/**
+ * Menetapkan seluruh target materi bulanan sekaligus (ganti daftar materi pada bulan tersebut).
+ */
+export async function setMonthlyCurriculumTargets({
+  generationId,
+  year,
+  month,
+  materialIds,
+  organizationId,
+  notes,
+}: {
+  generationId: string;
+  year: number;
+  month: number;
+  materialIds: string[];
+  organizationId?: string | null;
+  notes?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { highestTier, userProfile } = await assertPjOrAdmin();
+    const effectiveOrgId = organizationId ?? userProfile?.organizationId ?? null;
+
+    await prisma.$transaction(async (tx) => {
+      // Hapus target lama untuk scope ini
+      await tx.materialMonthlyTarget.deleteMany({
+        where: {
+          generationId,
+          year,
+          month,
+          organizationId: effectiveOrgId,
+        },
+      });
+
+      // Tambahkan target baru sesuai urutan materialIds
+      if (materialIds.length > 0) {
+        await tx.materialMonthlyTarget.createMany({
+          data: materialIds.map((matId, idx) => ({
+            materialId: matId,
+            generationId,
+            year,
+            month,
+            organizationId: effectiveOrgId,
+            tierLevel: highestTier,
+            orderIndex: idx,
+            notes: notes || undefined,
+            isActive: true,
+          })),
+        });
+      }
+    });
+
+    revalidatePath('/kurikulum');
+    revalidatePath('/presensi');
+    return { success: true };
+  } catch (error: any) {
+    console.error('setMonthlyCurriculumTargets error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Menambahkan 1 materi ke dalam target kurikulum bulanan.
+ */
+export async function addMaterialToMonthlyTarget({
+  generationId,
+  year,
+  month,
+  materialId,
+  organizationId,
+}: {
+  generationId: string;
+  year: number;
+  month: number;
+  materialId: string;
+  organizationId?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { highestTier, userProfile } = await assertPjOrAdmin();
+    const effectiveOrgId = organizationId ?? userProfile?.organizationId ?? null;
+
+    // Hitung orderIndex tertinggi saat ini
+    const existingCount = await prisma.materialMonthlyTarget.count({
+      where: {
+        generationId,
+        year,
+        month,
+        organizationId: effectiveOrgId,
+      },
+    });
+
+    const existingTarget = await prisma.materialMonthlyTarget.findFirst({
+      where: {
+        materialId,
+        generationId,
+        year,
+        month,
+        organizationId: effectiveOrgId,
+      },
+    });
+
+    if (existingTarget) {
+      await prisma.materialMonthlyTarget.update({
+        where: { id: existingTarget.id },
+        data: {
+          isActive: true,
+          orderIndex: existingCount,
+        },
+      });
+    } else {
+      await prisma.materialMonthlyTarget.create({
+        data: {
+          materialId,
+          generationId,
+          year,
+          month,
+          organizationId: effectiveOrgId,
+          tierLevel: highestTier,
+          orderIndex: existingCount,
+          isActive: true,
+        },
+      });
+    }
+
+    revalidatePath('/kurikulum');
+    revalidatePath('/presensi');
+    return { success: true };
+  } catch (error: any) {
+    console.error('addMaterialToMonthlyTarget error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Menghapus materi dari target bulanan tertentu.
+ */
+export async function removeMaterialFromMonthlyTarget(
+  targetId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await assertPjOrAdmin();
+    await prisma.materialMonthlyTarget.delete({
+      where: { id: targetId },
+    });
+
+    revalidatePath('/kurikulum');
+    revalidatePath('/presensi');
+    return { success: true };
+  } catch (error: any) {
+    console.error('removeMaterialFromMonthlyTarget error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Mengambil materi silabus yang tersedia untuk dipilih ke dalam target bulanan.
+ */
+export async function getAvailableMaterialsForMonthSelection({
+  generationId,
+  search,
+  organizationId,
+}: {
+  generationId: string;
+  search?: string;
+  organizationId?: string | null;
+}): Promise<{
+  success: boolean;
+  data: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    isMandatoryForTarget: boolean;
+    checklistCount: number;
+    creatorTierLevel: TierLevel;
+  }>;
+  error?: string;
+}> {
+  try {
+    const whereClause: any = {
+      targetGenerationId: generationId,
+      isActive: true,
+      OR: [
+        { organizationId: null },
+        { creatorTierLevel: 'DAERAH' },
+        ...(organizationId ? [{ organizationId }] : []),
+      ],
+    };
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      whereClause.AND = [
+        {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    const materials = await prisma.material.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        isMandatoryForTarget: true,
+        creatorTierLevel: true,
+        checklistItems: {
+          select: { id: true },
+        },
+      },
+      orderBy: [{ isMandatoryForTarget: 'desc' }, { title: 'asc' }],
+      take: 50,
+    });
+
+    return {
+      success: true,
+      data: materials.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        isMandatoryForTarget: m.isMandatoryForTarget,
+        checklistCount: m.checklistItems.length,
+        creatorTierLevel: m.creatorTierLevel,
+      })),
+    };
+  } catch (error: any) {
+    console.error('getAvailableMaterialsForMonthSelection error:', error);
+    return { success: false, data: [], error: error.message };
+  }
+}
+
+
 

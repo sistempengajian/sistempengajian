@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Check,
   Star,
+  Calendar,
 } from 'lucide-react';
 import MaterialCustomizeModal from './MaterialCustomizeModal';
 import CircularProgressBar from './CircularProgressBar';
@@ -441,6 +442,9 @@ export default function MaterialCard({
     desaCustomization?.organization?.name || parentOrganizationName || userOrganizationName || 'Desa';
   const kelompokName =
     kelompokCustomization?.organization?.name || userOrganizationName || 'Kelompok';
+
+  const detectedMonthMatch = material.title.match(/\b(JANUARI|FEBRUARI|MARET|APRIL|MEI|JUNI|JULI|AGUSTUS|SEPTEMBER|OKTOBER|NOVEMBER|DESEMBER)\b/i);
+  const detectedMonthCode = detectedMonthMatch ? detectedMonthMatch[1].toUpperCase() : null;
 
   return (
     <div
