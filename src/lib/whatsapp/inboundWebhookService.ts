@@ -7,6 +7,7 @@ import {
   formatParentSalutation,
   formatStudentSalutation,
   getBaseAppUrl,
+  isWhatsAppLidJid,
 } from './utils';
 import { generateStudentAbsenceRequestToken } from '@/lib/studentAbsenceToken';
 
@@ -248,33 +249,137 @@ export async function processInboundWhatsAppMessage(
   const isThanks = INTENT_REGEX.THANKS.test(rawText);
 
   // =========================================================================
+  // FITUR KHUSUS: PENAUTAN AKUN INSTAN VIA NOMOR HP (ACCOUNT LINKING)
+  // Jika pengguna mengirimkan nomor teleponnya (misal: "0882007730579")
+  // =========================================================================
+  const phoneOnlyMatch = rawText.match(/^\s*(?:\+?62|0)8\d{8,12}\s*$/);
+  if (phoneOnlyMatch && isWhatsAppLidJid(replyDestination)) {
+    const rawNumber = rawText.trim();
+    const candidatePhone = normalizePhoneNumber(rawNumber);
+    if (candidatePhone) {
+      const linkedUser = await prisma.user.findFirst({
+        where: {
+          phoneNumber: { in: getCanonicalPhoneVariants(candidatePhone) },
+          status: 'ACTIVE',
+        },
+        include: { roles: true },
+      });
+
+      if (linkedUser) {
+        await prisma.user.update({
+          where: { id: linkedUser.id },
+          data: { whatsappLid: replyDestination },
+        });
+
+        const rolesList = linkedUser.roles.map((r) => r.role).join(', ') || 'Santri/Wali';
+        const linkSuccessReply =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n\n` +
+          `Alhamdulillah! Akun pengajian atas nama *${linkedUser.fullName}* (${rolesList}) berhasil ditautkan ke WhatsApp ini. ✨\n\n` +
+          `Nomor WhatsApp Anda sekarang telah terdaftar penuh di sistem pengajian.\n\n` +
+          `Panduan Layanan:\n` +
+          `• *Ketik 'izin' atau 'sakit'* untuk formulir konfirmasi izin instan\n` +
+          `• *Ketik 'siap'* untuk konfirmasi kesiapan hadir\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Pengurus Pengajian*`;
+
+        await sendReplyWithTyping(replyDestination, {
+          recipientName: linkedUser.fullName,
+          recipientUserId: linkedUser.id,
+          messageType: 'CUSTOM_DIRECT',
+          message: linkSuccessReply,
+        });
+
+        return {
+          handled: true,
+          intent: 'OTHER',
+          replySent: true,
+          replyMessage: linkSuccessReply,
+          recipientPhone: replyDestination,
+        };
+      }
+    }
+  }
+
+  // =========================================================================
   // KASUS A: INTENT IZIN / SAKIT (SMART ABSENCE AUTO-RESPONDER)
   // =========================================================================
   if (isAbsence) {
-    // Cari User di database berdasarkan nomor HP (jika nomor HP berhasil diidentifikasi)
-    const user = normalizedPhone
-      ? await prisma.user.findFirst({
-          where: {
-            phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) },
-            status: 'ACTIVE',
-          },
+    // 1. Cari User di database berdasarkan whatsappLid ATAU nomor HP
+    const userConditions: any[] = [{ whatsappLid: replyDestination }];
+    if (normalizedPhone) {
+      userConditions.push({ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } });
+    }
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: userConditions,
+        status: 'ACTIVE',
+      },
+      include: {
+        roles: true,
+        children: {
           include: {
-            roles: true,
-            children: {
+            student: {
               include: {
-                student: {
-                  include: {
-                    generation: true,
-                    organization: true,
+                generation: true,
+                organization: true,
+              },
+            },
+          },
+        },
+        generation: true,
+        organization: true,
+      },
+    });
+
+    // 2. Jika belum ditemukan, periksa apakah pengguna menyertakan nomor HP dalam pesan teksnya
+    if (!user) {
+      const phoneRegex = /\b(08\d{8,12}|628\d{8,12}|\+628\d{8,12})\b/;
+      const match = rawText.match(phoneRegex);
+      if (match) {
+        const extractedPhone = normalizePhoneNumber(match[1]);
+        if (extractedPhone) {
+          const userByPhone = await prisma.user.findFirst({
+            where: {
+              phoneNumber: { in: getCanonicalPhoneVariants(extractedPhone) },
+              status: 'ACTIVE',
+            },
+            include: {
+              roles: true,
+              children: {
+                include: {
+                  student: {
+                    include: {
+                      generation: true,
+                      organization: true,
+                    },
                   },
                 },
               },
+              generation: true,
+              organization: true,
             },
-            generation: true,
-            organization: true,
-          },
-        })
-      : null;
+          });
+
+          if (userByPhone) {
+            user = userByPhone;
+            // Tautkan whatsappLid secara otomatis
+            if (isWhatsAppLidJid(replyDestination)) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { whatsappLid: replyDestination },
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+    } else if (isWhatsAppLidJid(replyDestination) && user.whatsappLid !== replyDestination) {
+      // Auto-cache whatsappLid jika user ditemukan via phone tapi belum tersimpan LID-nya
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { whatsappLid: replyDestination },
+      }).catch(() => {});
+    }
 
     const now = new Date();
     const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 jam ke belakang
@@ -571,7 +676,10 @@ export async function processInboundWhatsAppMessage(
     const fallbackUnregistered =
       `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n\n` +
       `Terima kasih telah menghubungi Layanan Notifikasi Pengajian.\n\n` +
-      `Nomor WhatsApp Anda belum terdaftar sebagai santri atau wali santri pada sistem kami. Apabila ananda berhalangan hadir pada sesi pengajian, mohon berkenan mengabari langsung Pengurus Wilayah atau Wali Kelas setempat untuk konfirmasi manual.\n\n` +
+      `Nomor atau identitas WhatsApp Anda belum tertaut dengan data santri atau pengajar pada sistem kami.\n\n` +
+      `💡 *Petunjuk Penautan Akun:*\n` +
+      `Silakan kirimkan balasan berisi *nomor HP* Anda yang terdaftar pada sistem (contoh: *0882007730579*).\n` +
+      `Sistem akan langsung memverifikasi dan menghubungkan WhatsApp Anda secara otomatis.\n\n` +
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Layanan Notifikasi Sistem Pengajian*`;
 
@@ -609,12 +717,16 @@ export async function processInboundWhatsAppMessage(
   // Pengguna membalas pengingat jadwal dengan kesiapan hadir
   // =========================================================================
   if (isAffirmation) {
-    const userSender = normalizedPhone
-      ? await prisma.user.findFirst({
-          where: { phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) }, status: 'ACTIVE' },
-          include: { roles: true },
-        })
-      : null;
+    const userSender = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { whatsappLid: replyDestination },
+          ...(normalizedPhone ? [{ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } }] : []),
+        ],
+        status: 'ACTIVE',
+      },
+      include: { roles: true },
+    });
 
     const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
     const affirmationReply = isTeacher

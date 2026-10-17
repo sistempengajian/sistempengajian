@@ -97,18 +97,38 @@ export async function POST(req: NextRequest) {
       body.from ||
       body.phone;
 
-    // Deteksi nomor telepon pengirim jika payload menyediakan metadata author/participant
+    // Deteksi nomor telepon riil pengirim jika payload menyediakan metadata PN (senderPn / participantPn / author)
     let authorPhone: string | undefined;
-    const authorRaw =
-      body.payload?.author ||
-      body.payload?._data?.author ||
-      body.payload?._data?.participant ||
-      body.payload?.participant;
+    const authorCandidates = [
+      body.payload?.senderPn,
+      body.payload?._data?.senderPn,
+      body.payload?._data?.key?.senderPn,
+      body.payload?.participantPn,
+      body.payload?._data?.participantPn,
+      body.payload?._data?.key?.participantPn,
+      body.payload?.author,
+      body.payload?._data?.author,
+      body.payload?._data?.participant,
+      body.payload?.participant,
+      body.payload?.sender,
+      body.payload?._data?.sender,
+      body.payload?.phone,
+      body.sender,
+      body.from,
+      body.phone,
+    ];
 
-    if (typeof authorRaw === 'string' && authorRaw.includes('@c.us')) {
-      authorPhone = authorRaw.replace(/@c\.us$/, '');
-    } else if (typeof authorRaw === 'string' && !authorRaw.includes('@lid') && !authorRaw.includes('@g.us')) {
-      authorPhone = authorRaw;
+    for (const candidate of authorCandidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        const clean = candidate.trim();
+        if (clean.includes('@c.us') || clean.includes('@s.whatsapp.net')) {
+          authorPhone = clean.replace(/@.*$/, '');
+          break;
+        } else if (!clean.includes('@lid') && !clean.includes('@g.us') && /\d{9,15}/.test(clean)) {
+          authorPhone = clean;
+          break;
+        }
+      }
     }
 
     const incomingText =
