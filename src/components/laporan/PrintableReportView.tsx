@@ -160,6 +160,56 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
             ))}
           </tbody>
         </table>
+
+        {curriculum.unfinishedMonthlyBacklogs && curriculum.unfinishedMonthlyBacklogs.length > 0 && (
+          <div className="space-y-1.5 pt-2">
+            <div className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+              <span>Rekapitulasi Target Belum Tuntas (Hutang Materi Lintas Bulan / Rekomendasi Sesi Privat):</span>
+              <span className="text-[10px] font-semibold text-rose-700">
+                {curriculum.unfinishedMonthlyBacklogs.length} Materi Belum Tuntas
+              </span>
+            </div>
+            <table className="w-full text-[10px] border border-slate-300 border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-700">
+                  <th className="border border-slate-300 p-1.5 text-left w-24">Periode Bulan</th>
+                  <th className="border border-slate-300 p-1.5 text-left">Judul Materi &amp; Kategori</th>
+                  <th className="border border-slate-300 p-1.5 text-left">Poin Capaian Belum Tuntas</th>
+                  <th className="border border-slate-300 p-1.5 text-center w-24">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {curriculum.unfinishedMonthlyBacklogs.map((item) => (
+                  <tr key={`${item.materialId}_${item.year}_${item.month}`}>
+                    <td className="border border-slate-300 p-1.5 font-medium align-top">
+                      {item.monthName}
+                    </td>
+                    <td className="border border-slate-300 p-1.5 align-top">
+                      <div className="font-bold text-slate-900">{item.materialTitle}</div>
+                      <div className="text-slate-500 text-[9px]">{item.category}</div>
+                    </td>
+                    <td className="border border-slate-300 p-1.5 align-top">
+                      <ul className="list-disc list-inside space-y-0.5 text-slate-700">
+                        {item.unfinishedItems.map((u) => (
+                          <li key={u.id}>
+                            <span className="font-medium">{u.itemTitle}</span>{' '}
+                            <span className="text-slate-500">({u.targetType}, +{u.pointsWeight} Poin)</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="border border-slate-300 p-1.5 text-center font-bold text-amber-700 align-top">
+                      Bahan Sesi Privat
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[9px] text-slate-500 italic">
+              * Seluruh materi dan sub-poin belum tuntas di atas tersimpan dalam sistem dan dapat diajukan oleh santri, orang tua, atau wali kelas untuk pendalaman materi pada sesi privat.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 3. Evaluasi Karakter & Adab */}

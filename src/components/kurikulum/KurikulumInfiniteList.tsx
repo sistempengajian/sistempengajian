@@ -6,6 +6,7 @@ import MaterialCard, { MaterialData, ChecklistItemData } from './MaterialCard';
 import MaterialFormModal from './MaterialFormModal';
 import ChecklistItemModal from './ChecklistItemModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
+import MonthlyTargetModal from './MonthlyTargetModal';
 import {
   getMaterialsPaginated,
   deleteMaterial,
@@ -29,6 +30,7 @@ import {
   GraduationCap,
   Users,
   Check,
+  CalendarCheck,
 } from 'lucide-react';
 
 export interface GenerationMetadata {
@@ -163,6 +165,7 @@ export default function KurikulumInfiniteList({
 
   // Modal Bottom Sheet khusus Orang Tua
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
+  const [isMonthlyTargetModalOpen, setIsMonthlyTargetModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -1134,7 +1137,6 @@ export default function KurikulumInfiniteList({
           </span>
         </div>
       )}
-
       {/* 3. Control Bar: Pencarian & Tombol Tambah */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-center gap-2.5">
@@ -1159,8 +1161,8 @@ export default function KurikulumInfiniteList({
             )}
           </div>
         </div>
+        <div className='flex flex-col sm:flex-row sm:justify-between sm:gap-4 gap-4'>
         <div className="flex items-center justify-between gap-2 text-xs">
-
           {isSearching || (isLoadingMore && page === 1) ? (
             <span className="text-teal-600 font-medium flex items-center gap-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1170,26 +1172,37 @@ export default function KurikulumInfiniteList({
             <span>
               Menampilkan <strong className="text-slate-800">{materials.length}</strong> dari{' '}
               <strong className="text-slate-800">{totalCount}</strong> Materi
-
             </span>
-          )}
-          {/* Tombol Tambah Materi (Hanya PJ/Admin) */}
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => {
-                setMaterialToEdit(null);
-                setIsCreateModalOpen(true);
-              }}
-              className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Tambah Materi</span>
-            </button>
           )}
 
         </div>
-
+          <div className="flex justify-end">
+          {/* Tombol Target Bulanan & Tambah Materi (Hanya PJ/Admin) */}
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMonthlyTargetModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100/80 border border-teal-200/80 text-teal-800 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <CalendarCheck className="w-4 h-4 stroke-[2.2] text-teal-600" />
+                <span>Target Bulanan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialToEdit(null);
+                  setIsCreateModalOpen(true);
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Tambah Materi</span>
+              </button>
+            </div>
+          )}
+        </div>
+        </div>
       </div>
 
       {/* Sub-bar: 1 Tombol Switch Filter Tingkatan Materi di Sisi Kanan (Di Antara Pencarian & Daftar Materi) */}
@@ -1472,6 +1485,17 @@ export default function KurikulumInfiniteList({
         isPending={isDeleting}
         onConfirm={handleConfirmDelete}
         onClose={() => setDeleteConfirm(null)}
+      />
+
+      {/* Modal Target Kurikulum Bulanan */}
+      <MonthlyTargetModal
+        isOpen={isMonthlyTargetModalOpen}
+        onClose={() => setIsMonthlyTargetModalOpen(false)}
+        generations={generations}
+        defaultGenCode={activeGenCode}
+        userTierLevel={userTierLevel}
+        userOrganizationId={userOrganizationId}
+        onUpdated={refreshList}
       />
 
       {/* Modal Bawah (Bottom Sheet) - Ganti Data Anak Khusus Orang Tua */}

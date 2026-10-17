@@ -111,6 +111,26 @@ export interface NeedsAttentionItem {
   evaluatedAt: string;
 }
 
+export interface UnfinishedChecklistItem {
+  id: string;
+  itemTitle: string;
+  description?: string | null;
+  pointsWeight: number;
+  targetType: string;
+}
+
+export interface UnfinishedMonthlyBacklogItem {
+  year: number;
+  month: number;
+  monthName: string;
+  materialId: string;
+  materialTitle: string;
+  category: string;
+  totalItems: number;
+  completedItems: number;
+  unfinishedItems: UnfinishedChecklistItem[];
+}
+
 export interface CurriculumMasteryAnalytics {
   totalChecklistItems: number;
   completedItems: number;
@@ -118,6 +138,7 @@ export interface CurriculumMasteryAnalytics {
   categories: CurriculumCategoryMastery[];
   recentMilestones: RecentMilestoneItem[];
   needsAttentionItems: NeedsAttentionItem[];
+  unfinishedMonthlyBacklogs?: UnfinishedMonthlyBacklogItem[];
 }
 
 export interface CharacterTrendPoint {

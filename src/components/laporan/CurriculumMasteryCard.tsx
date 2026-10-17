@@ -25,9 +25,12 @@ interface CurriculumMasteryCardProps {
 }
 
 export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryCardProps) {
-  const [activeTab, setActiveTab] = useState<'KATEGORI' | 'MILESTONE' | 'PENDAMPINGAN'>('KATEGORI');
+  const [activeTab, setActiveTab] = useState<'KATEGORI' | 'MILESTONE' | 'PENDAMPINGAN' | 'BELUM_TUNTAS'>('KATEGORI');
   const [expandedMaterialIds, setExpandedMaterialIds] = useState<Set<string>>(new Set());
   const [activeScheduleTooltipId, setActiveScheduleTooltipId] = useState<string | null>(null);
+
+  const backlogItems = curriculum.unfinishedMonthlyBacklogs || [];
+  const totalBacklogCount = backlogItems.reduce((acc, b) => acc + b.unfinishedItems.length, 0);
 
   const toggleScheduleTooltip = (id: string) => {
     setActiveScheduleTooltipId((prev) => (prev === id ? null : id));
@@ -118,6 +121,22 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
           {curriculum.needsAttentionItems.length > 0 && (
             <span className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[9px] flex items-center justify-center">
               {curriculum.needsAttentionItems.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('BELUM_TUNTAS')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeTab === 'BELUM_TUNTAS'
+            ? 'bg-white text-rose-800 shadow-2xs border border-slate-200/80'
+            : 'text-slate-600 hover:text-slate-900'
+            }`}
+        >
+          <History className="w-3.5 h-3.5 text-rose-600" />
+          <span>Materi Belum Tuntas</span>
+          {backlogItems.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[9px] flex items-center justify-center">
+              {backlogItems.length}
             </span>
           )}
         </button>
@@ -480,6 +499,160 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                 </div>
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* Konten Tab 4: Rekap Materi Belum Tuntas (Hutang Materi Lintas Bulan / Rencana Sesi Privat) */}
+      {activeTab === 'BELUM_TUNTAS' && (
+        <div className="space-y-4 animate-fade-in">
+          {/* Info Banner Edukatif */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-50 via-amber-50/50 to-orange-50 border border-rose-200/70 text-xs space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center shrink-0 mt-0.5 border border-rose-200">
+                  <History className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-slate-900 text-xs">
+                    Rekap Hutang Materi &amp; Backlog Kurikulum Bulanan
+                  </h4>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Daftar materi target bulanan beserta rincian poin capaian yang belum tuntas diselesaikan santri. 
+                    Poin-poin ini diproteksi agar tidak hilang dan dapat diajukan sebagai <strong>materi bimbingan pada Sesi Privat Mandiri</strong>.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-white text-rose-700 border border-rose-200 shadow-2xs shrink-0 self-start">
+                {backlogItems.length} Materi ({totalBacklogCount} Poin Belum Tuntas)
+              </span>
+            </div>
+          </div>
+
+          {backlogItems.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-emerald-50/60 border border-emerald-200/70 space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-2xs">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-bold text-emerald-950">
+                Alhamdulillah! Tidak Ada Tunggakan Materi
+              </p>
+              <p className="text-[11px] text-emerald-700 max-w-md mx-auto">
+                Seluruh materi kurikulum bulanan pada rentang waktu ini telah tuntas diselesaikan santri dengan baik.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {backlogItems.map((item) => {
+                const toggleKey = `backlog_${item.materialId}_${item.year}_${item.month}`;
+                const isExpanded = expandedMaterialIds.has(toggleKey);
+                const progressPct = item.totalItems > 0 ? Math.round((item.completedItems / item.totalItems) * 100) : 0;
+
+                return (
+                  <div
+                    key={toggleKey}
+                    className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all hover:border-slate-300"
+                  >
+                    {/* Header Item Backlog */}
+                    <div className="p-3.5 sm:p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              📅 {item.monthName}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-100">
+                              {item.category}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                              Bahan Sesi Privat 🎯
+                            </span>
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                            {item.materialTitle}
+                          </h4>
+                        </div>
+
+                        {/* Status Tuntas */}
+                        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                          <span className="text-[11px] font-bold text-rose-700">
+                            {item.unfinishedItems.length} Poin Belum Tuntas
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleMaterialExpand(toggleKey)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            aria-label="Lihat Rincian Poin"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Mini Progress Bar */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                          <span>Kemajuan Materi: {item.completedItems} dari {item.totalItems} sub-target</span>
+                          <span className="font-bold text-slate-700">{progressPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rincian Poin Checklist yang Belum Tuntas */}
+                    {isExpanded && (
+                      <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 pt-1 border-t border-slate-100 bg-slate-50/50 space-y-2">
+                        <p className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <ListChecks className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Daftar Poin Yang Belum Diujikan / Belum Tuntas:</span>
+                        </p>
+                        <div className="space-y-1.5">
+                          {item.unfinishedItems.map((u, idx) => (
+                            <div
+                              key={u.id}
+                              className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-5 h-5 rounded-md bg-rose-50 text-rose-700 font-bold text-[10px] flex items-center justify-center shrink-0 border border-rose-100">
+                                  {idx + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 truncate">
+                                    {u.itemTitle}
+                                  </p>
+                                  {u.description && (
+                                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                      {u.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60">
+                                  +{u.pointsWeight} Poin
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                  {u.targetType}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
