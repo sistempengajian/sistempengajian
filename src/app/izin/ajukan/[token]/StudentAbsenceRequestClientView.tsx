@@ -549,7 +549,7 @@ export default function StudentAbsenceRequestClientView({
                 Permohonan <strong>{currentRequest.absenceType === 'SAKIT' ? 'Sakit' : 'Izin'}</strong> telah dikirim ke WhatsApp Orang Tua, Wali Kelas, dan PJ Wilayah.
               </p>
               <p className="text-[11px] text-amber-800">
-                ⚡ <em>Jika telah disetujui minimal 2 pihak, status absensi pada sesi pengajian akan otomatis tercatat menjadi {currentRequest.absenceType}.</em>
+                <em>Jika telah disetujui minimal 2 pihak, status absensi pada sesi pengajian akan otomatis tercatat menjadi {currentRequest.absenceType}.</em>
               </p>
 
               <div className="pt-2 border-t border-amber-200/60 space-y-1.5">

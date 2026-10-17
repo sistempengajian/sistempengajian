@@ -232,6 +232,7 @@ export default async function ScheduleDetailPage({
     needFormData
       ? prisma.user.findMany({
           where: {
+            status: 'ACTIVE',
             roles: {
               some: {
                 role: {
@@ -345,8 +346,87 @@ export default async function ScheduleDetailPage({
     });
   }
 
-  // Ambil materi kurikulum dari jadwal
-  const scheduleMaterialsList = (schedule.scheduleMaterials || [])
+  // Resolusi target materi kurikulum bulanan sesuai bulan kalender sesi pengajian ini (zona waktu WIB)
+  const sessionWibDate = new Date(schedule.startTime.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  const sessionYear = sessionWibDate.getFullYear();
+  const sessionMonth = sessionWibDate.getMonth() + 1;
+
+  const scheduleGenIds = new Set<string>();
+  if (schedule.targetGenerations && schedule.targetGenerations.length > 0) {
+    schedule.targetGenerations.forEach((tg) => scheduleGenIds.add(tg.generationId));
+  }
+  rawTargetClasses.forEach((cls) => {
+    if (cls.generationId) scheduleGenIds.add(cls.generationId);
+  });
+  if (schedule.class?.generationId) {
+    scheduleGenIds.add(schedule.class.generationId);
+  }
+
+  const monthlyTargets = await prisma.materialMonthlyTarget.findMany({
+    where: {
+      ...(scheduleGenIds.size > 0 ? { generationId: { in: Array.from(scheduleGenIds) } } : {}),
+      year: sessionYear,
+      month: sessionMonth,
+      isActive: true,
+      OR: [
+        { organizationId: null },
+        { tierLevel: 'DAERAH' },
+        ...(schedule.organizationId ? [{ organizationId: schedule.organizationId }] : []),
+      ],
+    },
+    include: {
+      material: {
+        include: {
+          targetGeneration: {
+            select: { id: true, name: true, code: true },
+          },
+          checklistItems: {
+            select: {
+              id: true,
+              itemTitle: true,
+              description: true,
+              completionTierLevel: true,
+              pointsWeight: true,
+              orderIndex: true,
+            },
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
+      },
+    },
+    orderBy: { orderIndex: 'asc' },
+  });
+
+  const existingMaterialIds = new Set(
+    (schedule.scheduleMaterials || []).map((sm: any) => sm.material?.id).filter(Boolean)
+  );
+
+  const monthlyTargetItems = monthlyTargets
+    .filter((mt) => !existingMaterialIds.has(mt.material.id))
+    .map((mt, idx) => ({
+      id: `monthly-${mt.id}`,
+      slotIndex: (schedule.scheduleMaterials?.length || 0) + idx,
+      materialId: mt.materialId,
+      scheduleId: schedule.id,
+      isMonthlyTarget: true,
+      material: mt.material,
+    }));
+
+  const allScheduleMaterials = [
+    ...(schedule.scheduleMaterials || []).map((sm) => ({
+      ...sm,
+      isMonthlyTarget: false,
+    })),
+    ...monthlyTargetItems,
+  ];
+
+  const augmentedSchedule = {
+    ...schedule,
+    scheduleMaterials: allScheduleMaterials,
+  };
+
+  // Ambil materi kurikulum dari jadwal (termasuk materi target bulanan otomatis)
+  const scheduleMaterialsList = allScheduleMaterials
     .map((sm) => sm.material)
     .filter(Boolean);
 
@@ -366,6 +446,7 @@ export default async function ScheduleDetailPage({
 
     const students = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         roles: { some: { role: 'SANTRI' } },
         OR: classConditions,
       },
@@ -404,6 +485,7 @@ export default async function ScheduleDetailPage({
 
     const students = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         generationId: { in: genIds },
         roles: { some: { role: 'SANTRI' } },
         ...(orgConditions.length > 0 ? { OR: orgConditions } : {}),
@@ -425,6 +507,7 @@ export default async function ScheduleDetailPage({
       }
       const students = await prisma.user.findMany({
         where: {
+          status: 'ACTIVE',
           organizationId: { in: orgIds },
           roles: { some: { role: 'SANTRI' } },
         },
@@ -756,7 +839,7 @@ export default async function ScheduleDetailPage({
 
   return (
     <ScheduleDetailView
-      schedule={schedule}
+      schedule={augmentedSchedule as any}
       canManage={canManage}
       canDelegateBadal={canDelegateBadal}
       canEdit={canEdit}

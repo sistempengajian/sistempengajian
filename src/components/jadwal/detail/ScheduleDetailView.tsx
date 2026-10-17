@@ -933,8 +933,8 @@ export default function ScheduleDetailView({
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
-              {schedule.scheduleMaterials?.length || 0} Materi Terjadwal
+            <span className="text-xs font-medium text-teal-800 bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-lg">
+              {schedule.scheduleMaterials?.length || 0} Materi Kurikulum Aktif
             </span>
             {schedule.scheduleMaterials && schedule.scheduleMaterials.length > 1 && (
               <button
@@ -1026,8 +1026,8 @@ export default function ScheduleDetailView({
                   >
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white text-[10px] sm:text-[11px] font-bold shrink-0">
-                          {sm.slotIndex === 0 ? 'Materi Utama' : `Materi Slot #${sm.slotIndex + 1}`}
+                        <span className={`px-2 py-0.5 rounded-md text-white text-[10px] sm:text-[11px] font-bold shrink-0 ${sm.isMonthlyTarget ? 'bg-emerald-600' : 'bg-teal-600'}`}>
+                          {sm.isMonthlyTarget ? 'Target Bulanan' : sm.slotIndex === 0 ? 'Materi Tambahan' : `Materi Slot #${sm.slotIndex + 1}`}
                         </span>
                         {sm.material?.targetGeneration?.name && (
                           <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">

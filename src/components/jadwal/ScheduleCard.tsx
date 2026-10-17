@@ -22,6 +22,7 @@ import {
   UserRoundCog,
   Group,
   User2Icon,
+  Sparkles,
 } from 'lucide-react';
 import { ScheduleStatus, ScheduleType, TierLevel } from '@prisma/client';
 import {
@@ -613,10 +614,15 @@ export default function ScheduleCard({
         {getTargetBadge()}
 
         {/* Indikator Jumlah Materi */}
-        {materialsCount > 0 && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold">
-            <BookOpen className="w-3 h-3 text-emerald-600 shrink-0" />
-            <span>{materialsCount} Materi</span>
+        {materialsCount > 0 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-teal-700 bg-teal-50 border border-teal-200/60 text-[11px] font-semibold">
+            <BookOpen className="w-3 h-3 text-teal-600 shrink-0" />
+            <span>+{materialsCount} Materi Tambahan</span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-600 bg-slate-50 border border-slate-200/60 text-[11px] font-medium" title="Target kurikulum bulanan otomatis aktif sesuai kalender">
+            <Sparkles className="w-3 h-3 text-teal-600 shrink-0" />
+            <span>Target Bulanan</span>
           </span>
         )}
       </div>

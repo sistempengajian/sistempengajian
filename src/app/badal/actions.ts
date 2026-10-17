@@ -333,6 +333,7 @@ export async function submitSubstituteRequest({
     // 2. Kirim WA ke PJ Wilayah (PJ Kelompok / PJ Desa)
     const pjUsers = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         organizationId: schedule.organizationId,
         roles: {
           some: {
