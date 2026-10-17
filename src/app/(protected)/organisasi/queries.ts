@@ -132,6 +132,7 @@ export async function getOrganizationsData(userId: string): Promise<Organization
   // 3. Hitung jumlah santri & pengajar spesifik per organisasi
   const usersByOrgAndRole = await prisma.user.findMany({
     where: {
+      status: 'ACTIVE',
       organizationId: scopedOrgIds !== null ? { in: scopedOrgIds } : { not: null },
     },
     select: {
@@ -437,7 +438,10 @@ export async function getOrganizationById(
 
   // Hitung santri & pengajar
   const users = await prisma.user.findMany({
-    where: { organizationId: id },
+    where: {
+      status: 'ACTIVE',
+      organizationId: id,
+    },
     select: {
       roles: { select: { role: true } },
     },

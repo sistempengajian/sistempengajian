@@ -594,10 +594,75 @@ export async function toggleUserStatus(userId: string, newStatus: string) {
       select: { fullName: true, status: true },
     });
 
+    // Lifecycle cleanup jika akun dinonaktifkan atau ditangguhkan
+    if (newStatus === 'INACTIVE' || newStatus === 'SUSPENDED') {
+      const targetRoles = targetUser.roles.map((r) => r.role);
+
+      // 1. Santri: Hapus record default presensi (ALPA otomatis) pada sesi yang masih aktif/berjalan
+      if (targetRoles.includes(UserRole.SANTRI)) {
+        await prisma.attendanceRecord.deleteMany({
+          where: {
+            studentId: userId,
+            status: 'ALPA',
+            notes: { contains: 'Status awal presensi sesi' },
+            session: {
+              OR: [
+                { isActive: true },
+                { schedule: { status: { in: ['ACTIVE', 'SCHEDULED'] } } },
+              ],
+            },
+          },
+        });
+
+        // Batalkan izin santri yang masih pending
+        await prisma.studentAbsenceRequest.updateMany({
+          where: {
+            studentId: userId,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'REJECTED',
+            notes: 'Permohonan dibatalkan otomatis karena akun santri dinonaktifkan.',
+          },
+        });
+      }
+
+      // 2. Pengajar / Wali Kelas: Lepas dari jadwal mendatang dan batalkan badal pending
+      if (targetRoles.includes(UserRole.PENGAJAR) || targetRoles.includes(UserRole.WALI_KELAS)) {
+        await prisma.scheduleTeacher.deleteMany({
+          where: {
+            teacherId: userId,
+            schedule: {
+              status: 'SCHEDULED',
+            },
+          },
+        });
+
+        await prisma.substituteRequest.updateMany({
+          where: {
+            OR: [
+              { requesterTeacherId: userId },
+              { substituteTeacherId: userId },
+            ],
+            status: 'PENDING',
+          },
+          data: {
+            status: 'REJECTED',
+            actionNotes: 'Permohonan badal dibatalkan otomatis karena akun pengajar dinonaktifkan.',
+          },
+        });
+      }
+    }
+
     // Invalidate Redis cache for the edited user so their next request fetches fresh data
     await invalidateCache(cacheKey.userLean(userId), cacheKey.userFull(userId));
 
     revalidatePath('/users');
+    revalidatePath('/presensi');
+    revalidatePath('/jadwal');
+    revalidatePath('/kelas');
+    revalidatePath('/kurikulum');
+    revalidatePath('/private-remedial');
     return {
       success: true,
       message: `Status akun "${updated.fullName}" berhasil diubah menjadi ${newStatus}.`,

@@ -411,3 +411,51 @@ export async function unlinkUserEmail(): Promise<{
     };
   }
 }
+
+export interface UpdateNotificationPreferencesInput {
+  waNotifyH1: boolean;
+  waNotifyCountdown: boolean;
+  waPreferredParent?: 'AYAH' | 'IBU' | 'ALL';
+}
+
+/**
+ * 6. Server Action: Perbarui Pengaturan Preferensi Notifikasi WhatsApp Mandiri (Fase 3)
+ */
+export async function updateNotificationPreferences(data: UpdateNotificationPreferencesInput): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const { authUser, effectiveUserId } = await getEffectiveAuthUser();
+
+    if (!authUser || !effectiveUserId) {
+      return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
+    }
+
+    await prisma.user.update({
+      where: { id: effectiveUserId },
+      data: {
+        waNotifyH1: Boolean(data.waNotifyH1),
+        waNotifyCountdown: Boolean(data.waNotifyCountdown),
+        waPreferredParent: data.waPreferredParent || 'ALL',
+      },
+    });
+
+    await invalidateCache(cacheKey.userLean(authUser.id), cacheKey.userFull(authUser.id));
+
+    revalidatePath('/profil');
+
+    return {
+      success: true,
+      message: 'Pengaturan preferensi notifikasi WhatsApp berhasil diperbarui!',
+    };
+  } catch (err: any) {
+    console.error('[updateNotificationPreferences Error]:', err);
+    return {
+      success: false,
+      error: 'Gagal memperbarui preferensi notifikasi WhatsApp.',
+    };
+  }
+}
+

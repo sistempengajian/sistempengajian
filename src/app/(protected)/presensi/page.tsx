@@ -453,8 +453,9 @@ export default async function PresensiPage({
 
     const targetClassesList = Array.from(targetClassesMap.values());
 
-    // Ambil daftar santri terfilter sesuai target jadwal
+    // Ambil daftar santri aktif terfilter sesuai target jadwal
     const studentWhere: any = {
+      status: 'ACTIVE',
       roles: {
         some: { role: 'SANTRI' },
       },
@@ -517,19 +518,53 @@ export default async function PresensiPage({
       relevantOrgIds.push(activeSchedule.organization.parentId);
     }
 
+    const sessionWibDate = new Date(activeSchedule.startTime.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const sessionYear = sessionWibDate.getFullYear();
+    const sessionMonth = sessionWibDate.getMonth() + 1; // 1 - 12
+
+    // Ambil target kurikulum bulanan kalender sesuai jenjang dan bulan/tahun sesi ini
+    const monthlyTargets = await prisma.materialMonthlyTarget.findMany({
+      where: {
+        ...(relevantGenerationIds.size > 0
+          ? { generationId: { in: Array.from(relevantGenerationIds) } }
+          : {}),
+        year: sessionYear,
+        month: sessionMonth,
+        isActive: true,
+        OR: [
+          { organizationId: null },
+          { tierLevel: 'DAERAH' },
+          ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
+        ],
+      },
+      select: {
+        materialId: true,
+        orderIndex: true,
+        generationId: true,
+      },
+      orderBy: { orderIndex: 'asc' },
+    });
+
+    const monthlyTargetMaterialIds = monthlyTargets.map((t) => t.materialId);
+    const monthlyTargetIdSet = new Set(monthlyTargetMaterialIds);
+    const monthlyTargetOrderMap = new Map<string, number>();
+    monthlyTargets.forEach((t) => monthlyTargetOrderMap.set(t.materialId, t.orderIndex));
+
     const scheduledMaterialIds = activeSchedule.scheduleMaterials.map((sm) => sm.materialId);
-    const hasScheduledMaterials = scheduledMaterialIds.length > 0;
+    const activeMaterialIds = Array.from(
+      new Set([...monthlyTargetMaterialIds, ...scheduledMaterialIds])
+    );
+    const hasActiveCurriculum = activeMaterialIds.length > 0;
 
     // Filter materi yang relevan secara presisi agar tidak memuat seluruh kurikulum yang tidak terkait
     let materialWhere: any;
-    if (hasScheduledMaterials) {
-      // Prioritaskan materi yang telah dijadwalkan pada sesi ini
+    if (hasActiveCurriculum) {
       materialWhere = {
         isActive: true,
-        id: { in: scheduledMaterialIds },
+        id: { in: activeMaterialIds },
       };
     } else if (relevantGenerationIds.size > 0) {
-      // Jika tidak ada materi terjadwal spesifik, ambil materi yang sesuai dengan jenjang generasi kelas ini
+      // Jika belum ada target bulanan maupun materi terjadwal, ambil materi sesuai jenjang
       materialWhere = {
         isActive: true,
         targetGenerationId: { in: Array.from(relevantGenerationIds) },
@@ -584,12 +619,12 @@ export default async function PresensiPage({
           select: { id: true, name: true, code: true },
           orderBy: { code: 'asc' },
         }),
-        hasScheduledMaterials
-          ? Promise.resolve(scheduledMaterialIds.length)
+        hasActiveCurriculum
+          ? Promise.resolve(activeMaterialIds.length)
           : prisma.material.count({ where: materialWhere }),
         prisma.material.findMany({
           where: materialWhere,
-          take: hasScheduledMaterials ? undefined : 5,
+          take: hasActiveCurriculum ? undefined : 5,
           include: {
             targetGeneration: {
               select: { id: true, name: true, code: true },
@@ -650,7 +685,7 @@ export default async function PresensiPage({
       }
     }
 
-    const initialHasMore = hasScheduledMaterials ? false : totalMaterialsCount > rawMaterials.length;
+    const initialHasMore = hasActiveCurriculum ? false : totalMaterialsCount > rawMaterials.length;
 
     const relevantChecklistItemIds: string[] = [];
     rawMaterials.forEach((m) => {
@@ -692,15 +727,21 @@ export default async function PresensiPage({
 
     const resolvedMaterials = baseResolvedMaterials
       .map((m) => {
-        const isScheduled = scheduleMaterialMap.has(m.id);
+        const isMonthlyTarget = monthlyTargetIdSet.has(m.id);
+        const isScheduled = scheduleMaterialMap.has(m.id) || isMonthlyTarget;
         const slotIndex = scheduleMaterialMap.get(m.id);
         return {
           ...m,
           isScheduled,
+          isMonthlyTarget,
           slotIndex: isScheduled ? slotIndex : undefined,
         };
       })
       .sort((a, b) => {
+        const aMonthlyOrder = monthlyTargetOrderMap.has(a.id) ? monthlyTargetOrderMap.get(a.id)! : 999;
+        const bMonthlyOrder = monthlyTargetOrderMap.has(b.id) ? monthlyTargetOrderMap.get(b.id)! : 999;
+        if (aMonthlyOrder !== bMonthlyOrder) return aMonthlyOrder - bMonthlyOrder;
+
         if (a.isScheduled && !b.isScheduled) return -1;
         if (!a.isScheduled && b.isScheduled) return 1;
         if (a.isScheduled && b.isScheduled) {
@@ -736,6 +777,29 @@ export default async function PresensiPage({
 
     // Tanggal jadwal terformat
     const scheduleDate = formatWibDate(activeSchedule.startTime);
+
+    // Ambil catatan serah-terima pengajar dari sesi sebelumnya jika tersedia
+    const previousSessionSchedule = await prisma.schedule.findFirst({
+      where: {
+        id: { not: activeSchedule.id },
+        startTime: { lt: activeSchedule.startTime },
+        teachingSummaryNotes: { not: null },
+        OR: [
+          ...(activeSchedule.classId ? [{ classId: activeSchedule.classId }] : []),
+          ...(relevantGenerationIds.size > 0
+            ? [{ targetGenerations: { some: { generationId: { in: Array.from(relevantGenerationIds) } } } }]
+            : []),
+          ...(activeSchedule.organizationId ? [{ organizationId: activeSchedule.organizationId }] : []),
+        ],
+      },
+      orderBy: { startTime: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        teachingSummaryNotes: true,
+      },
+    });
 
     // Tentukan daftar seluruh pengajar sesi (utama, pendamping, badal)
     const teachersList = activeSchedule.teachers.map((t) => ({
@@ -851,6 +915,16 @@ export default async function PresensiPage({
       name: c.name,
     }));
 
+    const cockpitTabParam = (resolvedParams.tab || '').toUpperCase();
+    const initialCockpitTab =
+      cockpitTabParam === 'EVALUATION' || cockpitTabParam === 'JURNAL' || cockpitTabParam === 'NILAI'
+        ? ('EVALUATION' as const)
+        : cockpitTabParam === 'MANUAL_SHEET' || cockpitTabParam === 'MANUAL'
+        ? ('MANUAL_SHEET' as const)
+        : cockpitTabParam === 'BATCH_SCAN' || cockpitTabParam === 'KARTU'
+        ? ('BATCH_SCAN' as const)
+        : ('DYNAMIC_QR' as const);
+
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
         {renderDualRoleSwitcher('pengajar')}
@@ -887,6 +961,18 @@ export default async function PresensiPage({
           classes={classesProp}
           teacherInfo={teacherInfo}
           teachersList={teachersList}
+          currentTeachingSummaryNotes={activeSchedule.teachingSummaryNotes || null}
+          plannedChecklistItemIds={activeSchedule.plannedChecklistItemIds || []}
+          previousSessionNotes={
+            previousSessionSchedule?.teachingSummaryNotes
+              ? {
+                  scheduleTitle: previousSessionSchedule.title,
+                  date: formatWibDate(previousSessionSchedule.startTime),
+                  notes: previousSessionSchedule.teachingSummaryNotes,
+                }
+              : null
+          }
+          initialTab={initialCockpitTab}
         />
       </div>
     );
