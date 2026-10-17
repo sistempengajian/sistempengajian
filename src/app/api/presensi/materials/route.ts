@@ -35,11 +35,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 1. Ambil konteks jadwal untuk menentukan tier, organisasi, kelas, dan materi terjadwal
+    // 1. Ambil konteks jadwal untuk menentukan tier, organisasi, kelas, waktu sesi, dan materi terjadwal
     const schedule = await prisma.schedule.findUnique({
       where: { id: scheduleId },
       select: {
         id: true,
+        startTime: true,
         tierLevel: true,
         organizationId: true,
         classId: true,
@@ -86,6 +87,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const sessionWibDate = new Date(schedule.startTime.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const sessionYear = sessionWibDate.getFullYear();
+    const sessionMonth = sessionWibDate.getMonth() + 1; // 1 - 12
+
     const relevantOrgIds: string[] = [];
     if (schedule.organizationId) relevantOrgIds.push(schedule.organizationId);
     if (schedule.organization?.parentId) relevantOrgIds.push(schedule.organization.parentId);
@@ -100,6 +105,59 @@ export async function GET(request: NextRequest) {
     if (schedule.class?.generationId) {
       relevantGenerationIds.add(schedule.class.generationId);
     }
+    if (schedule.targetClasses && schedule.targetClasses.length > 0) {
+      schedule.targetClasses.forEach((tc: any) => {
+        if (tc.class?.generationId) relevantGenerationIds.add(tc.class.generationId);
+      });
+    }
+
+    // Resolusi generationId spesifik jika diberikan studentId
+    let studentGenId: string | undefined = undefined;
+    if (studentId) {
+      const studentObj = await prisma.user.findUnique({
+        where: { id: studentId },
+        select: { generationId: true },
+      });
+      if (studentObj?.generationId) {
+        studentGenId = studentObj.generationId;
+      }
+    }
+
+    const targetGenId =
+      generationId ||
+      studentGenId ||
+      schedule.class?.generationId ||
+      Array.from(relevantGenerationIds)[0];
+
+    // Ambil target materi bulanan kalender sesuai jenjang dan bulan/tahun sesi ini
+    const monthlyTargets = await prisma.materialMonthlyTarget.findMany({
+      where: {
+        ...(targetGenId && mode === 'GENERATION'
+          ? { generationId: targetGenId }
+          : relevantGenerationIds.size > 0
+            ? { generationId: { in: Array.from(relevantGenerationIds) } }
+            : {}),
+        year: sessionYear,
+        month: sessionMonth,
+        isActive: true,
+        OR: [
+          { organizationId: null },
+          { tierLevel: 'DAERAH' },
+          ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
+        ],
+      },
+      select: {
+        materialId: true,
+        orderIndex: true,
+        generationId: true,
+      },
+      orderBy: { orderIndex: 'asc' },
+    });
+
+    const monthlyTargetMaterialIds = monthlyTargets.map((t) => t.materialId);
+    const monthlyTargetIdSet = new Set(monthlyTargetMaterialIds);
+    const monthlyTargetOrderMap = new Map<string, number>();
+    monthlyTargets.forEach((t) => monthlyTargetOrderMap.set(t.materialId, t.orderIndex));
 
     // 2. Susun Prisma where clause
     let whereClause: any = {
@@ -112,17 +170,23 @@ export async function GET(request: NextRequest) {
     };
 
     if (mode === 'SCHEDULED') {
+      const activeScheduleIds = Array.from(
+        new Set([...monthlyTargetMaterialIds, ...scheduledMaterialIds])
+      );
       whereClause = {
         isActive: true,
-        id: { in: scheduledMaterialIds },
+        id: { in: activeScheduleIds.length > 0 ? activeScheduleIds : scheduledMaterialIds },
       };
     } else if (mode === 'GENERATION') {
-      const targetGenId =
-        generationId ||
-        schedule.class?.generationId ||
-        Array.from(relevantGenerationIds)[0];
-
-      if (targetGenId) {
+      if (monthlyTargetMaterialIds.length > 0) {
+        const combinedGenIds = Array.from(
+          new Set([...monthlyTargetMaterialIds, ...scheduledMaterialIds])
+        );
+        whereClause = {
+          isActive: true,
+          id: { in: combinedGenIds },
+        };
+      } else if (targetGenId) {
         whereClause.targetGenerationId = targetGenId;
       } else if (relevantGenerationIds.size > 0) {
         whereClause.targetGenerationId = { in: Array.from(relevantGenerationIds) };
@@ -156,10 +220,10 @@ export async function GET(request: NextRequest) {
     // 3. Hitung total data yang cocok
     const total = await prisma.material.count({ where: whereClause });
 
-    // Mode SCHEDULED memuat seluruh materi jadwal sekaligus; mode GENERATION dan ALL memuat paginasi
-    const isScheduledMode = mode === 'SCHEDULED';
-    const takeAmount = isScheduledMode ? Math.max(scheduledMaterialIds.length, 1) : limit;
-    const skipAmount = isScheduledMode ? 0 : (page - 1) * limit;
+    // Mode SCHEDULED & GENERATION memuat seluruh materi target bulan ini; mode ALL memuat paginasi
+    const isFullLoadMode = mode === 'SCHEDULED' || (mode === 'GENERATION' && monthlyTargetMaterialIds.length > 0);
+    const takeAmount = isFullLoadMode ? Math.max(total, 1) : limit;
+    const skipAmount = isFullLoadMode ? 0 : (page - 1) * limit;
 
     // 4. Query materi dengan checklist items dan customizations
     const rawMaterials = await prisma.material.findMany({
@@ -206,15 +270,21 @@ export async function GET(request: NextRequest) {
 
     const items = baseResolved
       .map((m) => {
-        const isScheduled = scheduleMaterialMap.has(m.id);
+        const isMonthlyTarget = monthlyTargetIdSet.has(m.id);
+        const isScheduled = scheduleMaterialMap.has(m.id) || isMonthlyTarget;
         const slotIndex = scheduleMaterialMap.get(m.id);
         return {
           ...m,
           isScheduled,
+          isMonthlyTarget,
           slotIndex: isScheduled ? slotIndex : undefined,
         };
       })
       .sort((a, b) => {
+        const aMonthlyOrder = monthlyTargetOrderMap.has(a.id) ? monthlyTargetOrderMap.get(a.id)! : 999;
+        const bMonthlyOrder = monthlyTargetOrderMap.has(b.id) ? monthlyTargetOrderMap.get(b.id)! : 999;
+        if (aMonthlyOrder !== bMonthlyOrder) return aMonthlyOrder - bMonthlyOrder;
+
         if (a.isScheduled && !b.isScheduled) return -1;
         if (!a.isScheduled && b.isScheduled) return 1;
         if (a.isScheduled && b.isScheduled) {
@@ -258,6 +328,7 @@ export async function GET(request: NextRequest) {
     const targetClassesList = Array.from(targetClassesMap.values());
 
     const studentWhere: any = {
+      status: 'ACTIVE',
       roles: {
         some: { role: 'SANTRI' },
       },
@@ -331,7 +402,7 @@ export async function GET(request: NextRequest) {
           })
         : [];
 
-    const hasMore = isScheduledMode ? false : page * limit < total;
+    const hasMore = isFullLoadMode ? false : page * limit < total;
 
     return NextResponse.json({
       success: true,

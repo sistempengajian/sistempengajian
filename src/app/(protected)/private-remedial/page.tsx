@@ -26,6 +26,7 @@ export default async function PrivateRemedialPage() {
   const [students, teachers, pendingSchedules, approvedSchedules] = await Promise.all([
     prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         roles: {
           some: { role: 'SANTRI' },
         },
@@ -41,6 +42,7 @@ export default async function PrivateRemedialPage() {
     }),
     prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         roles: {
           some: { role: { in: ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK'] } },
         },

@@ -520,6 +520,7 @@ export async function getClassDetail(
   const [students, schedules, assignments] = await Promise.all([
     prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         organizationId: rawClass.organizationId,
         generationId: rawClass.generationId,
         roles: {
@@ -766,6 +767,7 @@ export async function getStudentClassData(studentUserId: string): Promise<Studen
     student.organizationId && student.generationId
       ? await prisma.user.findMany({
           where: {
+            status: 'ACTIVE',
             organizationId: student.organizationId,
             generationId: student.generationId,
             roles: { some: { role: 'SANTRI' } },
@@ -1106,6 +1108,7 @@ export async function getHomeroomTeacherClassData(
         // Ambil santri di kelas ini beserta relasi orang tua
         prisma.user.findMany({
           where: {
+            status: 'ACTIVE',
             organizationId: cls.organizationId,
             generationId: cls.generationId,
             roles: { some: { role: 'SANTRI' } },

@@ -28,10 +28,14 @@ import {
   Users,
   CheckCheck,
   List,
+  MessageSquareQuote,
+  NotebookPen,
+  User,
 } from 'lucide-react';
 import {
   saveComprehensiveEvaluation,
   saveBulkComprehensiveEvaluation,
+  updateTeachingSummaryNotes,
   TargetCapaianInput,
 } from '@/app/(protected)/presensi/actions';
 import CircularProgressBar from '@/components/kurikulum/CircularProgressBar';
@@ -104,6 +108,13 @@ interface RealtimeEvaluationSheetProps {
   initialTotalMaterials?: number;
   initialHasMore?: boolean;
   generations?: Array<{ id: string; name: string; code: string }>;
+  currentTeachingSummaryNotes?: string | null;
+  plannedChecklistItemIds?: string[];
+  previousSessionNotes?: {
+    scheduleTitle: string;
+    date: string;
+    notes: string;
+  } | null;
   onGoToAttendance?: () => void;
 }
 
@@ -160,6 +171,9 @@ export default function RealtimeEvaluationSheet({
   initialTotalMaterials,
   initialHasMore,
   generations = [],
+  currentTeachingSummaryNotes,
+  plannedChecklistItemIds = [],
+  previousSessionNotes,
   onGoToAttendance,
 }: RealtimeEvaluationSheetProps) {
   const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id || '');
@@ -167,6 +181,11 @@ export default function RealtimeEvaluationSheet({
   const [keaktifanScore, setKeaktifanScore] = useState<number>(90);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [teacherNote, setTeacherNote] = useState<string>('');
+  const [teachingSummaryNotes, setTeachingSummaryNotes] = useState<string>(
+    currentTeachingSummaryNotes || ''
+  );
+  const [isSavingHandover, setIsSavingHandover] = useState<boolean>(false);
+  const [handoverSuccessMessage, setHandoverSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -177,8 +196,43 @@ export default function RealtimeEvaluationSheet({
   const [isBulkStudentModalOpen, setIsBulkStudentModalOpen] = useState<boolean>(false);
   const [modalSelectedStudentIds, setModalSelectedStudentIds] = useState<string[]>([]);
   const [modalStudentSearch, setModalStudentSearch] = useState<string>('');
+  const [modalGenFilter, setModalGenFilter] = useState<string>('ALL');
   const [mounted, setMounted] = useState<boolean>(false);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
+
+  // State Tooltip Cakupan Materi & Detail Capaian Santri
+  const [openAudienceTooltipMatId, setOpenAudienceTooltipMatId] = useState<string | null>(null);
+  const [openItemDetailTooltipId, setOpenItemDetailTooltipId] = useState<string | null>(null);
+
+  // State Toast Notifikasi Aksi Massal
+  const [bulkActionToast, setBulkActionToast] = useState<{
+    id: number;
+    message: string;
+    type: 'success' | 'info';
+  } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+    const id = Date.now();
+    setBulkActionToast({ id, message, type });
+    setTimeout(() => {
+      setBulkActionToast((prev) => (prev?.id === id ? null : prev));
+    }, 3000);
+  }, []);
+
+  // Click outside untuk menutup tooltip audiens materi & detail santri
+  useEffect(() => {
+    if (!openAudienceTooltipMatId && !openItemDetailTooltipId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-tooltip-container="true"]')) return;
+      setOpenAudienceTooltipMatId(null);
+      setOpenItemDetailTooltipId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openAudienceTooltipMatId, openItemDetailTooltipId]);
 
   useEffect(() => {
     setMounted(true);
@@ -218,17 +272,32 @@ export default function RealtimeEvaluationSheet({
     }
   }, [isBulkStudentModalOpen]);
 
-  // Filter santri di dalam modal pencarian
+  // Daftar seluruh jenjang yang tersedia dari santri sesi ini
+  const modalAvailableGenerations = useMemo(() => {
+    const map = new Map<string, string>();
+    students.forEach((s) => {
+      if (s.generationId && s.generationName) {
+        map.set(s.generationId, s.generationName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [students]);
+
+  // Filter santri di dalam modal pencarian (menggabungkan pencarian teks & filter jenjang)
   const modalFilteredStudents = useMemo(() => {
+    let list = students;
+    if (modalGenFilter !== 'ALL') {
+      list = list.filter((s) => s.generationId === modalGenFilter);
+    }
     const query = modalStudentSearch.trim().toLowerCase();
-    if (!query) return students;
-    return students.filter(
+    if (!query) return list;
+    return list.filter(
       (s) =>
         s.fullName.toLowerCase().includes(query) ||
         (s.generationName && s.generationName.toLowerCase().includes(query)) ||
         (s.className && s.className.toLowerCase().includes(query))
     );
-  }, [students, modalStudentSearch]);
+  }, [students, modalGenFilter, modalStudentSearch]);
 
   const handleRemoveStudentFromBulk = (id: string) => {
     setBulkSelectedStudentIds((prev) => {
@@ -439,7 +508,7 @@ export default function RealtimeEvaluationSheet({
     );
   }, [students, debouncedStudentSearch]);
 
-  // State progres target capaian lokal per santri: { [checklistItemId]: { isCompleted, score, teacherFeedback, pointsWeight } }
+  // State progres target capaian lokal per santri: { [checklistItemId]: { isCompleted, score, teacherFeedback, pointsWeight, status, isModifiedSession } }
   const [targetProgressMap, setTargetProgressMap] = useState<
     Record<
       string,
@@ -448,9 +517,27 @@ export default function RealtimeEvaluationSheet({
         score: number;
         teacherFeedback: string;
         pointsWeight: number;
+        status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+        isModifiedSession?: boolean;
       }
     >
   >({});
+
+  // Memo data materi sasaran audiens yang sedang dibuka modal/tooltipnya
+  const activeAudienceMat = useMemo(() => {
+    if (!openAudienceTooltipMatId) return null;
+    return loadedMaterials.find((m) => m.id === openAudienceTooltipMatId) || null;
+  }, [openAudienceTooltipMatId, loadedMaterials]);
+
+  // Memo data item checklist detail status santri yang sedang dibuka modal/tooltipnya
+  const activeItemDetail = useMemo(() => {
+    if (!openItemDetailTooltipId) return null;
+    for (const m of loadedMaterials) {
+      const it = m.checklistItems.find((c) => c.id === openItemDetailTooltipId);
+      if (it) return { mat: m, item: it };
+    }
+    return null;
+  }, [openItemDetailTooltipId, loadedMaterials]);
 
   // Sinkronisasi santri terpilih
   useEffect(() => {
@@ -479,24 +566,36 @@ export default function RealtimeEvaluationSheet({
         score: number;
         teacherFeedback: string;
         pointsWeight: number;
+        status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+        isModifiedSession?: boolean;
       }
     > = {};
 
     loadedMaterials.forEach((mat) => {
       mat.checklistItems.forEach((item) => {
         const found = studentProg.find((p) => p.checklistItemId === item.id);
+        const isComp = found ? found.isCompleted : false;
+        const hasFeedback = Boolean(found?.teacherFeedback && found.teacherFeedback.trim() !== '');
+        const itemStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' = isComp
+          ? 'COMPLETED'
+          : hasFeedback
+          ? 'IN_PROGRESS'
+          : 'NOT_STARTED';
+
         newMap[item.id] = {
-          isCompleted: found ? found.isCompleted : false,
+          isCompleted: isComp,
           score: found && found.score ? found.score : 85,
           teacherFeedback: found?.teacherFeedback || '',
           pointsWeight: item.pointsWeight || 10,
+          status: itemStatus,
+          isModifiedSession: false,
         };
       });
     });
 
     setTargetProgressMap(newMap);
     setSuccessMessage(null);
-  }, [selectedStudentId]);
+  }, [selectedStudentId, isBulkMode]);
 
   // Ketika loadedMaterials bertambah atau allStudentProgress bertambah, sinkronkan item baru tanpa menimpa yang sedang diedit
   useEffect(() => {
@@ -512,11 +611,21 @@ export default function RealtimeEvaluationSheet({
         mat.checklistItems.forEach((item) => {
           if (updated[item.id] === undefined) {
             const found = studentProg.find((p) => p.checklistItemId === item.id);
+            const isComp = found ? found.isCompleted : false;
+            const hasFeedback = Boolean(found?.teacherFeedback && found.teacherFeedback.trim() !== '');
+            const itemStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' = isComp
+              ? 'COMPLETED'
+              : hasFeedback
+              ? 'IN_PROGRESS'
+              : 'NOT_STARTED';
+
             updated[item.id] = {
-              isCompleted: found ? found.isCompleted : false,
+              isCompleted: isComp,
               score: found && found.score ? found.score : 85,
               teacherFeedback: found?.teacherFeedback || '',
               pointsWeight: item.pointsWeight || 10,
+              status: itemStatus,
+              isModifiedSession: false,
             };
             changed = true;
           }
@@ -527,12 +636,61 @@ export default function RealtimeEvaluationSheet({
     });
   }, [loadedMaterials, allStudentProgress, selectedStudentId]);
 
-  // Filter materi aktif (termasuk filter lokal saat jeda debounce)
+  // Filter materi aktif:
+  // - Pada Mode Massal: gabungkan materi umum sesi di atas + materi bulanan per jenjang santri yang terdaftar
+  // - Pada Mode Mandiri: saring berdasarkan jenjang santri terpilih
   const filteredMaterials = useMemo(() => {
     let baseList = loadedMaterials;
-    if (materialFilterMode === 'SCHEDULED') {
+
+    if (isBulkMode) {
+      // 1. Kumpulkan seluruh generationId santri-santri yang terpilih
+      const selectedGenIds = new Set<string>();
+      students.forEach((s) => {
+        if (bulkSelectedStudentIds.includes(s.id) && s.generationId) {
+          selectedGenIds.add(s.generationId);
+        }
+      });
+
+      // 2. Filter materi: Materi Umum Sesi (!targetGenerationId) ATAU materi jenjang yang relevan dengan santri terpilih
+      baseList = loadedMaterials.filter((m) => {
+        if (!m.targetGenerationId) return true;
+        return selectedGenIds.size === 0 || selectedGenIds.has(m.targetGenerationId);
+      });
+
+      // 3. Urutkan: Materi Umum Sesi terlebih dahulu di paling atas, kemudian materi bulanan per jenjang
+      baseList = [...baseList].sort((a, b) => {
+        const aIsGeneral = !a.targetGenerationId;
+        const bIsGeneral = !b.targetGenerationId;
+        if (aIsGeneral && !bIsGeneral) return -1;
+        if (!aIsGeneral && bIsGeneral) return 1;
+
+        if (aIsGeneral && bIsGeneral) {
+          return (a.slotIndex ?? 0) - (b.slotIndex ?? 0);
+        }
+
+        // Kelompokkan per jenjang
+        const aGenName = a.targetGeneration?.name || '';
+        const bGenName = b.targetGeneration?.name || '';
+        if (aGenName !== bGenName) {
+          return aGenName.localeCompare(bGenName);
+        }
+
+        return (a.isMandatoryForTarget ? -1 : 1);
+      });
+    } else if (materialFilterMode === 'SCHEDULED' || materialFilterMode === 'GENERATION') {
       const scheduled = loadedMaterials.filter((m) => m.isScheduled);
       baseList = scheduled.length > 0 ? scheduled : loadedMaterials;
+
+      // Jika ada santri terpilih yang memiliki jenjang tertentu, saring materi agar memprioritaskan
+      // jenjang santri tersebut + materi umum sesi yang tidak terikat jenjang tertentu
+      if (currentStudent?.generationId) {
+        const studentSpecificMaterials = baseList.filter(
+          (m) => !m.targetGenerationId || m.targetGenerationId === currentStudent.generationId
+        );
+        if (studentSpecificMaterials.length > 0) {
+          baseList = studentSpecificMaterials;
+        }
+      }
     }
 
     const query = materialSearchQuery.trim().toLowerCase();
@@ -548,7 +706,16 @@ export default function RealtimeEvaluationSheet({
     }
 
     return baseList;
-  }, [loadedMaterials, materialFilterMode, materialSearchQuery, debouncedSearch]);
+  }, [
+    loadedMaterials,
+    materialFilterMode,
+    materialSearchQuery,
+    debouncedSearch,
+    currentStudent?.generationId,
+    isBulkMode,
+    bulkSelectedStudentIds,
+    students,
+  ]);
 
   // Rotasi 3 mode materi: Sesuai Jadwal -> Sesuai Jenjang -> Semua Materi
   const cycleFilterMode = async () => {
@@ -1084,27 +1251,26 @@ export default function RealtimeEvaluationSheet({
   // Otomatis buka materi saat hasil pencarian berubah
   useEffect(() => {
     if (materialSearchQuery.trim() && filteredMaterials.length > 0) {
-      setExpandedMaterialIds(filteredMaterials.map((m) => m.id));
+      setExpandedMaterialIds([filteredMaterials[0].id]);
     }
   }, [materialSearchQuery, filteredMaterials]);
 
-  // Otomatis buka materi pertama saat daftar materi dimuat
+  // Otomatis buka materi pertama saat daftar materi dimuat atau berganti (Single-Active Accordion)
   useEffect(() => {
     if (filteredMaterials.length > 0) {
       setExpandedMaterialIds((prev) => {
-        if (prev.length === 0) {
+        if (prev.length === 0 || !filteredMaterials.some((m) => prev.includes(m.id))) {
           return [filteredMaterials[0].id];
         }
-        return prev;
+        return [prev[0]];
       });
     }
   }, [filteredMaterials]);
 
+  // Single-Active Accordion: membuka satu materi akan otomatis menutup materi lainnya
   const toggleMaterialAccordion = (materialId: string) => {
     setExpandedMaterialIds((prev) =>
-      prev.includes(materialId)
-        ? prev.filter((id) => id !== materialId)
-        : [...prev, materialId]
+      prev.includes(materialId) ? [] : [materialId]
     );
   };
 
@@ -1126,8 +1292,138 @@ export default function RealtimeEvaluationSheet({
     return { totalItems, completedItems, percentage };
   }, [filteredMaterials, targetProgressMap]);
 
-  // Handler toggle tuntas/belum tuntas item checklist
-  const handleToggleItemComplete = (itemId: string, completionTierLevel: string) => {
+  // Helper mendapatkan status kemajuan item saat ini: NOT_STARTED | IN_PROGRESS | COMPLETED | MIXED
+  const getItemStatus = useCallback(
+    (itemId: string): 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'MIXED' => {
+      const local = targetProgressMap[itemId];
+
+      if (isBulkMode) {
+        if (local?.isModifiedSession) {
+          return local.status || (local.isCompleted ? 'COMPLETED' : 'IN_PROGRESS');
+        }
+
+        const mat = loadedMaterials.find((m) => m.checklistItems.some((it) => it.id === itemId));
+        const targetStudentObjs = students.filter((s) => bulkSelectedStudentIds.includes(s.id));
+        const relevantStudents = targetStudentObjs.filter((s) => {
+          if (!mat || !mat.targetGenerationId) return true;
+          return s.generationId === mat.targetGenerationId;
+        });
+
+        if (relevantStudents.length === 0) return 'NOT_STARTED';
+
+        let completedCount = 0;
+        let inProgressCount = 0;
+        let notStartedCount = 0;
+
+        for (const s of relevantStudents) {
+          const prog = allStudentProgress.find((p) => p.studentId === s.id && p.checklistItemId === itemId);
+          if (prog?.isCompleted) {
+            completedCount++;
+          } else if (prog?.teacherFeedback && prog.teacherFeedback.trim() !== '') {
+            inProgressCount++;
+          } else {
+            notStartedCount++;
+          }
+        }
+
+        if (completedCount === relevantStudents.length) return 'COMPLETED';
+        if (inProgressCount === relevantStudents.length) return 'IN_PROGRESS';
+        if (notStartedCount === relevantStudents.length) return 'NOT_STARTED';
+        return 'MIXED';
+      }
+
+      if (local?.status) return local.status;
+      if (local?.isCompleted) return 'COMPLETED';
+      if (local?.teacherFeedback && local.teacherFeedback.trim() !== '') return 'IN_PROGRESS';
+      return 'NOT_STARTED';
+    },
+    [targetProgressMap, isBulkMode, loadedMaterials, students, bulkSelectedStudentIds, allStudentProgress]
+  );
+
+  // Helper untuk mendapatkan data rincian santri per item
+  const getItemStudentStatusDetails = useCallback(
+    (mat: MaterialWithChecklists, itemId: string) => {
+      const targetStudentObjs = students.filter((s) =>
+        isBulkMode ? bulkSelectedStudentIds.includes(s.id) : s.id === selectedStudentId
+      );
+
+      const isGeneral = !mat.targetGenerationId;
+      const relevantStudents = targetStudentObjs.filter((s) => {
+        if (isGeneral) return true;
+        return s.generationId === mat.targetGenerationId;
+      });
+
+      const completed: Array<{
+        student: StudentItem;
+        score: number | null;
+        feedback: string | null;
+        isJustModified?: boolean;
+      }> = [];
+      const inProgress: Array<{
+        student: StudentItem;
+        feedback: string | null;
+        isJustModified?: boolean;
+      }> = [];
+      const notStarted: Array<{ student: StudentItem }> = [];
+
+      const localState = targetProgressMap[itemId];
+
+      for (const s of relevantStudents) {
+        const existingProg = allStudentProgress.find(
+          (p) => p.studentId === s.id && p.checklistItemId === itemId
+        );
+
+        if (localState?.isModifiedSession) {
+          if (localState.status === 'COMPLETED') {
+            completed.push({
+              student: s,
+              score: existingProg?.isCompleted ? existingProg.score : localState.score,
+              feedback: localState.teacherFeedback || existingProg?.teacherFeedback || null,
+              isJustModified: !existingProg?.isCompleted,
+            });
+            continue;
+          } else if (localState.status === 'IN_PROGRESS') {
+            inProgress.push({
+              student: s,
+              feedback: localState.teacherFeedback || existingProg?.teacherFeedback || null,
+              isJustModified: true,
+            });
+            continue;
+          } else if (localState.status === 'NOT_STARTED') {
+            notStarted.push({ student: s });
+            continue;
+          }
+        }
+
+        if (existingProg?.isCompleted) {
+          completed.push({
+            student: s,
+            score: existingProg.score,
+            feedback: existingProg.teacherFeedback,
+            isJustModified: false,
+          });
+        } else if (existingProg?.teacherFeedback && existingProg.teacherFeedback.trim() !== '') {
+          inProgress.push({
+            student: s,
+            feedback: existingProg.teacherFeedback,
+            isJustModified: false,
+          });
+        } else {
+          notStarted.push({ student: s });
+        }
+      }
+
+      return { relevantStudents, completed, inProgress, notStarted };
+    },
+    [students, isBulkMode, bulkSelectedStudentIds, selectedStudentId, targetProgressMap, allStudentProgress]
+  );
+
+  // Handler siklus 3 status: Belum Tuntas -> Proses -> Tuntas -> Belum Tuntas
+  const handleCycleItemStatus = (
+    itemId: string,
+    mat: MaterialWithChecklists,
+    completionTierLevel?: string
+  ) => {
     if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
       alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
       return;
@@ -1137,13 +1433,63 @@ export default function RealtimeEvaluationSheet({
       return;
     }
 
+    const currentStatus = getItemStatus(itemId);
+    let nextStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+
+    if (currentStatus === 'NOT_STARTED' || currentStatus === 'MIXED') {
+      nextStatus = 'IN_PROGRESS';
+    } else if (currentStatus === 'IN_PROGRESS') {
+      nextStatus = 'COMPLETED';
+    } else {
+      nextStatus = 'NOT_STARTED';
+    }
+
+    const details = getItemStudentStatusDetails(mat, itemId);
+    const affectedCount = isBulkMode
+      ? details.notStarted.length + details.inProgress.length
+      : 1;
+
+    if (nextStatus === 'IN_PROGRESS') {
+      showToast(
+        isBulkMode
+          ? `${affectedCount} Santri diperbarui ke status Dalam Proses`
+          : 'Capaian diset ke status Dalam Proses',
+        'info'
+      );
+    } else if (nextStatus === 'COMPLETED') {
+      showToast(
+        isBulkMode
+          ? `${affectedCount} Santri dituntaskan`
+          : 'Capaian Tuntas dinilai',
+        'success'
+      );
+    } else {
+      showToast('Capaian dikembalikan ke Belum Tuntas', 'info');
+    }
+
     setTargetProgressMap((prev) => {
       const current = prev[itemId] || { isCompleted: false, score: 85, teacherFeedback: '', pointsWeight: 10 };
+
+      // Pre-fill catatan jika kosong
+      let feedback = current.teacherFeedback;
+      if (!feedback) {
+        const existingWithNote = allStudentProgress.find(
+          (p) => p.checklistItemId === itemId && p.teacherFeedback && p.teacherFeedback.trim() !== ''
+        );
+        if (existingWithNote && existingWithNote.teacherFeedback) {
+          feedback = existingWithNote.teacherFeedback;
+        }
+      }
+
       return {
         ...prev,
         [itemId]: {
           ...current,
-          isCompleted: !current.isCompleted,
+          status: nextStatus,
+          isCompleted: nextStatus === 'COMPLETED',
+          score: current.score || 85,
+          teacherFeedback: feedback || '',
+          isModifiedSession: true,
         },
       };
     });
@@ -1158,6 +1504,7 @@ export default function RealtimeEvaluationSheet({
         [itemId]: {
           ...current,
           score: newScore,
+          isModifiedSession: true,
         },
       };
     });
@@ -1172,6 +1519,7 @@ export default function RealtimeEvaluationSheet({
         [itemId]: {
           ...current,
           teacherFeedback: text,
+          isModifiedSession: true,
         },
       };
     });
@@ -1201,11 +1549,20 @@ export default function RealtimeEvaluationSheet({
 
         // Siapkan payload target capaian updates untuk penilaian massal
         const targetCapaianUpdates: TargetCapaianInput[] = Object.entries(targetProgressMap)
-          .filter(([, data]) => data.isCompleted || (data.teacherFeedback && data.teacherFeedback.trim() !== ''))
+          .filter(
+            ([, data]) =>
+              data.isCompleted ||
+              data.status === 'COMPLETED' ||
+              data.status === 'IN_PROGRESS' ||
+              (data.teacherFeedback && data.teacherFeedback.trim() !== '')
+          )
           .map(([checklistItemId, data]) => ({
             checklistItemId,
-            score: data.isCompleted ? data.score : null,
-            isCompleted: data.isCompleted,
+            score: data.isCompleted || data.status === 'COMPLETED' ? data.score : null,
+            isCompleted: data.isCompleted || data.status === 'COMPLETED',
+            status:
+              data.status ||
+              (data.isCompleted ? 'COMPLETED' : data.teacherFeedback ? 'IN_PROGRESS' : 'NOT_STARTED'),
             teacherFeedback: data.teacherFeedback || undefined,
             pointsWeight: data.pointsWeight,
           }));
@@ -1219,11 +1576,29 @@ export default function RealtimeEvaluationSheet({
           targetCapaianUpdates,
         });
 
-        // Sinkronkan state progres lokal allStudentProgress untuk seluruh santri terpilih
+        // Sinkronkan state progres lokal allStudentProgress untuk seluruh santri terpilih secara aman
         if (targetCapaianUpdates.length > 0) {
           const newEntries: StudentProgressData[] = [];
           for (const sId of bulkSelectedStudentIds) {
+            const studentObj = students.find((s) => s.id === sId);
+
             for (const upd of targetCapaianUpdates) {
+              const mat = loadedMaterials.find((m) =>
+                m.checklistItems.some((it) => it.id === upd.checklistItemId)
+              );
+              // Partisi jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri
+              if (mat?.targetGenerationId && mat.targetGenerationId !== studentObj?.generationId) {
+                continue;
+              }
+
+              // Proteksi non-destruktif: Jangan timpa santri yang sudah tuntas sebelumnya
+              const existingProg = allStudentProgress.find(
+                (p) => p.studentId === sId && p.checklistItemId === upd.checklistItemId
+              );
+              if (existingProg?.isCompleted) {
+                continue;
+              }
+
               newEntries.push({
                 studentId: sId,
                 checklistItemId: upd.checklistItemId,
@@ -1302,6 +1677,23 @@ export default function RealtimeEvaluationSheet({
     }
   };
 
+  const handleSaveHandoverNotes = async () => {
+    try {
+      setIsSavingHandover(true);
+      await updateTeachingSummaryNotes({
+        scheduleId,
+        teachingSummaryNotes,
+      });
+      setHandoverSuccessMessage('Catatan serah-terima sesi berhasil disimpan!');
+      setTimeout(() => setHandoverSuccessMessage(null), 4000);
+    } catch (err) {
+      console.error('Gagal menyimpan catatan serah-terima:', err);
+      alert('Gagal menyimpan catatan serah-terima.');
+    } finally {
+      setIsSavingHandover(false);
+    }
+  };
+
   return (
     <div
       className={`rounded-3xl border shadow-xs p-4 sm:p-6 space-y-5 transition-all duration-300 ${isBulkMode
@@ -1320,6 +1712,23 @@ export default function RealtimeEvaluationSheet({
           </h3>
         </div>
       </div>
+
+      {/* Catatan Serah-Terima dari Sesi Sebelumnya (Handover Antar Pengajar) */}
+      {previousSessionNotes && (
+        <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50/40 rounded-2xl border border-amber-200/80 text-xs text-amber-950 flex items-start gap-3 shadow-2xs">
+          <MessageSquareQuote className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-[11px] text-amber-900 uppercase tracking-wider bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/60">
+                Serah-Terima Sesi Sebelumnya: {previousSessionNotes.scheduleTitle} ({previousSessionNotes.date})
+              </span>
+            </div>
+            <p className="italic text-slate-700 leading-relaxed whitespace-pre-line text-xs font-medium">
+              &ldquo;{previousSessionNotes.notes}&rdquo;
+            </p>
+          </div>
+        </div>
+      )}
 
       {students.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200">
@@ -1665,23 +2074,23 @@ export default function RealtimeEvaluationSheet({
                     )}
                   </button>
 
-                  {/* Buka / Tutup Semua Accordion */}
-                  {filteredMaterials.length > 1 && (
+                  {/* Buka / Tutup Accordion */}
+                  {filteredMaterials.length > 0 && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (expandedMaterialIds.length === filteredMaterials.length) {
+                        if (expandedMaterialIds.length > 0) {
                           setExpandedMaterialIds([]);
-                        } else {
-                          setExpandedMaterialIds(filteredMaterials.map((m) => m.id));
+                        } else if (filteredMaterials.length > 0) {
+                          setExpandedMaterialIds([filteredMaterials[0].id]);
                         }
                       }}
                       className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
                     >
                       <span>
-                        {expandedMaterialIds.length === filteredMaterials.length
-                          ? 'Tutup Semua'
-                          : 'Buka Semua'}
+                        {expandedMaterialIds.length > 0
+                          ? 'Tutup Materi'
+                          : 'Buka Materi'}
                       </span>
                     </button>
                   )}
@@ -1978,7 +2387,12 @@ export default function RealtimeEvaluationSheet({
             ) : (
               <div className="space-y-3">
                 {filteredMaterials.map((mat) => {
-                  const items = mat.checklistItems;
+                  const items = [...mat.checklistItems].sort((a, b) => {
+                    const aPlanned = plannedChecklistItemIds.includes(a.id) ? 1 : 0;
+                    const bPlanned = plannedChecklistItemIds.includes(b.id) ? 1 : 0;
+                    if (aPlanned !== bPlanned) return bPlanned - aPlanned;
+                    return a.orderIndex - b.orderIndex;
+                  });
                   if (items.length === 0) return null;
 
                   let matCompletedCount = 0;
@@ -1998,27 +2412,63 @@ export default function RealtimeEvaluationSheet({
                   const averageScore = items.length > 0 ? Math.round(totalScoreSum / items.length) : 0;
                   const isExpanded = expandedMaterialIds.includes(mat.id);
 
+                  const hasPlannedItems = mat.checklistItems.some((item) =>
+                    plannedChecklistItemIds.includes(item.id)
+                  );
+                  const plannedItemsCount = mat.checklistItems.filter((item) =>
+                    plannedChecklistItemIds.includes(item.id)
+                  ).length;
+
                   return (
                     <div
                       key={mat.id}
-                      className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden transition-all duration-200"
+                      className={`rounded-2xl border shadow-2xs overflow-hidden transition-all duration-200 ${
+                        hasPlannedItems
+                          ? 'border-indigo-200/90 bg-indigo-50/20'
+                          : 'border-slate-200/80 bg-white'
+                      }`}
                     >
                       {/* Material Accordion Header */}
                       <button
                         type="button"
                         onClick={() => toggleMaterialAccordion(mat.id)}
-                        className={`w-full text-left p-3.5 sm:p-4 bg-gradient-to-r from-slate-50 to-teal-50/30 hover:from-slate-100/80 hover:to-teal-50/60 transition-colors flex items-start sm:items-center justify-between gap-3 cursor-pointer select-none ${isExpanded ? 'border-b border-slate-100' : ''
-                          }`}
+                        className={`w-full text-left p-3.5 sm:p-4 transition-colors flex items-start sm:items-center justify-between gap-3 cursor-pointer select-none ${
+                          hasPlannedItems
+                            ? 'bg-gradient-to-r from-indigo-50/70 via-slate-50 to-teal-50/30 hover:from-indigo-100/70 hover:to-teal-50/50'
+                            : 'bg-gradient-to-r from-slate-50 to-teal-50/30 hover:from-slate-100/80 hover:to-teal-50/60'
+                        } ${isExpanded ? 'border-b border-slate-100' : ''}`}
                         aria-expanded={isExpanded}
                       >
                         <div className="min-w-0 flex-1 flex items-start sm:items-center gap-2.5 sm:gap-3">
 
 
                           <div className="min-w-0 flex-1 space-y-1">
-                            {/* Judul Materi: Utuh tanpa terpotong truncate */}
-                            <h5 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
-                              {mat.title}
-                            </h5>
+                            {/* Judul Materi & Sasaran Audience */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
+                                {mat.title}
+                              </h5>
+                              {isBulkMode && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenAudienceTooltipMatId(
+                                      openAudienceTooltipMatId === mat.id ? null : mat.id
+                                    );
+                                  }}
+                                  className={`px-1.5 py-0.5 rounded-lg border text-[10px] sm:text-[11px] font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 ${
+                                    openAudienceTooltipMatId === mat.id
+                                      ? 'bg-teal-700 text-white border-teal-800 ring-2 ring-teal-500/20'
+                                      : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                                  }`}
+                                  title="Info Sasaran Santri Materi Ini"
+                                >
+                                  <Users className="w-3 h-3 text-teal-600 shrink-0" />
+                                  <span>Sasaran</span>
+                                </button>
+                              )}
+                            </div>
 
                             {/* Deskripsi Materi */}
                             {
@@ -2030,6 +2480,11 @@ export default function RealtimeEvaluationSheet({
                             }
                             {/* Meta Badges di bawah judul: Lega di layar HP */}
                             <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                              {hasPlannedItems && (
+                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-2 py-0.5 rounded-md shadow-2xs inline-flex items-center gap-1">
+                                  {plannedItemsCount} Prioritas
+                                </span>
+                              )}
                               {mat.isMandatoryForTarget && (
                                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md">
                                   Wajib
@@ -2074,16 +2529,18 @@ export default function RealtimeEvaluationSheet({
                         </div>
                       </button>
 
-                      {/* Checklist Sub-Capaian Items (Accordion Content) */}
+                      {/* Checklist Sub-Capaian Items (Accordion Content - Bounded Scroll Container) */}
                       {isExpanded && (
-                        <div className="p-3 sm:p-4 divide-y divide-slate-100 space-y-3 bg-white animate-fade-in">
+                        <div className="p-3 sm:p-4 divide-y divide-slate-100 space-y-3 bg-white animate-fade-in max-h-[380px] sm:max-h-[440px] overflow-y-auto pr-1.5 sm:pr-2 overscroll-contain">
                           {items.map((item) => {
+                            const itemStatus = getItemStatus(item.id);
                             const state = targetProgressMap[item.id] || {
-                              isCompleted: false,
+                              isCompleted: itemStatus === 'COMPLETED',
                               score: 85,
                               teacherFeedback: '',
                               pointsWeight: item.pointsWeight || 10,
                             };
+                            const studentDetails = getItemStudentStatusDetails(mat, item.id);
 
                             const isLockedDaerah = item.completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah;
                             const isLockedDesa =
@@ -2105,11 +2562,16 @@ export default function RealtimeEvaluationSheet({
                                         <span className="text-[10px] font-medium text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60">
                                           +{item.pointsWeight} Poin
                                         </span>
+                                        {plannedChecklistItemIds.includes(item.id) && (
+                                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
+                                            Prioritas
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
 
-                                    {/* Status Switcher Button */}
-                                    <div className="shrink-0">
+                                    {/* Status Switcher Button & Detail Popover */}
+                                    <div className="shrink-0 flex items-center gap-1.5">
                                       {isLocked ? (
                                         <div
                                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-xs font-semibold cursor-not-allowed select-none"
@@ -2125,26 +2587,64 @@ export default function RealtimeEvaluationSheet({
                                           </span>
                                         </div>
                                       ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleToggleItemComplete(item.id, item.completionTierLevel)}
-                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${state.isCompleted
-                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700'
-                                            : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleCycleItemStatus(item.id, mat, item.completionTierLevel)}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                                              itemStatus === 'COMPLETED'
+                                                ? 'bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700'
+                                                : itemStatus === 'IN_PROGRESS'
+                                                ? 'bg-amber-500 text-white hover:bg-amber-600 border border-amber-600'
+                                                : itemStatus === 'MIXED'
+                                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 border border-indigo-700'
+                                                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                                             }`}
-                                        >
-                                          {state.isCompleted ? (
-                                            <>
-                                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                              <span>Tuntas</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                              <span>Belum Tuntas</span>
-                                            </>
+                                          >
+                                            {itemStatus === 'COMPLETED' ? (
+                                              <>
+                                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                                <span>Tuntas</span>
+                                              </>
+                                            ) : itemStatus === 'IN_PROGRESS' ? (
+                                              <>
+                                                <Clock className="w-3.5 h-3.5" />
+                                                <span>Proses</span>
+                                              </>
+                                            ) : itemStatus === 'MIXED' ? (
+                                              <>
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                <span>Perbarui</span>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                <span>Belum Tuntas</span>
+                                              </>
+                                            )}
+                                          </button>
+
+                                          {/* Mode Massal: Ikon Profil Santri untuk Modal/Tooltip Status Tiap Santri */}
+                                          {isBulkMode && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenItemDetailTooltipId(
+                                                  openItemDetailTooltipId === item.id ? null : item.id
+                                                );
+                                              }}
+                                              className={`p-1.5 rounded-xl border transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center ${
+                                                openItemDetailTooltipId === item.id
+                                                  ? 'bg-teal-700 text-white border-teal-800 ring-2 ring-teal-500/20'
+                                                  : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                                              }`}
+                                              title="Lihat status santri pada capaian ini"
+                                            >
+                                              <User className="w-3.5 h-3.5" />
+                                            </button>
                                           )}
-                                        </button>
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -2157,8 +2657,8 @@ export default function RealtimeEvaluationSheet({
                                   </div>
                                 </div>
 
-                                {/* Penilaian Capaian & Catatan Khusus: Baru muncul saat tombol status Tuntas */}
-                                {state.isCompleted && (
+                                {/* Penilaian Capaian & Catatan Khusus Sesuai Status */}
+                                {itemStatus === 'COMPLETED' && (
                                   <div className="p-3 rounded-xl bg-slate-50/90 border border-teal-200/60 space-y-2.5 animate-fade-in">
                                     {/* Baris 1: Penilaian Capaian (Skor Nilai) */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2173,10 +2673,11 @@ export default function RealtimeEvaluationSheet({
                                             key={s}
                                             type="button"
                                             onClick={() => handleScoreChange(item.id, s)}
-                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${state.score === s
-                                              ? 'bg-teal-600 text-white shadow-2xs font-bold ring-2 ring-teal-600/20'
-                                              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                                              }`}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                              state.score === s
+                                                ? 'bg-teal-600 text-white shadow-2xs font-bold ring-2 ring-teal-600/20'
+                                                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                            }`}
                                           >
                                             {s}
                                           </button>
@@ -2198,6 +2699,33 @@ export default function RealtimeEvaluationSheet({
                                         className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                                       />
                                     </div>
+                                  </div>
+                                )}
+
+                                {itemStatus === 'IN_PROGRESS' && (
+                                  <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/70 space-y-2 animate-fade-in">
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                                        <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                                        <span>Catatan Kemajuan / Estafet Sesi Berikutnya:</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={state.teacherFeedback}
+                                        onChange={(e) => handleItemFeedbackChange(item.id, e.target.value)}
+                                        placeholder="Contoh: Sudah membaca sampai ayat 15, makhraj 'ain perlu diperhatikan..."
+                                        className="w-full px-3 py-2 rounded-lg bg-white border border-amber-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {itemStatus === 'MIXED' && isBulkMode && (
+                                  <div className="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-200/70 text-[11px] text-indigo-900 flex items-center gap-2">
+                                    <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>
+                                      Status santri berbeda. Klik tombol <strong>Perbarui</strong> di atas untuk menyeragamkan progres santri yang belum tuntas.
+                                    </span>
                                   </div>
                                 )}
                               </div>
@@ -2333,6 +2861,38 @@ export default function RealtimeEvaluationSheet({
             />
           </div>
 
+          {/* 6.b Catatan Serah-Terima Sesi Ini (Handover Ustadz Berikutnya) */}
+          <div className="p-3.5 rounded-2xl bg-teal-50/50 border border-teal-200/80 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <NotebookPen className="w-4 h-4 text-teal-700 shrink-0" />
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Catatan Serah-Terima Sesi Ini (Handover Pengajar Berikutnya)
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveHandoverNotes}
+                disabled={isSavingHandover}
+                className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer shadow-2xs"
+              >
+                {isSavingHandover ? 'Menyimpan...' : 'Simpan Handover'}
+              </button>
+            </div>
+            <textarea
+              rows={2}
+              value={teachingSummaryNotes}
+              onChange={(e) => setTeachingSummaryNotes(e.target.value)}
+              placeholder="Tuliskan materi/halaman terakhir yang diajarkan, catatan pemahaman santri, atau arahan untuk pengajar sesi berikutnya..."
+              className="w-full px-3 py-2 rounded-xl bg-white border border-teal-200/80 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
+            />
+            {handoverSuccessMessage && (
+              <p className="text-[11px] font-semibold text-emerald-700 animate-fade-in">
+                ✓ {handoverSuccessMessage}
+              </p>
+            )}
+          </div>
+
           {/* 7. Notifikasi Sukses */}
           {
             successMessage && (
@@ -2363,6 +2923,21 @@ export default function RealtimeEvaluationSheet({
                   : `Simpan Penilaian & Target Capaian`}
             </span>
           </button>
+
+          {/* Floating Toast Notification for Status Updates */}
+          {bulkActionToast && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none animate-in fade-in slide-in-from-bottom-3 duration-200">
+              <div
+                className={`px-4 py-2.5 rounded-2xl shadow-xl text-xs font-bold flex items-center gap-2 border ${
+                  bulkActionToast.type === 'success'
+                    ? 'bg-emerald-900/95 text-white border-emerald-700/80'
+                    : 'bg-slate-900/95 text-white border-slate-700/80'
+                }`}
+              >
+                <span>{bulkActionToast.message}</span>
+              </div>
+            </div>
+          )}
         </form>
       )}
 
@@ -2404,7 +2979,7 @@ export default function RealtimeEvaluationSheet({
               </button>
             </div>
 
-            {/* Toolbar Search & Select All */}
+            {/* Toolbar Search & Filter Jenjang & Select All */}
             <div className="flex-shrink-0 p-3.5 bg-slate-50 border-b border-slate-100 space-y-2.5">
               <div className="relative flex items-center">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
@@ -2426,25 +3001,65 @@ export default function RealtimeEvaluationSheet({
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
+              {/* Filter Pills Jenjang / Kelas */}
+              {modalAvailableGenerations.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
                   <button
                     type="button"
-                    onClick={() => setModalSelectedStudentIds(students.map((s) => s.id))}
+                    onClick={() => setModalGenFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                      modalGenFilter === 'ALL'
+                        ? 'bg-teal-600 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Semua Jenjang ({students.length})
+                  </button>
+                  {modalAvailableGenerations.map((gen) => {
+                    const count = students.filter((s) => (s.generationId || 'NO_GEN') === gen.id).length;
+                    return (
+                      <button
+                        key={gen.id}
+                        type="button"
+                        onClick={() => setModalGenFilter(gen.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                          modalGenFilter === gen.id
+                            ? 'bg-teal-600 text-white shadow-2xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {gen.name} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const visibleIds = modalFilteredStudents.map((s) => s.id);
+                      setModalSelectedStudentIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+                    }}
                     className="text-[11px] font-bold text-teal-700 hover:text-teal-900 cursor-pointer"
                   >
-                    Pilih Semua ({students.length})
+                    Pilih Semua di Tampilan ({modalFilteredStudents.length})
                   </button>
                   <span className="text-slate-300">•</span>
                   <button
                     type="button"
-                    onClick={() => setModalSelectedStudentIds([])}
+                    onClick={() => {
+                      const visibleIds = new Set(modalFilteredStudents.map((s) => s.id));
+                      setModalSelectedStudentIds((prev) => prev.filter((id) => !visibleIds.has(id)));
+                    }}
                     className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
                   >
-                    Hapus Pilihan
+                    Hapus Pilihan di Tampilan
                   </button>
                 </div>
-                <span className="text-[11px] font-extrabold text-teal-800 bg-teal-100/80 px-2 py-0.5 rounded-lg">
+                <span className="text-[11px] font-extrabold text-teal-800 bg-teal-100/80 px-2 py-0.5 rounded-lg shrink-0">
                   {modalSelectedStudentIds.length} Dipilih
                 </span>
               </div>
@@ -2542,6 +3157,316 @@ export default function RealtimeEvaluationSheet({
         </div>,
         document.body
       )}
+
+      {/* Modal / Dialog Sasaran Santri Materi (Portal di luar card) */}
+      {mounted && activeAudienceMat && createPortal(
+        <div
+          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+          onClick={() => setOpenAudienceTooltipMatId(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5 space-y-3.5 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto"
+          >
+            {/* Drag handle for mobile */}
+            <div className="flex justify-center sm:hidden pb-1 -mt-1">
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
+
+            <div className="flex items-start justify-between pb-2.5 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/60 shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
+                    {activeAudienceMat.title}
+                  </h4>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md inline-block mt-1 ${
+                      !activeAudienceMat.targetGenerationId
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                    }`}
+                  >
+                    {!activeAudienceMat.targetGenerationId
+                      ? 'Materi Tambahan / Umum'
+                      : `Jenjang: ${activeAudienceMat.targetGeneration?.name || 'Khusus'}`}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenAudienceTooltipMatId(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors cursor-pointer shrink-0 mt-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {!activeAudienceMat.targetGenerationId ? (
+              <div className="space-y-2.5 text-xs text-slate-600 bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200/70">
+                <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                  🌐 Berlaku untuk Semua Santri Sesi
+                </p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Penilaian materi ini akan diberikan kepada seluruh{' '}
+                  <strong className="text-emerald-950 font-bold">{bulkSelectedStudentIds.length} santri terpilih</strong> tanpa
+                  memandang jenjang kelas.
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1 max-h-36 overflow-y-auto">
+                  {students
+                    .filter((s) => bulkSelectedStudentIds.includes(s.id))
+                    .map((s) => (
+                      <span
+                        key={s.id}
+                        className="text-[10px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
+                      >
+                        {s.fullName}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                {/* Sasaran Langsung */}
+                <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200/70 space-y-2">
+                  <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Sasaran Langsung ({
+                      students.filter(
+                        (s) =>
+                          bulkSelectedStudentIds.includes(s.id) &&
+                          s.generationId === activeAudienceMat.targetGenerationId
+                      ).length
+                    } Santri):
+                  </p>
+                  <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pt-0.5">
+                    {students
+                      .filter(
+                        (s) =>
+                          bulkSelectedStudentIds.includes(s.id) &&
+                          s.generationId === activeAudienceMat.targetGenerationId
+                      )
+                      .map((s) => (
+                        <span
+                          key={s.id}
+                          className="text-[10px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
+                        >
+                          {s.fullName}
+                        </span>
+                      ))}
+                    {students.filter(
+                      (s) =>
+                        bulkSelectedStudentIds.includes(s.id) &&
+                        s.generationId === activeAudienceMat.targetGenerationId
+                    ).length === 0 && (
+                      <span className="text-[11px] text-slate-400 italic">
+                        Tidak ada santri terpilih di jenjang ini.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dilewati Otomatis */}
+                {students.filter(
+                  (s) =>
+                    bulkSelectedStudentIds.includes(s.id) &&
+                    s.generationId !== activeAudienceMat.targetGenerationId
+                ).length > 0 && (
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
+                    <p className="font-semibold text-slate-700 flex items-center gap-1.5 text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                      Dilewati Otomatis ({
+                        students.filter(
+                          (s) =>
+                            bulkSelectedStudentIds.includes(s.id) &&
+                            s.generationId !== activeAudienceMat.targetGenerationId
+                        ).length
+                      } Santri Jenjang Lain):
+                    </p>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Santri dari jenjang berbeda tidak akan dinilai atau terpengaruh pada materi ini saat disimpan.
+                    </p>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pt-0.5">
+                      {students
+                        .filter(
+                          (s) =>
+                            bulkSelectedStudentIds.includes(s.id) &&
+                            s.generationId !== activeAudienceMat.targetGenerationId
+                        )
+                        .map((s) => (
+                          <span
+                            key={s.id}
+                            className="text-[10px] font-medium bg-white text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded"
+                          >
+                            {s.fullName}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal / Dialog Rincian Status Santri Per Capaian (Portal di luar card) */}
+      {mounted && activeItemDetail && (() => {
+        const details = getItemStudentStatusDetails(activeItemDetail.mat, activeItemDetail.item.id);
+        return createPortal(
+          <div
+            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+            onClick={() => setOpenItemDetailTooltipId(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5 space-y-3 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150 max-h-[85vh] overflow-y-auto"
+            >
+              {/* Drag handle for mobile */}
+              <div className="flex justify-center sm:hidden pb-1 -mt-1">
+                <div className="w-10 h-1 bg-slate-300 rounded-full" />
+              </div>
+
+              <div className="flex items-start justify-between pb-2.5 border-b border-slate-100 gap-2">
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
+                    Status Santri: {activeItemDetail.item.itemTitle}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {details.relevantStudents.length} santri dalam cakupan penilaian
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenItemDetailTooltipId(null)}
+                  className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors cursor-pointer shrink-0 mt-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Kelompok 1: Tuntas */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-emerald-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Tuntas ({details.completed.length})
+                  </span>
+                </div>
+                {details.completed.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 italic pl-3.5">Belum ada santri tuntas</p>
+                ) : (
+                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                    {details.completed.map(({ student, score, feedback, isJustModified }) => (
+                      <div
+                        key={student.id}
+                        className={`p-2 rounded-xl border text-xs space-y-0.5 ${
+                          isJustModified
+                            ? 'bg-teal-50/90 border-teal-200 text-teal-950'
+                            : 'bg-emerald-50/60 border-emerald-200/70 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-[11px] truncate">{student.fullName}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isJustModified ? (
+                              <span className="text-[9px] font-extrabold bg-teal-600 text-white px-1.5 py-0.2 rounded-full">
+                                Baru Diperbarui
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                                Sudah Tuntas
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white px-1.5 py-0.2 rounded border border-emerald-200">
+                              {score || 85}
+                            </span>
+                          </div>
+                        </div>
+                        {feedback && (
+                          <p className="text-[10px] text-slate-600 flex items-start gap-1 pl-0.5 italic mt-0.5">
+                            <MessageSquare className="w-2.5 h-2.5 text-teal-600 shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">{feedback}</span>
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Kelompok 2: Dalam Proses */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-amber-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Dalam Proses ({details.inProgress.length})
+                  </span>
+                </div>
+                {details.inProgress.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 italic pl-3.5">Tidak ada santri dalam proses</p>
+                ) : (
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {details.inProgress.map(({ student, feedback, isJustModified }) => (
+                      <div
+                        key={student.id}
+                        className={`p-2 rounded-xl border text-xs space-y-0.5 ${
+                          isJustModified
+                            ? 'bg-amber-50 border-amber-300 text-amber-950'
+                            : 'bg-amber-50/50 border-amber-200/60 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-[11px] truncate">{student.fullName}</span>
+                          {isJustModified && (
+                            <span className="text-[9px] font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full">
+                              Baru Diperbarui
+                            </span>
+                          )}
+                        </div>
+                        {feedback && (
+                          <p className="text-[10px] text-amber-900 flex items-start gap-1 pl-0.5 italic mt-0.5">
+                            <MessageSquare className="w-2.5 h-2.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">{feedback}</span>
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Kelompok 3: Belum Tuntas */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-600 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                    Belum Tuntas ({details.notStarted.length})
+                  </span>
+                </div>
+                {details.notStarted.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                    {details.notStarted.map(({ student }) => (
+                      <span
+                        key={student.id}
+                        className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"
+                      >
+                        {student.fullName}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 italic pl-3.5">Semua santri telah dimulai</p>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }

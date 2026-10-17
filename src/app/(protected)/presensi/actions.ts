@@ -24,22 +24,7 @@ export async function checkStudentScheduleEligibility(
   sessionId?: string
 ): Promise<{ isEligible: boolean; studentName?: string; reason?: string }> {
   // 1. Cek cepat: Jika sessionId diberikan, periksa apakah santri sudah ada di daftar record sesi
-  if (sessionId) {
-    const existingRecord = await prisma.attendanceRecord.findUnique({
-      where: {
-        sessionId_studentId: {
-          sessionId,
-          studentId,
-        },
-      },
-      select: { id: true, student: { select: { fullName: true } } },
-    });
-    if (existingRecord) {
-      return { isEligible: true, studentName: existingRecord.student.fullName };
-    }
-  }
-
-  // 2. Ambil data santri
+  // 1. Ambil data santri
   const student = await prisma.user.findUnique({
     where: { id: studentId },
     select: {
@@ -56,8 +41,32 @@ export async function checkStudentScheduleEligibility(
     return { isEligible: false, reason: 'Santri tidak ditemukan dalam sistem.' };
   }
 
+  if (student.status !== 'ACTIVE') {
+    return {
+      isEligible: false,
+      studentName: student.fullName,
+      reason: 'Akun santri sedang dinonaktifkan atau ditangguhkan.',
+    };
+  }
+
   if (!student.roles.some((r) => r.role === 'SANTRI')) {
     return { isEligible: false, studentName: student.fullName, reason: 'Pengguna bukan berstatus santri.' };
+  }
+
+  // 2. Jika sudah ada attendanceRecord di sesi ini dan santri aktif, langsung lolos
+  if (sessionId) {
+    const existingRecord = await prisma.attendanceRecord.findUnique({
+      where: {
+        sessionId_studentId: {
+          sessionId,
+          studentId,
+        },
+      },
+      select: { id: true, student: { select: { fullName: true } } },
+    });
+    if (existingRecord) {
+      return { isEligible: true, studentName: existingRecord.student.fullName };
+    }
   }
 
   // 3. Ambil data jadwal beserta target kelas, generasi, dan wilayah
@@ -744,11 +753,22 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
     };
   }
 
-  // 2. Ambil data santri untuk pesan notifikasi
+  // 2. Ambil data santri untuk pesan notifikasi & validasi status aktif
   const student = await prisma.user.findUnique({
     where: { id: studentId },
-    select: { fullName: true },
+    select: { fullName: true, status: true },
   });
+
+  if (!student) {
+    return { success: false, message: 'Data santri tidak ditemukan.' };
+  }
+
+  if (student.status !== 'ACTIVE') {
+    return {
+      success: false,
+      message: `Akun santri ${student.fullName} sedang dinonaktifkan atau ditangguhkan.`,
+    };
+  }
 
   // 3. Cari sesi aktif untuk schedule ini
   const session = await prisma.attendanceSession.findFirst({
@@ -1191,6 +1211,7 @@ export interface TargetCapaianInput {
   checklistItemId: string;
   score?: number | null;
   isCompleted: boolean;
+  status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
   teacherFeedback?: string;
   pointsWeight?: number;
 }
@@ -1406,15 +1427,44 @@ export async function saveBulkComprehensiveEvaluation({
   const canCompleteDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');
   const canCompleteDesa = roleCodes.includes('PJ_DESA') || canCompleteDaerah;
 
-  // 2. Batch fetch metadata checklist items untuk validasi hak otorisasi penguji (1 Query O(1))
+  // 1b. Ambil data santri beserta jenjangnya untuk partisi materi jenjang vs umum
+  const studentUsers = await prisma.user.findMany({
+    where: { id: { in: studentIds } },
+    select: { id: true, generationId: true },
+  });
+  const studentGenMap = new Map(studentUsers.map((s) => [s.id, s.generationId]));
+
+  // 2. Batch fetch metadata checklist items beserta targetGenerationId materinya
   const allowedUpdates: TargetCapaianInput[] = [];
+  const itemMetaMap = new Map<
+    string,
+    { id: string; completionTierLevel: string; itemTitle: string; targetGenerationId: string | null }
+  >();
+
   if (targetCapaianUpdates && targetCapaianUpdates.length > 0) {
     const itemIds = targetCapaianUpdates.map((u) => u.checklistItemId);
     const itemsMeta = await prisma.materialChecklistItem.findMany({
       where: { id: { in: itemIds } },
-      select: { id: true, completionTierLevel: true, itemTitle: true },
+      select: {
+        id: true,
+        completionTierLevel: true,
+        itemTitle: true,
+        material: {
+          select: {
+            targetGenerationId: true,
+          },
+        },
+      },
     });
-    const itemMetaMap = new Map(itemsMeta.map((i) => [i.id, i]));
+
+    itemsMeta.forEach((i) => {
+      itemMetaMap.set(i.id, {
+        id: i.id,
+        completionTierLevel: i.completionTierLevel,
+        itemTitle: i.itemTitle,
+        targetGenerationId: i.material?.targetGenerationId || null,
+      });
+    });
 
     for (const update of targetCapaianUpdates) {
       if (update.isCompleted) {
@@ -1465,19 +1515,34 @@ export async function saveBulkComprehensiveEvaluation({
   );
 
   // 5. Hitung poin reward gamifikasi per santri di memori (In-memory calculation)
+  // Memperhitungkan partisi jenjang santri & proteksi non-destruktif
   const pointsPerStudentMap = new Map<string, number>();
   let totalPointsDistributed = 0;
 
   for (const sId of studentIds) {
     let studentPoints = 0;
+    const studentGenId = studentGenMap.get(sId);
+
     for (const update of allowedUpdates) {
+      const itemMeta = itemMetaMap.get(update.checklistItemId);
+      const targetGenId = itemMeta?.targetGenerationId;
+
+      // Partisi Jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri
+      if (targetGenId && targetGenId !== studentGenId) {
+        continue;
+      }
+
+      // Proteksi Non-Destruktif: Jika santri sudah tuntas sebelumnya, tidak dapat poin lagi
+      const key = `${sId}_${update.checklistItemId}`;
+      if (prevCompletedSet.has(key)) {
+        continue;
+      }
+
       if (update.isCompleted) {
-        const key = `${sId}_${update.checklistItemId}`;
-        if (!prevCompletedSet.has(key)) {
-          studentPoints += update.pointsWeight || 10;
-        }
+        studentPoints += update.pointsWeight || 10;
       }
     }
+
     if (studentPoints > 0) {
       pointsPerStudentMap.set(sId, studentPoints);
       totalPointsDistributed += studentPoints;
@@ -1520,9 +1585,29 @@ export async function saveBulkComprehensiveEvaluation({
         }
 
         // B. Batch Upsert Material Checklist Progress
+        // Aturan:
+        // - Materi umum diterapkan ke semua santri terpilih
+        // - Materi jenjang hanya diterapkan ke santri di jenjangnya
+        // - Santri yang sudah tuntas sebelumnya TIDAK TERDAMPAK / TIDAK DI-OVERWRITE
         if (allowedUpdates.length > 0) {
           for (const sId of chunkStudentIds) {
+            const studentGenId = studentGenMap.get(sId);
+
             for (const update of allowedUpdates) {
+              const itemMeta = itemMetaMap.get(update.checklistItemId);
+              const targetGenId = itemMeta?.targetGenerationId;
+
+              // 1. Partisi Jenjang: Lewati jika materi bukan untuk jenjang santri ini
+              if (targetGenId && targetGenId !== studentGenId) {
+                continue;
+              }
+
+              // 2. Proteksi Non-Destruktif: Lewati santri yang status capaiannya sudah tuntas sebelumnya
+              const key = `${sId}_${update.checklistItemId}`;
+              if (prevCompletedSet.has(key)) {
+                continue;
+              }
+
               await tx.materialChecklistProgress.upsert({
                 where: {
                   checklistItemId_studentId: {
@@ -2185,4 +2270,33 @@ export async function getParentAbsenceHistory(studentId?: string, overrideParent
     verifiedByTeacherName: c.attendanceRecord?.markedBy?.fullName || null,
     createdAt: c.createdAt.toISOString(),
   }));
+}
+
+/**
+ * Update Ringkasan Mengajar / Catatan Serah Terima Sesi Pengajian (Handover Antar Pengajar)
+ */
+export async function updateTeachingSummaryNotes({
+  scheduleId,
+  teachingSummaryNotes,
+}: {
+  scheduleId: string;
+  teachingSummaryNotes: string;
+}) {
+  const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+  if (!authUser || !userProfile) {
+    throw new Error('Tidak terautentikasi');
+  }
+
+  const schedule = await prisma.schedule.update({
+    where: { id: scheduleId },
+    data: {
+      teachingSummaryNotes: teachingSummaryNotes.trim() || null,
+    },
+    select: {
+      id: true,
+      teachingSummaryNotes: true,
+    },
+  });
+
+  return { success: true, teachingSummaryNotes: schedule.teachingSummaryNotes };
 }

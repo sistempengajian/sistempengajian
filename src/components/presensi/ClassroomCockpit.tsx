@@ -70,6 +70,14 @@ interface ClassroomCockpitProps {
   initialTotalMaterials?: number;
   initialHasMore?: boolean;
   generations?: Array<{ id: string; name: string; code: string }>;
+  initialTab?: CockpitTab;
+  currentTeachingSummaryNotes?: string | null;
+  plannedChecklistItemIds?: string[];
+  previousSessionNotes?: {
+    scheduleTitle: string;
+    date: string;
+    notes: string;
+  } | null;
 }
 
 type CockpitTab = 'DYNAMIC_QR' | 'MANUAL_SHEET' | 'BATCH_SCAN' | 'EVALUATION';
@@ -99,17 +107,27 @@ export default function ClassroomCockpit({
   initialTotalMaterials,
   initialHasMore,
   generations = [],
+  initialTab,
+  currentTeachingSummaryNotes,
+  plannedChecklistItemIds = [],
+  previousSessionNotes,
 }: ClassroomCockpitProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState<boolean>(false);
   const [switchingScheduleId, setSwitchingScheduleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<CockpitTab>('DYNAMIC_QR');
+  const [activeTab, setActiveTab] = useState<CockpitTab>(initialTab || 'DYNAMIC_QR');
   const [attendanceList, setAttendanceList] = useState<StudentAttendanceItem[]>(initialStudents);
   const [sessionActive, setSessionActive] = useState<boolean>(isSessionActive);
   const [isQrStarted, setIsQrStarted] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isScheduleDropdownOpen, setIsScheduleDropdownOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   useEffect(() => {
     setMounted(true);
@@ -602,6 +620,9 @@ export default function ClassroomCockpit({
             initialTotalMaterials={initialTotalMaterials}
             initialHasMore={initialHasMore}
             generations={generations}
+            currentTeachingSummaryNotes={currentTeachingSummaryNotes}
+            plannedChecklistItemIds={plannedChecklistItemIds}
+            previousSessionNotes={previousSessionNotes}
             onGoToAttendance={() => handleTabChange('MANUAL_SHEET')}
           />
         )
