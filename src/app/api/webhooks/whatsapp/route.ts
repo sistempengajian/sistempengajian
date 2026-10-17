@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { WhatsAppMessageStatus } from '@prisma/client';
 import { processInboundWhatsAppMessage } from '@/lib/whatsapp/inboundWebhookService';
+import { isWhatsAppGroupJid } from '@/lib/whatsapp/utils';
+import {
+  processGroupInboundWhatsAppMessage,
+  extractMentionedJids,
+} from '@/lib/whatsapp/groupInboundWebhookService';
 
 /**
  * Webhook Handler untuk WhatsApp Gateway (WAHA, Fonnte, Meta, & Generic Providers)
@@ -144,10 +149,54 @@ export async function POST(req: NextRequest) {
 
     const msgId = body.payload?.id || body.id;
 
-    if (sender && incomingText !== undefined && incomingText !== null) {
-      console.log(`[WhatsApp Webhook] Pesan masuk dari ${sender} (authorPhone: ${authorPhone || '-'}, fromMe: ${fromMe}): "${incomingText}"`);
+    // 0. Proteksi Anti-Loop: Jangan merespon pesan dari akun bot sendiri
+    if (fromMe) {
+      return NextResponse.json({
+        status: 'ignored',
+        message: 'Abaikan pesan dari akun bot sendiri (anti-loop)',
+      });
+    }
 
-      // Delegasikan ke Smart Webhook Auto-Responder Service
+    if (sender && incomingText !== undefined && incomingText !== null) {
+      const rawChatId =
+        body.payload?.from ||
+        body.chatId ||
+        body.from ||
+        body.payload?.chatId ||
+        sender;
+
+      const isGroup = isWhatsAppGroupJid(String(rawChatId));
+
+      if (isGroup) {
+        console.log(
+          `[WhatsApp Webhook] Pesan grup masuk dari ${rawChatId} (participant: ${authorPhone || body.payload?.participant || '-'}): "${incomingText}"`
+        );
+
+        // Delegasikan ke Group Inbound Auto-Responder Service (khusus grup terdaftar dengan tag bot)
+        const groupResult = await processGroupInboundWhatsAppMessage({
+          groupId: String(rawChatId),
+          senderParticipant:
+            body.payload?.participant ||
+            body.payload?._data?.participant ||
+            authorPhone,
+          text: String(incomingText),
+          mentionedJids: extractMentionedJids(body),
+          messageId: msgId ? String(msgId) : undefined,
+          fromMe: Boolean(fromMe),
+        });
+
+        return NextResponse.json({
+          status: 'success',
+          event: 'GROUP_INBOUND_PROCESSED',
+          ...groupResult,
+        });
+      }
+
+      console.log(
+        `[WhatsApp Webhook] Pesan pribadi masuk dari ${sender} (authorPhone: ${authorPhone || '-'}): "${incomingText}"`
+      );
+
+      // Delegasikan ke Smart Webhook Auto-Responder Service (1-on-1 direct chat)
       const result = await processInboundWhatsAppMessage({
         from: String(sender),
         body: String(incomingText),
