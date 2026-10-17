@@ -80,8 +80,8 @@ export class WhatsAppClient {
 
     if (overridePhone) {
       targetPhoneToSend = overridePhone;
-      actualMessageToSend = `🧪 *[MODE TESTING: Pengalihan Pesan]*\n👤 *Penerima Asli:* ${options.recipientName || 'Santri/Wali'} (${normalizedPhone})\n----------------------------------------\n\n${finalMessageBody}`;
-      console.log(`[WhatsAppClient] 🔀 Pesan dialihkan dari ${normalizedPhone} ke Nomor Testing: ${overridePhone}`);
+      actualMessageToSend = `*[MODE TESTING: Pengalihan Pesan]*\n*Penerima Asli:* ${options.recipientName || 'Santri/Wali'} (${normalizedPhone})\n----------------------------------------\n\n${finalMessageBody}`;
+      console.log(`[WhatsAppClient] Pesan dialihkan dari ${normalizedPhone} ke Nomor Testing: ${overridePhone}`);
     }
 
     // 3. Buat log awal di database dengan status QUEUED / SENDING
@@ -233,8 +233,15 @@ export class WhatsAppClient {
       return { success: false, error: 'Provider does not support deleteMessage' };
     }
 
-    const normalizedPhone = normalizePhoneNumber(to) || to;
-    const result = await this.provider.deleteMessage(normalizedPhone, gatewayMessageId);
+    const overridePhoneRaw = process.env.WA_TEST_OVERRIDE_PHONE;
+    const overridePhone = overridePhoneRaw ? normalizePhoneNumber(overridePhoneRaw) : null;
+    const targetPhone = overridePhone || normalizePhoneNumber(to) || to;
+
+    if (overridePhone) {
+      console.log(`[WhatsAppClient] 🔀 Penarikan pesan dialihkan dari ${to} ke Nomor Testing: ${overridePhone}`);
+    }
+
+    const result = await this.provider.deleteMessage(targetPhone, gatewayMessageId);
 
     // Jika berhasil ditarik/dihapus, update status log terkait di database
     if (result.success) {

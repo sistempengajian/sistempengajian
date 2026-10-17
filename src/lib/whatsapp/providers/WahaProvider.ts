@@ -54,7 +54,12 @@ export class WahaProvider implements IWhatsAppGateway {
       const data = await response.json().catch(() => null);
 
       if (response.ok && data) {
-        const msgId = data.id || data.messageId || `waha_${Date.now()}`;
+        const rawId = data.key?.id || data.id || data.messageId;
+        const formattedChatId = normalizedTo.includes('@') ? normalizedTo : `${normalizedTo}@c.us`;
+        const msgId = rawId
+          ? (String(rawId).includes('_') ? String(rawId) : `true_${formattedChatId}_${rawId}`)
+          : `waha_${Date.now()}`;
+
         return {
           success: true,
           gatewayMessageId: String(msgId),
@@ -121,10 +126,23 @@ export class WahaProvider implements IWhatsAppGateway {
       formattedChatId = `${normalized}@c.us`;
     }
 
+    // Pastikan messageId dalam format serialized WAHA: true_{chatId}_{id}
+    let formattedMsgId = messageId;
+    if (formattedMsgId.startsWith('true_') || formattedMsgId.startsWith('false_')) {
+      const parts = formattedMsgId.split('_');
+      if (parts.length >= 3) {
+        const fromMe = parts[0];
+        const rawMsgId = parts.slice(2).join('_');
+        formattedMsgId = `${fromMe}_${formattedChatId}_${rawMsgId}`;
+      }
+    } else {
+      formattedMsgId = `true_${formattedChatId}_${messageId}`;
+    }
+
     try {
       // Primary WAHA endpoint: DELETE /api/{session}/chats/{chatId}/messages/{messageId}
       const encodedChatId = encodeURIComponent(formattedChatId);
-      const encodedMsgId = encodeURIComponent(messageId);
+      const encodedMsgId = encodeURIComponent(formattedMsgId);
       const endpoint = `${this.apiUrl}/api/${this.session}/chats/${encodedChatId}/messages/${encodedMsgId}`;
 
       const response = await fetch(endpoint, {

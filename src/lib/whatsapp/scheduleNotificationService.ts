@@ -4,7 +4,14 @@ import {
   sendScheduleReminderH1ToTeacher,
   sendScheduleReminderCountdown,
   sendScheduleChangeEmergencyAlert,
+  sendFamilyScheduleReminderH1,
+  sendFamilyScheduleReminderCountdown,
+  sendUnifiedTeacherParentReminder,
 } from './triggers';
+import {
+  generateStudentAbsenceRequestToken,
+  generateFamilyActionHubToken,
+} from '@/lib/studentAbsenceToken';
 import { RollingTargetScope, ScheduleStatus, ApprovalStatus } from '@prisma/client';
 import { whatsAppClient } from './WhatsAppClient';
 import { normalizePhoneNumber } from './utils';
@@ -62,6 +69,11 @@ export async function getScheduleDetailForNotification(scheduleId: string) {
         },
       },
       teachers: {
+        where: {
+          teacher: {
+            status: 'ACTIVE',
+          },
+        },
         include: {
           teacher: true,
         },
@@ -142,6 +154,11 @@ export async function getTargetStudentsForSchedule(schedule: NonNullable<Awaited
     include: {
       generation: true,
       parents: {
+        where: {
+          parent: {
+            status: 'ACTIVE',
+          },
+        },
         include: {
           parent: true,
         },
@@ -401,6 +418,100 @@ export async function notifyScheduleChangeIfHariH(params: {
 }
 
 /**
+ * Menghasilkan informasi kelas, jenjang, dan materi yang terpersonalisasi untuk masing-masing santri.
+ * Khusus pada sesi gabungan, santri hanya akan menerima nama kelas spesifik tempat ia bernaung dan
+ * materi target bulanan miliknya alih-alih gabungan seluruh kelas.
+ */
+export function getPersonalizedSessionInfoForStudent(params: {
+  schedule: {
+    id: string;
+    title: string;
+    class?: { id: string; name: string; generationId?: string | null; organizationId?: string | null } | null;
+    targetClasses?: Array<{ class: { id: string; name: string; generationId?: string | null; organizationId?: string | null } | null }>;
+    scheduleMaterials?: Array<{ material: { id: string; title: string; targetGenerationId?: string | null } }>;
+  };
+  student: {
+    id: string;
+    organizationId?: string | null;
+    generationId?: string | null;
+    generation?: { id: string; name: string } | null;
+  };
+  monthlyTargets?: Array<{
+    generationId: string;
+    material: { id: string; title: string };
+  }>;
+}) {
+  const { schedule, student, monthlyTargets = [] } = params;
+
+  // 1. Ekstrak seluruh kelas target yang terlibat
+  const allTargetClasses = [
+    ...(schedule.targetClasses?.map((tc) => tc.class) || []),
+    ...(schedule.class ? [schedule.class] : []),
+  ].filter(Boolean) as Array<{ id: string; name: string; generationId?: string | null; organizationId?: string | null }>;
+
+  const uniqueTargetClasses = Array.from(
+    new Map(allTargetClasses.map((c) => [c.id, c])).values()
+  );
+
+  // 2. Cocokkan kelas spesifik santri pada sesi ini
+  const studentClass =
+    uniqueTargetClasses.find(
+      (c) =>
+        c.organizationId === student.organizationId &&
+        c.generationId === student.generationId
+    ) ||
+    uniqueTargetClasses.find(
+      (c) => c.generationId === student.generationId
+    ) ||
+    (schedule.class &&
+      (schedule.class.generationId === student.generationId ||
+        schedule.class.organizationId === student.organizationId)
+      ? schedule.class
+      : null) ||
+    schedule.class ||
+    null;
+
+  const className = studentClass?.name || student.generation?.name || 'Santri';
+  const generationName = student.generation?.name || 'Santri';
+
+  // 3. Resolusi materi terpersonalisasi:
+  // - Target bulanan kalender sesuai jenjang santri
+  // - Ditambah materi umum dari jadwal yang tidak dibatasi jenjang lain
+  const studentGenId = student.generationId;
+  const studentMonthlyTitles = studentGenId
+    ? monthlyTargets
+        .filter((mt) => mt.generationId === studentGenId)
+        .map((mt) => mt.material.title)
+    : [];
+
+  const studentGeneralTitles = (schedule.scheduleMaterials || [])
+    .filter(
+      (sm) =>
+        !sm.material.targetGenerationId ||
+        sm.material.targetGenerationId === studentGenId
+    )
+    .map((sm) => sm.material.title);
+
+  const combinedTitles = Array.from(
+    new Set([...studentMonthlyTitles, ...studentGeneralTitles])
+  );
+
+  const materialTitles =
+    combinedTitles.length > 0
+      ? combinedTitles.join(', ')
+      : ((schedule.scheduleMaterials && schedule.scheduleMaterials.length > 0)
+          ? schedule.scheduleMaterials.map((sm) => sm.material.title).join(', ')
+          : schedule.title || 'Materi Pengajian Rutin');
+
+  return {
+    studentClass,
+    className,
+    generationName,
+    materialTitles,
+  };
+}
+
+/**
  * 2. Pemicu Siaran / Broadcast Pengingat Jadwal Manual On-Demand oleh Pengurus Wilayah
  */
 export async function broadcastScheduleReminder(scheduleId: string) {
@@ -435,120 +546,432 @@ export async function broadcastScheduleReminder(scheduleId: string) {
   ];
   const uniqueGenNames = Array.from(new Set(genNames)).join(', ') || 'Seluruh Santri';
 
-  let sentCount = 0;
-  const contactedPhones = new Set<string>();
+  const scheduledTeacherIds = new Set(schedule.teachers.map((st) => st.teacher.id));
+  const rawTargetStudents = await getTargetStudentsForSchedule(schedule);
 
-  // A. Kirim ke Pengajar Terjadwal (termasuk Guru Badal)
-  for (const st of schedule.teachers) {
-    const teacher = st.teacher;
-    if (!teacher.phoneNumber || contactedPhones.has(teacher.phoneNumber)) continue;
-    contactedPhones.add(teacher.phoneNumber);
+  // KASUS 1: Peer-Teaching (Santri bertugas mengajar di sesi sendiri) -> exclude dari audiens santri
+  const targetStudents = rawTargetStudents.filter((s) => !scheduledTeacherIds.has(s.id));
 
-    const res = await sendScheduleReminderH1ToTeacher({
-      teacherPhone: teacher.phoneNumber,
-      teacherName: teacher.fullName,
-      dayDate: dayDateStr,
-      startTime: startTimeStr,
-      endTime: endTimeStr,
-      venueName,
-      organizationName: orgName,
-      generationName: uniqueGenNames,
-      className: schedule.class?.name,
-      materialTitle: materialTitles,
-      isBadal: st.isSubstitute,
-      scheduleId: schedule.id,
-      teacherUserId: teacher.id,
-    });
+  // Ambil target materi bulanan untuk bulan dan tahun pelaksanaan jadwal (zona waktu WIB)
+  const sessionWibDate = new Date(schedule.startTime.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  const sessionYear = sessionWibDate.getFullYear();
+  const sessionMonth = sessionWibDate.getMonth() + 1;
 
-    if (res.success) sentCount++;
+  const relevantGenIds = new Set<string>();
+  if (schedule.class?.generationId) relevantGenIds.add(schedule.class.generationId);
+  schedule.targetGenerations.forEach((tg) => relevantGenIds.add(tg.generationId));
+  schedule.targetClasses.forEach((tc) => {
+    if (tc.class?.generationId) relevantGenIds.add(tc.class.generationId);
+  });
+
+  const monthlyTargets = await prisma.materialMonthlyTarget.findMany({
+    where: {
+      year: sessionYear,
+      month: sessionMonth,
+      isActive: true,
+      ...(relevantGenIds.size > 0 ? { generationId: { in: Array.from(relevantGenIds) } } : {}),
+    },
+    include: {
+      material: true,
+    },
+    orderBy: {
+      orderIndex: 'asc',
+    },
+  });
+
+  // Wadah Agregasi Berbasis Nomor Telepon (Phone-Centric Bucket)
+  interface BroadcastPhoneBucket {
+    phone: string;
+    name: string;
+    gender?: string | null;
+    relationshipType?: string | null;
+    userId?: string;
+    isTeacher: boolean;
+    teacherSt?: any;
+    studentsAsParent: Array<{
+      studentId: string;
+      studentName: string;
+      generationName: string;
+      className?: string | null;
+      scheduleTitle: string;
+      startTime: string;
+      endTime: string;
+      venueName: string;
+      materialTitle: string;
+      teacherName: string;
+      notes?: string | null;
+      absenceUrl?: string;
+      scheduleUrl?: string;
+    }>;
+    isDirectStudent: boolean;
+    directStudentInfo?: {
+      studentId: string;
+      studentName: string;
+      generationName: string;
+      className?: string | null;
+      materialTitle: string;
+    };
   }
 
-  // B. Kirim ke Orang Tua dan Santri
-  const targetStudents = await getTargetStudentsForSchedule(schedule);
+  const recipientMap = new Map<string, BroadcastPhoneBucket>();
 
+  const getOrCreateBucket = (rawPhone: string, defaultName: string, userId?: string): BroadcastPhoneBucket | null => {
+    const norm = normalizePhoneNumber(rawPhone);
+    if (!norm) return null;
+    let b = recipientMap.get(norm);
+    if (!b) {
+      b = {
+        phone: rawPhone,
+        name: defaultName,
+        userId,
+        isTeacher: false,
+        studentsAsParent: [],
+        isDirectStudent: false,
+      };
+      recipientMap.set(norm, b);
+    }
+    return b;
+  };
+
+  // A. Masukkan Dewan Pengajar
+  for (const st of schedule.teachers) {
+    const teacher = st.teacher;
+    if (!teacher.phoneNumber) continue;
+    const bucket = getOrCreateBucket(teacher.phoneNumber, teacher.fullName, teacher.id);
+    if (bucket) {
+      bucket.isTeacher = true;
+      bucket.teacherSt = st;
+      bucket.gender = teacher.gender;
+    }
+  }
+
+  const isCountdown = diffHours <= 4 && diffHours > 0;
+
+  // B. Masukkan Santri dan Orang Tua
   for (const student of targetStudents) {
-    const genName = student.generation?.name || 'Santri';
+    const { className, generationName: genName, materialTitles: studentMaterialTitles } =
+      getPersonalizedSessionInfoForStudent({
+        schedule,
+        student,
+        monthlyTargets,
+      });
 
     // 1. Orang Tua
-    for (const rel of student.parents) {
-      const parent = rel.parent;
-      if (!parent || !parent.phoneNumber || contactedPhones.has(parent.phoneNumber)) continue;
-      contactedPhones.add(parent.phoneNumber);
+    let parentsToNotify = student.parents;
+    if (student.waPreferredParent === 'AYAH') {
+      const ayahParents = parentsToNotify.filter(
+        (rel) =>
+          rel.relationshipType?.toUpperCase().includes('AYAH') ||
+          rel.parent?.gender === 'MALE'
+      );
+      if (ayahParents.length > 0) parentsToNotify = ayahParents;
+    } else if (student.waPreferredParent === 'IBU') {
+      const ibuParents = parentsToNotify.filter(
+        (rel) =>
+          rel.relationshipType?.toUpperCase().includes('IBU') ||
+          rel.parent?.gender === 'FEMALE'
+      );
+      if (ibuParents.length > 0) parentsToNotify = ibuParents;
+    }
 
-      // Jika sesi < 4 jam lagi gunakan format countdown, jika lebih gunakan format H-1
-      if (diffHours <= 4 && diffHours > 0) {
-        const res = await sendScheduleReminderCountdown({
-          recipientPhone: parent.phoneNumber,
-          recipientName: `Bpk/Ibu ${parent.fullName}`,
-          studentName: student.fullName,
-          scheduleTitle: schedule.title,
-          startTime: startTimeStr,
-          venueName,
-          materialTitle: materialTitles,
-          teacherName: teacherNames,
-          scheduleId: schedule.id,
-          recipientUserId: parent.id,
+    for (const rel of parentsToNotify) {
+      const parent = rel.parent;
+      if (!parent || !parent.phoneNumber) continue;
+
+      if (isCountdown && parent.waNotifyCountdown === false) continue;
+      if (!isCountdown && parent.waNotifyH1 === false) continue;
+
+      if (parent.waPreferredParent === 'AYAH') {
+        const isAyah =
+          rel.relationshipType?.toUpperCase().includes('AYAH') ||
+          parent.gender === 'MALE';
+        if (!isAyah) continue;
+      } else if (parent.waPreferredParent === 'IBU') {
+        const isIbu =
+          rel.relationshipType?.toUpperCase().includes('IBU') ||
+          parent.gender === 'FEMALE';
+        if (!isIbu) continue;
+      }
+
+      const bucket = getOrCreateBucket(parent.phoneNumber, parent.fullName, parent.id);
+      if (!bucket) continue;
+
+      bucket.relationshipType = rel.relationshipType;
+      bucket.gender = parent.gender;
+
+      const absenceToken = generateStudentAbsenceRequestToken(
+        schedule.id,
+        student.id,
+        parent.id,
+        'PARENT'
+      );
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+        : 'http://localhost:3000';
+      const absenceUrl = `${baseUrl}/izin/ajukan/${absenceToken}`;
+      const scheduleUrl = `${baseUrl}/jadwal/${schedule.id}`;
+
+      bucket.studentsAsParent.push({
+        studentId: student.id,
+        studentName: student.fullName,
+        generationName: genName,
+        className,
+        scheduleTitle: schedule.title,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        venueName,
+        materialTitle: studentMaterialTitles,
+        teacherName: teacherNames,
+        notes: schedule.notes,
+        absenceUrl,
+        scheduleUrl,
+      });
+    }
+
+    // 2. Santri Sendiri
+    const isStudentNotifyAllowed = isCountdown
+      ? (student.waNotifyCountdown ?? true)
+      : (student.waNotifyH1 ?? true);
+
+    if (isStudentNotifyAllowed && student.phoneNumber) {
+      const normStudentPhone = normalizePhoneNumber(student.phoneNumber);
+      if (normStudentPhone && !recipientMap.has(normStudentPhone)) {
+        const bucket = getOrCreateBucket(student.phoneNumber, student.fullName, student.id);
+        if (bucket) {
+          bucket.isDirectStudent = true;
+          bucket.gender = student.gender;
+          bucket.directStudentInfo = {
+            studentId: student.id,
+            studentName: student.fullName,
+            generationName: genName,
+            className,
+            materialTitle: studentMaterialTitles,
+          };
+        }
+      }
+    }
+  }
+
+  let sentCount = 0;
+
+  for (const [normPhone, bucket] of recipientMap.entries()) {
+    const magicToken = `SCHED_BROADCAST_${schedule.id}_${normPhone}_${Date.now()}`;
+
+    // Skenario 1: Ustadz merangkap Orang Tua
+    if (bucket.isTeacher && bucket.studentsAsParent.length > 0) {
+      const st = bucket.teacherSt;
+      const res = await sendUnifiedTeacherParentReminder({
+        teacherPhone: bucket.phone,
+        teacherName: bucket.name,
+        teacherGender: bucket.gender,
+        dayDate: dayDateStr,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        venueName,
+        organizationName: orgName,
+        generationName: uniqueGenNames,
+        className: schedule.class?.name,
+        materialTitle: materialTitles,
+        isBadal: st?.isSubstitute,
+        notes: schedule.notes,
+        teacherBroadcastNote: schedule.teacherBroadcastNote,
+        scheduleId: schedule.id,
+        scheduleTitle: schedule.title,
+        magicToken,
+        teacherUserId: bucket.userId,
+        students: bucket.studentsAsParent,
+      });
+      if (res.success) sentCount++;
+      continue;
+    }
+
+    // Skenario 2: Ustadz Reguler
+    if (bucket.isTeacher) {
+      const st = bucket.teacherSt;
+      const res = await sendScheduleReminderH1ToTeacher({
+        teacherPhone: bucket.phone,
+        teacherName: bucket.name,
+        teacherGender: bucket.gender,
+        dayDate: dayDateStr,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        venueName,
+        organizationName: orgName,
+        generationName: uniqueGenNames,
+        className: schedule.class?.name,
+        materialTitle: materialTitles,
+        isBadal: st?.isSubstitute,
+        notes: schedule.notes,
+        teacherBroadcastNote: schedule.teacherBroadcastNote,
+        scheduleId: schedule.id,
+        scheduleTitle: schedule.title,
+        teacherUserId: bucket.userId,
+        magicToken,
+      });
+      if (res.success) sentCount++;
+      continue;
+    }
+
+    // Skenario 3: Orang Tua Multi-Santri
+    if (bucket.studentsAsParent.length > 1) {
+      const familyToken = bucket.userId
+        ? generateFamilyActionHubToken(schedule.id, bucket.userId)
+        : '';
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+        ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+        : 'http://localhost:3000';
+      const familyActionUrl = familyToken
+        ? `${baseUrl}/keluarga/sesi/${familyToken}`
+        : `${baseUrl}/jadwal/${schedule.id}`;
+
+      if (isCountdown) {
+        const res = await sendFamilyScheduleReminderCountdown({
+          parentPhone: bucket.phone,
+          parentName: bucket.name,
+          parentGender: bucket.gender,
+          relationshipType: bucket.relationshipType,
+          dayDate: dayDateStr,
+          organizationName: orgName,
+          students: bucket.studentsAsParent,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          primaryScheduleId: schedule.id,
+          familyActionUrl,
+          magicToken,
+          parentUserId: bucket.userId,
         });
         if (res.success) sentCount++;
       } else {
-        const magicToken = `SCHED_BROADCAST_${schedule.id}_P_${parent.id}_${Date.now()}`;
-        const res = await sendScheduleReminderH1ToStudent({
-          recipientPhone: parent.phoneNumber,
-          recipientName: `Bpk/Ibu ${parent.fullName}`,
-          studentName: student.fullName,
-          generationName: genName,
-          scheduleTitle: schedule.title,
+        const res = await sendFamilyScheduleReminderH1({
+          parentPhone: bucket.phone,
+          parentName: bucket.name,
+          parentGender: bucket.gender,
+          relationshipType: bucket.relationshipType,
           dayDate: dayDateStr,
-          startTime: startTimeStr,
-          endTime: endTimeStr,
-          venueName,
           organizationName: orgName,
-          materialTitle: materialTitles,
-          teacherName: teacherNames,
-          scheduleId: schedule.id,
+          students: bucket.studentsAsParent,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          primaryScheduleId: schedule.id,
+          familyActionUrl,
           magicToken,
-          recipientUserId: parent.id,
+          parentUserId: bucket.userId,
         });
         if (res.success) sentCount++;
       }
+      continue;
     }
 
-    // 2. Santri jika punya WA
-    if (student.phoneNumber && !contactedPhones.has(student.phoneNumber)) {
-      contactedPhones.add(student.phoneNumber);
-
-      if (diffHours <= 4 && diffHours > 0) {
+    // Skenario 4: Orang Tua 1 Santri
+    if (bucket.studentsAsParent.length === 1) {
+      const single = bucket.studentsAsParent[0];
+      if (isCountdown) {
         const res = await sendScheduleReminderCountdown({
-          recipientPhone: student.phoneNumber,
-          recipientName: student.fullName,
-          studentName: student.fullName,
-          scheduleTitle: schedule.title,
-          startTime: startTimeStr,
-          venueName,
-          materialTitle: materialTitles,
-          teacherName: teacherNames,
-          scheduleId: schedule.id,
-          recipientUserId: student.id,
-        });
-        if (res.success) sentCount++;
-      } else {
-        const magicToken = `SCHED_BROADCAST_${schedule.id}_S_${student.id}_${Date.now()}`;
-        const res = await sendScheduleReminderH1ToStudent({
-          recipientPhone: student.phoneNumber,
-          recipientName: student.fullName,
-          studentName: student.fullName,
-          generationName: genName,
+          recipientPhone: bucket.phone,
+          recipientName: `Bpk/Ibu ${bucket.name}`,
+          recipientGender: bucket.gender,
+          relationshipType: bucket.relationshipType,
+          isParent: true,
+          studentName: single.studentName,
+          generationName: single.generationName,
+          className: single.className,
           scheduleTitle: schedule.title,
           dayDate: dayDateStr,
           startTime: startTimeStr,
           endTime: endTimeStr,
           venueName,
           organizationName: orgName,
-          materialTitle: materialTitles,
+          materialTitle: single.materialTitle,
           teacherName: teacherNames,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
           scheduleId: schedule.id,
           magicToken,
-          recipientUserId: student.id,
+          recipientUserId: bucket.userId,
+          studentUserId: single.studentId,
+        });
+        if (res.success) sentCount++;
+      } else {
+        const res = await sendScheduleReminderH1ToStudent({
+          recipientPhone: bucket.phone,
+          recipientName: `Bpk/Ibu ${bucket.name}`,
+          recipientGender: bucket.gender,
+          relationshipType: bucket.relationshipType,
+          isParent: true,
+          studentName: single.studentName,
+          generationName: single.generationName,
+          className: single.className,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          organizationName: orgName,
+          materialTitle: single.materialTitle,
+          teacherName: teacherNames,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          scheduleId: schedule.id,
+          magicToken,
+          recipientUserId: bucket.userId,
+          studentUserId: single.studentId,
+        });
+        if (res.success) sentCount++;
+      }
+      continue;
+    }
+
+    // Skenario 5: Santri Mandiri Langsung
+    if (bucket.isDirectStudent && bucket.directStudentInfo) {
+      const direct = bucket.directStudentInfo;
+      if (isCountdown) {
+        const res = await sendScheduleReminderCountdown({
+          recipientPhone: bucket.phone,
+          recipientName: direct.studentName,
+          recipientGender: bucket.gender,
+          isParent: false,
+          studentName: direct.studentName,
+          generationName: direct.generationName,
+          className: direct.className,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          organizationName: orgName,
+          materialTitle: direct.materialTitle,
+          teacherName: teacherNames,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          scheduleId: schedule.id,
+          magicToken,
+          recipientUserId: bucket.userId,
+          studentUserId: direct.studentId,
+        });
+        if (res.success) sentCount++;
+      } else {
+        const res = await sendScheduleReminderH1ToStudent({
+          recipientPhone: bucket.phone,
+          recipientName: direct.studentName,
+          recipientGender: bucket.gender,
+          isParent: false,
+          studentName: direct.studentName,
+          generationName: direct.generationName,
+          className: direct.className,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          organizationName: orgName,
+          materialTitle: direct.materialTitle,
+          teacherName: teacherNames,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          scheduleId: schedule.id,
+          magicToken,
+          recipientUserId: bucket.userId,
+          studentUserId: direct.studentId,
         });
         if (res.success) sentCount++;
       }
@@ -558,6 +981,6 @@ export async function broadcastScheduleReminder(scheduleId: string) {
   return {
     success: true,
     sentCount,
-    message: `Siaran pengingat WhatsApp berhasil dikirimkan ke ${sentCount} penerima (Dewan Pengajar, Orang Tua, & Santri).`,
+    message: `Siaran pengingat WhatsApp berhasil dikirimkan ke ${sentCount} penerima unik (Dewan Pengajar, Orang Tua, & Santri).`,
   };
 }

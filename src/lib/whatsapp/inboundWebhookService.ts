@@ -1,0 +1,684 @@
+import prisma from '@/lib/prisma';
+import { whatsAppClient } from './WhatsAppClient';
+import {
+  normalizePhoneNumber,
+  getCanonicalPhoneVariants,
+  formatParentSalutation,
+  formatStudentSalutation,
+  getBaseAppUrl,
+} from './utils';
+import { generateStudentAbsenceRequestToken } from '@/lib/studentAbsenceToken';
+
+// Regex Intent Classifiers
+export const INTENT_REGEX = {
+  ABSENCE: /\b(izin|ijin|sakit|demam|panas|meriang|pusing|batuk|pilek|flu|berhalangan|halangan|keperluan|acara|kondangan|hajat|hajatan|dinas|tugas|tidak bisa hadir|tidak hadir|tidak masuk|tidak bisa ikut|ga bisa hadir|ga bisa masuk|ga bisa ikut|gak bisa hadir|gak bisa masuk|gak bisa ikut|gk bisa hadir|gk bisa masuk|gk bisa ikut|nggak bisa hadir|nggak bisa masuk|nggak bisa ikut|absen|rawat|dirawat|opname|bedrest|keluar kota|ke luar kota|pulang kampung|mudik)\b/i,
+  CLOSING_PRAYER: /^\s*(aamiin|amiin|amin|aamin)\b/i,
+  AFFIRMATION: /\b(siap|oke|ok|baik|noted|insyaallah|insya allah|bismillah|inggih|siap hadir|bisa hadir|hadir ustadz|siap ustadz|siap ustadzah|siap kak|siap laksanakan)\b/i,
+  GREETING: /\b(assalamu|assalamualaikum|assalamu'alaikum|waalaikumsalam|wa'alaikumsalam|samlikum|halo|hai|selamat pagi|selamat siang|selamat sore|selamat malam)\b/i,
+  THANKS: /\b(alhamdulillah|syukron|syukran|terima kasih|terimakasih|makasih|jazakallah|jazakillah|jazakumullah)\b/i,
+};
+
+/**
+ * Mencari jadwal pengajian yang secara presisi ditargetkan untuk santri tertentu
+ * berdasarkan organisasi, jenjang (generationId), atau kelas terdaftar.
+ */
+export async function findMatchingScheduleForStudent(
+  student: {
+    id: string;
+    organizationId?: string | null;
+    generationId?: string | null;
+  },
+  windowStart: Date,
+  windowEnd: Date
+) {
+  if (!student.organizationId) return null;
+
+  const schedules = await prisma.schedule.findMany({
+    where: {
+      status: { in: ['SCHEDULED', 'ACTIVE'] },
+      startTime: { gte: windowStart, lte: windowEnd },
+      organizationId: student.organizationId,
+    },
+    include: {
+      class: true,
+      targetClasses: {
+        include: {
+          class: true,
+        },
+      },
+      targetGenerations: true,
+      organization: true,
+    },
+    orderBy: { startTime: 'asc' },
+  });
+
+  const matched = schedules.find((sch) => {
+    // 1. Cek kecocokan target jenjang langsung
+    if (
+      student.generationId &&
+      sch.targetGenerations.length > 0 &&
+      sch.targetGenerations.some((tg) => tg.generationId === student.generationId)
+    ) {
+      return true;
+    }
+
+    // 2. Cek kecocokan target kelas majemuk (targetClasses)
+    if (
+      student.generationId &&
+      sch.targetClasses.length > 0 &&
+      sch.targetClasses.some((tc) => tc.class?.generationId === student.generationId)
+    ) {
+      return true;
+    }
+
+    // 3. Cek kelas tunggal jadwal (class)
+    if (
+      student.generationId &&
+      sch.class &&
+      sch.class.generationId === student.generationId
+    ) {
+      return true;
+    }
+
+    // 4. Jadwal umum terbuka tanpa batasan kelas/jenjang (Wilayah Umum)
+    if (
+      sch.targetClasses.length === 0 &&
+      sch.targetGenerations.length === 0 &&
+      !sch.classId
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  return matched || null;
+}
+
+// In-memory rate limiter: mencegah bot membalas lebih dari 1x per 15 detik ke nomor yang sama
+const recentAutoReplies = new Map<string, number>();
+
+function isRateLimited(phone: string): boolean {
+  const now = Date.now();
+  const lastTime = recentAutoReplies.get(phone);
+  if (lastTime && now - lastTime < 15000) {
+    return true;
+  }
+  recentAutoReplies.set(phone, now);
+
+  // Bersihkan cache lama berkala (> 5 menit)
+  if (recentAutoReplies.size > 500) {
+    for (const [k, v] of recentAutoReplies.entries()) {
+      if (now - v > 300000) recentAutoReplies.delete(k);
+    }
+  }
+
+  return false;
+}
+
+function formatIndonesianDate(date: Date): string {
+  const d = new Date(date);
+  return d.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta',
+  });
+}
+
+function formatIndonesianTime(date: Date): string {
+  const d = new Date(date);
+  return d.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Jakarta',
+  });
+}
+
+export interface InboundMessagePayload {
+  from: string;
+  body: string;
+  fromMe?: boolean;
+  messageId?: string;
+  timestamp?: number;
+}
+
+export interface InboundProcessResult {
+  handled: boolean;
+  intent: 'ABSENCE' | 'CLOSING_PRAYER' | 'AFFIRMATION' | 'GREETING' | 'THANKS' | 'OTHER' | 'IGNORED_SELF' | 'RATE_LIMITED';
+  replySent?: boolean;
+  replyMessage?: string;
+  recipientPhone?: string;
+  error?: string;
+}
+
+/**
+ * Memproses pesan masuk dari WhatsApp Webhook dan memberikan respons otomatis cerdas
+ */
+export async function processInboundWhatsAppMessage(
+  payload: InboundMessagePayload
+): Promise<InboundProcessResult> {
+  // 1. Proteksi Anti-Loop: Abaikan pesan dari akun bot sendiri
+  if (payload.fromMe === true) {
+    return { handled: false, intent: 'IGNORED_SELF' };
+  }
+
+  // 1b. Proteksi Grup & Siaran: Hanya tangani percakapan langsung pribadi (1-on-1 direct chat)
+  const rawSender = (payload.from || '').toLowerCase();
+  if (
+    rawSender.endsWith('@g.us') ||
+    rawSender.includes('broadcast') ||
+    rawSender.endsWith('@newsletter')
+  ) {
+    return { handled: false, intent: 'OTHER' };
+  }
+
+  const rawText = (payload.body || '').trim();
+  if (!rawText) {
+    return { handled: false, intent: 'OTHER' };
+  }
+
+  // 2. Normalisasi nomor telepon pengirim
+  let cleanSender = payload.from.replace(/@.*$/, '').trim();
+  const normalizedPhone = normalizePhoneNumber(cleanSender) || cleanSender;
+
+  // Proteksi Rate Limiting
+  if (isRateLimited(normalizedPhone)) {
+    return {
+      handled: true,
+      intent: 'RATE_LIMITED',
+      replySent: false,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  const baseUrl = getBaseAppUrl();
+
+  // 3. Deteksi Niat Percakapan (Intent Classification)
+  const isAbsence = INTENT_REGEX.ABSENCE.test(rawText);
+  const isClosingPrayer = INTENT_REGEX.CLOSING_PRAYER.test(rawText);
+  const isAffirmation = INTENT_REGEX.AFFIRMATION.test(rawText);
+  const isGreeting = INTENT_REGEX.GREETING.test(rawText);
+  const isThanks = INTENT_REGEX.THANKS.test(rawText);
+
+  // =========================================================================
+  // KASUS A: INTENT IZIN / SAKIT (SMART ABSENCE AUTO-RESPONDER)
+  // =========================================================================
+  if (isAbsence) {
+    const variants = getCanonicalPhoneVariants(normalizedPhone);
+
+    // Cari User di database berdasarkan nomor HP
+    const user = await prisma.user.findFirst({
+      where: {
+        phoneNumber: { in: variants },
+        status: 'ACTIVE',
+      },
+      include: {
+        roles: true,
+        children: {
+          include: {
+            student: {
+              include: {
+                generation: true,
+                organization: true,
+              },
+            },
+          },
+        },
+        generation: true,
+        organization: true,
+      },
+    });
+
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 jam ke belakang
+    const windowEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 jam ke depan
+
+    // Sub-Kasus A.1: Pengirim adalah Orang Tua / Wali Santri (memiliki anak terdaftar)
+    if (user && user.children && user.children.length > 0) {
+      const sapaanOrtu = `*${formatParentSalutation(user.fullName, user.gender, user.children[0]?.relationshipType)}* *- Wali Santri.*`;
+
+      const childItemsText: string[] = [];
+
+      for (const rel of user.children) {
+        const student = rel.student;
+        const studentGenName = student.generation?.name || 'Jenjang';
+
+        // Cari jadwal terdekat yang cocok dengan santri ini
+        const matchedSchedule = await findMatchingScheduleForStudent(
+          student,
+          windowStart,
+          windowEnd
+        );
+
+        if (matchedSchedule) {
+          const absenceToken = generateStudentAbsenceRequestToken(
+            matchedSchedule.id,
+            student.id,
+            user.id,
+            'PARENT'
+          );
+          const absenceUrl = `${baseUrl}/izin/ajukan/${absenceToken}`;
+          const dayDate = formatIndonesianDate(matchedSchedule.startTime);
+          const timeRange = `${formatIndonesianTime(matchedSchedule.startTime)} - ${formatIndonesianTime(matchedSchedule.endTime)} WIB`;
+
+          childItemsText.push(
+            `*${matchedSchedule.title}*\n` +
+            `*${dayDate}*\n\n` +
+            `*• Santri* _${student.fullName} (${studentGenName})_\n` +
+            `*• Waktu* \`\`\`${timeRange}\`\`\`\n` +
+            `*• Tempat* _${matchedSchedule.venuePlaceName || 'Masjid'}_\n\n` +
+            `*Tautan Konfirmasi Izin Santri:*\n${absenceUrl}`
+          );
+        }
+      }
+
+      let replyBody = '';
+      if (childItemsText.length > 0) {
+        replyBody =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+          `${sapaanOrtu}\n\n` +
+          `Terima kasih atas informasinya. Untuk mencatatkan konfirmasi izin resmi ananda pada presensi digital pengajian, silakan klik tautan instan di bawah ini (tanpa perlu login):\n\n` +
+          childItemsText.join('\n\n') +
+          `\n\nSetelah formulir dikirimkan, surat izin ananda akan otomatis diverifikasi oleh Wali Kelas.\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Sistem Notifikasi Pengajian*`;
+      } else {
+        replyBody =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+          `${sapaanOrtu}\n\n` +
+          `Terima kasih atas konfirmasinya. Saat ini tidak ditemukan agenda pengajian dalam kurun waktu 24 jam ke depan untuk santri Anda.\n\n` +
+          `Apabila ingin mengajukan izin untuk sesi pengajian mendatang, mohon berkenan menghubungi langsung Wali Kelas atau Pengurus Wilayah setempat.\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Sistem Notifikasi Pengajian*`;
+      }
+
+      await whatsAppClient.sendMessage({
+        to: normalizedPhone,
+        recipientName: user.fullName,
+        recipientUserId: user.id,
+        messageType: 'CUSTOM_DIRECT',
+        message: replyBody,
+      });
+
+      return {
+        handled: true,
+        intent: 'ABSENCE',
+        replySent: true,
+        replyMessage: replyBody,
+        recipientPhone: normalizedPhone,
+      };
+    }
+
+    // Sub-Kasus A.2: Pengirim adalah Pengajar, Santri, atau Pengajar Multi-Role (Pengajar + Santri)
+    if (user) {
+      const isTeacherRole = user.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
+      const isStudentRole = user.roles?.some((r) => r.role === 'SANTRI') || Boolean(user.generationId);
+
+      // Cari apakah ada jadwal mengajar dalam kurun waktu aktif
+      const teacherSchedule = isTeacherRole
+        ? await prisma.scheduleTeacher.findFirst({
+            where: {
+              teacherId: user.id,
+              schedule: {
+                status: { in: ['SCHEDULED', 'ACTIVE'] },
+                startTime: { gte: windowStart, lte: windowEnd },
+              },
+            },
+            include: {
+              schedule: {
+                include: {
+                  organization: true,
+                },
+              },
+            },
+            orderBy: {
+              schedule: { startTime: 'asc' },
+            },
+          })
+        : null;
+
+      // Cari apakah ada jadwal belajar santri yang sesuai jenjang
+      const studentSchedule = isStudentRole
+        ? await findMatchingScheduleForStudent(
+            {
+              id: user.id,
+              organizationId: user.organizationId,
+              generationId: user.generationId,
+            },
+            windowStart,
+            windowEnd
+          )
+        : null;
+
+      // Kasus A.2.1: Multi-Role Aktif (Terjadwal Mengajar DAN Terdaftar Santri di Window Waktu Ini)
+      if (teacherSchedule && studentSchedule) {
+        const schT = teacherSchedule.schedule;
+        const dayDateT = formatIndonesianDate(schT.startTime);
+        const timeRangeT = `${formatIndonesianTime(schT.startTime)} - ${formatIndonesianTime(schT.endTime)} WIB`;
+        const scheduleUrlT = `${baseUrl}/jadwal/${schT.id}`;
+
+        const schS = studentSchedule;
+        const dayDateS = formatIndonesianDate(schS.startTime);
+        const timeRangeS = `${formatIndonesianTime(schS.startTime)} - ${formatIndonesianTime(schS.endTime)} WIB`;
+        const absenceTokenS = generateStudentAbsenceRequestToken(
+          schS.id,
+          user.id,
+          user.id,
+          'STUDENT'
+        );
+        const absenceUrlS = `${baseUrl}/izin/ajukan/${absenceTokenS}`;
+
+        const studentGen = user.generation?.name || 'Muda-Mudi';
+        const sapaanMulti = `*Ustadz ${user.fullName}* *- Pengajar & Santri ${studentGen}.*`;
+
+        const replyBody =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+          `${sapaanMulti}\n\n` +
+          `Terima kasih atas informasinya. Kami mencatat konfirmasi izin Anda untuk 2 agenda pengajian berikut:\n\n` +
+          `*1. Amanah Mengajar:*\n` +
+          `*${schT.title}*\n` +
+          `*${dayDateT}*\n\n` +
+          `*• Waktu* \`\`\`${timeRangeT}\`\`\`\n` +
+          `*• Tempat* _${schT.venuePlaceName || 'Masjid'}_\n\n` +
+          `*Detail Jadwal & Ruang Pengajar:*\n${scheduleUrlT}\n` +
+          `_(Mohon koordinasikan permohonan badal mengajar dengan Koordinator Pengajar setempat)_\n\n` +
+          `*2. Presensi Belajar Santri:*\n` +
+          `*${schS.title}*\n` +
+          `*${dayDateS}*\n\n` +
+          `*• Waktu* \`\`\`${timeRangeS}\`\`\`\n` +
+          `*• Tempat* _${schS.venuePlaceName || 'Masjid'}_\n\n` +
+          `*Tautan Pengajuan Izin Santri:*\n${absenceUrlS}\n\n` +
+          `Setelah formulir dikirimkan, pengajuan izin santri Anda akan langsung diverifikasi oleh Wali Kelas.\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Sistem Notifikasi Pengajian*`;
+
+        await whatsAppClient.sendMessage({
+          to: normalizedPhone,
+          recipientName: user.fullName,
+          recipientUserId: user.id,
+          messageType: 'CUSTOM_DIRECT',
+          message: replyBody,
+        });
+
+        return {
+          handled: true,
+          intent: 'ABSENCE',
+          replySent: true,
+          replyMessage: replyBody,
+          recipientPhone: normalizedPhone,
+        };
+      }
+
+      // Kasus A.2.2: Pengajar Biasa (Sedang Terjadwal Mengajar)
+      if (teacherSchedule) {
+        const sch = teacherSchedule.schedule;
+        const dayDate = formatIndonesianDate(sch.startTime);
+        const timeRange = `${formatIndonesianTime(sch.startTime)} - ${formatIndonesianTime(sch.endTime)} WIB`;
+        const sapaanUstadz = `*Ustadz ${user.fullName}* *- Pengajar.*`;
+        const scheduleUrl = `${baseUrl}/jadwal/${sch.id}`;
+
+        const replyBody =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+          `${sapaanUstadz}\n\n` +
+          `Terima kasih atas informasinya. Kami mencatat konfirmasi izin berhalangan mengajar Anda untuk sesi:\n\n` +
+          `*${sch.title}*\n` +
+          `*${dayDate}*\n\n` +
+          `*• Waktu* \`\`\`${timeRange}\`\`\`\n` +
+          `*• Tempat* _${sch.venuePlaceName || 'Masjid'}_\n\n` +
+          `*Detail Jadwal & Ruang Pengajar:*\n${scheduleUrl}\n\n` +
+          `Mohon berkenan mengoordinasikan permohonan badal mengajar dengan Koordinator Pengajar atau Pengurus Wilayah setempat.\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Sistem Notifikasi Pengajian ${sch.organization?.name || ''}*`;
+
+        await whatsAppClient.sendMessage({
+          to: normalizedPhone,
+          recipientName: user.fullName,
+          recipientUserId: user.id,
+          messageType: 'CUSTOM_DIRECT',
+          message: replyBody,
+        });
+
+        return {
+          handled: true,
+          intent: 'ABSENCE',
+          replySent: true,
+          replyMessage: replyBody,
+          recipientPhone: normalizedPhone,
+        };
+      }
+
+      // Kasus A.2.3: Santri Mandiri (Atau Pengajar yang Sesi Ini Berperan Sebagai Santri)
+      if (studentSchedule) {
+        const matchedSchedule = studentSchedule;
+        const absenceToken = generateStudentAbsenceRequestToken(
+          matchedSchedule.id,
+          user.id,
+          user.id,
+          'STUDENT'
+        );
+        const absenceUrl = `${baseUrl}/izin/ajukan/${absenceToken}`;
+        const dayDate = formatIndonesianDate(matchedSchedule.startTime);
+        const timeRange = `${formatIndonesianTime(matchedSchedule.startTime)} - ${formatIndonesianTime(matchedSchedule.endTime)} WIB`;
+
+        const studentGen = user.generation?.name || 'Santri';
+        const sapaanSantri = isTeacherRole
+          ? `*Ustadz ${user.fullName}* *- Santri ${studentGen}.*`
+          : `*${formatStudentSalutation(user.fullName)}* *- ${studentGen}.*`;
+
+        const replyBody =
+          `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+          `${sapaanSantri}\n\n` +
+          `Terima kasih atas informasinya. Untuk mengajukan izin resmi pada presensi digital pengajian, silakan klik tautan instan di bawah ini (tanpa perlu login):\n\n` +
+          `*${matchedSchedule.title}*\n` +
+          `*${dayDate}*\n\n` +
+          `*• Waktu* \`\`\`${timeRange}\`\`\`\n` +
+          `*• Tempat* _${matchedSchedule.venuePlaceName || 'Masjid'}_\n\n` +
+          `*Tautan Pengajuan Izin:*\n${absenceUrl}\n\n` +
+          `Setelah formulir dikirimkan, pengajuan izin Anda akan langsung diverifikasi oleh Wali Kelas.\n\n` +
+          `Alhamdulillah Jazakumullahu Khairan.\n` +
+          `— *Sistem Notifikasi Pengajian ${matchedSchedule.organization?.name || ''}*`;
+
+        await whatsAppClient.sendMessage({
+          to: normalizedPhone,
+          recipientName: user.fullName,
+          recipientUserId: user.id,
+          messageType: 'CUSTOM_DIRECT',
+          message: replyBody,
+        });
+
+        return {
+          handled: true,
+          intent: 'ABSENCE',
+          replySent: true,
+          replyMessage: replyBody,
+          recipientPhone: normalizedPhone,
+        };
+      }
+
+      // Kasus A.2.4: Pengajar / Santri yang tidak memiliki jadwal dalam rentang 24 jam ke depan
+      const sapaanFallback = isTeacherRole
+        ? `*Ustadz ${user.fullName}* *- Pengajar.*`
+        : `*${formatStudentSalutation(user.fullName)}* *- ${user.generation?.name || 'Santri'}.*`;
+
+      const replyBody =
+        `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n` +
+        `${sapaanFallback}\n\n` +
+        `Terima kasih atas informasinya. Saat ini tidak ditemukan sesi pengajian aktif dalam kurun waktu 24 jam ke depan.\n\n` +
+        `Apabila Anda berhalangan hadir pada pengajian mendatang, silakan koordinasi langsung dengan Pengurus Wilayah atau Wali Kelas setempat.\n\n` +
+        `Alhamdulillah Jazakumullahu Khairan.\n` +
+        `— *Sistem Notifikasi Pengajian*`;
+
+      await whatsAppClient.sendMessage({
+        to: normalizedPhone,
+        recipientName: user.fullName,
+        recipientUserId: user.id,
+        messageType: 'CUSTOM_DIRECT',
+        message: replyBody,
+      });
+
+      return {
+        handled: true,
+        intent: 'ABSENCE',
+        replySent: true,
+        replyMessage: replyBody,
+        recipientPhone: normalizedPhone,
+      };
+    }
+
+    // Sub-Kasus A.3: Nomor Pengirim Belum Terdaftar di Sistem
+    const fallbackUnregistered =
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n\n` +
+      `Terima kasih telah menghubungi Layanan Notifikasi Pengajian.\n\n` +
+      `Nomor WhatsApp Anda belum terdaftar sebagai santri atau wali santri pada sistem kami. Apabila ananda berhalangan hadir pada sesi pengajian, mohon berkenan mengabari langsung Pengurus Wilayah atau Wali Kelas setempat untuk konfirmasi manual.\n\n` +
+      `Alhamdulillah Jazakumullahu Khairan.\n` +
+      `— *Layanan Notifikasi Sistem Pengajian*`;
+
+    await whatsAppClient.sendMessage({
+      to: normalizedPhone,
+      messageType: 'CUSTOM_DIRECT',
+      message: fallbackUnregistered,
+    });
+
+    return {
+      handled: true,
+      intent: 'ABSENCE',
+      replySent: true,
+      replyMessage: fallbackUnregistered,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  // =========================================================================
+  // KASUS B: INTENT DOA PENUTUP / AAMIIN / GESTUR (SILENT CLOSING)
+  // Menghindari looping chat ping-pong saat pengguna membalas doa bot dengan Aamiin
+  // =========================================================================
+  const isCourtesyGesture = /^[\p{Emoji}\s.!-]{1,4}$/u.test(rawText);
+  if (isClosingPrayer || isCourtesyGesture) {
+    console.log(`[WhatsApp Inbound] Doa penutup/Aamiin/gestur diterima dari ${normalizedPhone}. Menutup percakapan secara tenang.`);
+    return {
+      handled: true,
+      intent: 'CLOSING_PRAYER',
+      replySent: false,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  // =========================================================================
+  // KASUS C: INTENT KONFIRMASI KESIAPAN / KEHADIRAN (SIAP / INSYAALLAH)
+  // Pengguna membalas pengingat jadwal dengan kesiapan hadir
+  // =========================================================================
+  if (isAffirmation) {
+    const variants = getCanonicalPhoneVariants(normalizedPhone);
+    const userSender = await prisma.user.findFirst({
+      where: { phoneNumber: { in: variants }, status: 'ACTIVE' },
+      include: { roles: true },
+    });
+
+    const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
+    const affirmationReply = isTeacher
+      ? `Alhamdulillah, terima kasih atas konfirmasinya Ustadz/Ustadzah.\n\n` +
+        `Semoga Allah SWT senantiasa memberikan kemudahan, kelancaran, dan keberkahan dalam mengemban amanah mengajar generasi penerus.\n\n` +
+        `— *Pengurus Pengajian*`
+      : `Alhamdulillah, terima kasih atas konfirmasinya.\n\n` +
+        `Selamat mengikuti sesi pengajian, semoga Allah SWT senantiasa memberikan kemudahan, kelancaran, dan keberkahan.\n\n` +
+        `— *Pengurus Pengajian*`;
+
+    await whatsAppClient.sendMessage({
+      to: normalizedPhone,
+      messageType: 'CUSTOM_DIRECT',
+      message: affirmationReply,
+    });
+
+    return {
+      handled: true,
+      intent: 'AFFIRMATION',
+      replySent: true,
+      replyMessage: affirmationReply,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  // =========================================================================
+  // KASUS D: INTENT SALAM / SAPAAN
+  // =========================================================================
+  if (isGreeting) {
+    const greetingReply =
+      `Wa'alaikumussalam Warahmatullahi Wabarakatuh,\n\n` +
+      `Terima kasih telah menghubungi Layanan Notifikasi Sistem Pengajian.\n\n` +
+      `Pemberitahuan:\n` +
+      `*• Saluran Otomatis* _Nomor ini adalah bot pengingat dan notifikasi pengajian otomatis_\n` +
+      `*• Pengajuan Izin* _Ketik pesan memuat kata izin atau sakit untuk mendapatkan tautan instan_\n` +
+      `*• Administrasi & Info* _Silakan hubungi Wali Kelas atau Pengurus Wilayah setempat_\n\n` +
+      `Alhamdulillah Jazakumullahu Khairan.\n` +
+      `— *Pengurus Pengajian*`;
+
+    await whatsAppClient.sendMessage({
+      to: normalizedPhone,
+      messageType: 'CUSTOM_DIRECT',
+      message: greetingReply,
+    });
+
+    return {
+      handled: true,
+      intent: 'GREETING',
+      replySent: true,
+      replyMessage: greetingReply,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  // =========================================================================
+  // KASUS E: INTENT UCAPAN TERIMA KASIH / JAZAKALLAH
+  // =========================================================================
+  if (isThanks) {
+    const thanksReply =
+      `Alhamdulillah Jazakumullahu Khairan Katsiran atas perhatian dan kerja sama Bapak/Ibu/Saudara sekalian.\n\n` +
+      `Semoga Allah SWT senantiasa memberikan kemudahan, keberkahan, dan kelancaran dalam setiap aktivitas bimbingan generasi penerus.\n\n` +
+      `— *Pengurus Pengajian*`;
+
+    await whatsAppClient.sendMessage({
+      to: normalizedPhone,
+      messageType: 'CUSTOM_DIRECT',
+      message: thanksReply,
+    });
+
+    return {
+      handled: true,
+      intent: 'THANKS',
+      replySent: true,
+      replyMessage: thanksReply,
+      recipientPhone: normalizedPhone,
+    };
+  }
+
+  // =========================================================================
+  // KASUS F: PESAN LAINNYA / PERTANYAAN UMUM
+  // =========================================================================
+  const generalReply =
+    `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n\n` +
+    `Terima kasih telah menghubungi Layanan Notifikasi Sistem Pengajian.\n\n` +
+    `Nomor ini beroperasi sebagai pusat pengingat dan notifikasi otomatis. Pesan obrolan masuk tidak dipantau secara langsung oleh admin.\n\n` +
+    `Panduan Layanan:\n` +
+    `*• Pengajuan Izin* _Kirim pesan memuat kata izin atau sakit untuk mendapatkan tautan formulir instan_\n` +
+    `*• Jadwal & Presensi* _Gunakan tautan portal yang tertera pada pesan pengingat jadwal sebelumnya_\n` +
+    `*• Konsultasi Langsung* _Silakan hubungi Wali Kelas atau Pengurus Wilayah setempat_\n\n` +
+    `Alhamdulillah Jazakumullahu Khairan.\n` +
+    `— *Pengurus Pengajian*`;
+
+  await whatsAppClient.sendMessage({
+    to: normalizedPhone,
+    messageType: 'CUSTOM_DIRECT',
+    message: generalReply,
+  });
+
+  return {
+    handled: true,
+    intent: 'OTHER',
+    replySent: true,
+    replyMessage: generalReply,
+    recipientPhone: normalizedPhone,
+  };
+}
