@@ -249,5 +249,73 @@ export class WahaProvider implements IWhatsAppGateway {
       return [];
     }
   }
+
+  /**
+   * Menampilkan status sedang mengetik (typing indicator) pada chat penerima via WAHA
+   * Endpoint: POST /api/startTyping
+   */
+  async startTyping(chatId: string): Promise<boolean> {
+    if (!this.apiUrl || !this.apiKey) return true;
+
+    const isGroup = isWhatsAppGroupJid(chatId);
+    const isLid = isWhatsAppLidJid(chatId);
+    const isExplicit = chatId.includes('@');
+    const targetChatId = (isGroup || isLid || isExplicit)
+      ? chatId.trim()
+      : `${normalizePhoneNumber(chatId)}@c.us`;
+
+    try {
+      const res = await fetch(`${this.apiUrl}/api/startTyping`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+        body: JSON.stringify({
+          session: this.session,
+          chatId: targetChatId,
+        }),
+        signal: AbortSignal.timeout(4000),
+      });
+
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Menghentikan status sedang mengetik pada chat penerima via WAHA
+   * Endpoint: POST /api/stopTyping
+   */
+  async stopTyping(chatId: string): Promise<boolean> {
+    if (!this.apiUrl || !this.apiKey) return true;
+
+    const isGroup = isWhatsAppGroupJid(chatId);
+    const isLid = isWhatsAppLidJid(chatId);
+    const isExplicit = chatId.includes('@');
+    const targetChatId = (isGroup || isLid || isExplicit)
+      ? chatId.trim()
+      : `${normalizePhoneNumber(chatId)}@c.us`;
+
+    try {
+      const res = await fetch(`${this.apiUrl}/api/stopTyping`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': this.apiKey,
+        },
+        body: JSON.stringify({
+          session: this.session,
+          chatId: targetChatId,
+        }),
+        signal: AbortSignal.timeout(4000),
+      });
+
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
 }
 

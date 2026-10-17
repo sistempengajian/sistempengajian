@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { whatsAppClient } from './WhatsAppClient';
+import { SendMessageOptions } from './types';
 import {
   normalizePhoneNumber,
   getCanonicalPhoneVariants,
@@ -8,6 +9,35 @@ import {
   getBaseAppUrl,
 } from './utils';
 import { generateStudentAbsenceRequestToken } from '@/lib/studentAbsenceToken';
+
+/**
+ * Mengirim balasan WhatsApp dengan simulasi status "sedang mengetik..." (typing indicator)
+ * dan jeda waktu yang realistis (2.0s - 3.5s) agar interaksi terasa alami dan tidak kaku/robotik.
+ */
+async function sendReplyWithTyping(
+  replyDestination: string,
+  options: Omit<SendMessageOptions, 'to'>,
+  minDelayMs = 2000,
+  maxDelayMs = 3500
+) {
+  // 1. Tampilkan indikator status "mengetik..." di WhatsApp penerima
+  await whatsAppClient.startTyping(replyDestination).catch(() => {});
+
+  // 2. Berikan jeda waktu simulasi mengetik yang alami
+  const delay = Math.floor(Math.random() * (maxDelayMs - minDelayMs + 1)) + minDelayMs;
+  await new Promise((resolve) => setTimeout(resolve, delay));
+
+  // 3. Eksekusi pengiriman pesan balasan
+  const sendResult = await whatsAppClient.sendMessage({
+    ...options,
+    to: replyDestination,
+  });
+
+  // 4. Hentikan status mengetik
+  await whatsAppClient.stopTyping(replyDestination).catch(() => {});
+
+  return sendResult;
+}
 
 // Regex Intent Classifiers
 export const INTENT_REGEX = {
@@ -309,8 +339,7 @@ export async function processInboundWhatsAppMessage(
           `— *Sistem Notifikasi Pengajian*`;
       }
 
-      await whatsAppClient.sendMessage({
-        to: replyDestination,
+      await sendReplyWithTyping(replyDestination, {
         recipientName: user.fullName,
         recipientUserId: user.id,
         messageType: 'CUSTOM_DIRECT',
@@ -409,8 +438,7 @@ export async function processInboundWhatsAppMessage(
           `Alhamdulillah Jazakumullahu Khairan.\n` +
           `— *Sistem Notifikasi Pengajian*`;
 
-        await whatsAppClient.sendMessage({
-          to: replyDestination,
+        await sendReplyWithTyping(replyDestination, {
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -447,8 +475,7 @@ export async function processInboundWhatsAppMessage(
           `Alhamdulillah Jazakumullahu Khairan.\n` +
           `— *Sistem Notifikasi Pengajian ${sch.organization?.name || ''}*`;
 
-        await whatsAppClient.sendMessage({
-          to: replyDestination,
+        await sendReplyWithTyping(replyDestination, {
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -495,8 +522,7 @@ export async function processInboundWhatsAppMessage(
           `Alhamdulillah Jazakumullahu Khairan.\n` +
           `— *Sistem Notifikasi Pengajian ${matchedSchedule.organization?.name || ''}*`;
 
-        await whatsAppClient.sendMessage({
-          to: replyDestination,
+        await sendReplyWithTyping(replyDestination, {
           recipientName: user.fullName,
           recipientUserId: user.id,
           messageType: 'CUSTOM_DIRECT',
@@ -525,8 +551,7 @@ export async function processInboundWhatsAppMessage(
         `Alhamdulillah Jazakumullahu Khairan.\n` +
         `— *Sistem Notifikasi Pengajian*`;
 
-      await whatsAppClient.sendMessage({
-        to: replyDestination,
+      await sendReplyWithTyping(replyDestination, {
         recipientName: user.fullName,
         recipientUserId: user.id,
         messageType: 'CUSTOM_DIRECT',
@@ -550,8 +575,7 @@ export async function processInboundWhatsAppMessage(
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Layanan Notifikasi Sistem Pengajian*`;
 
-    await whatsAppClient.sendMessage({
-      to: replyDestination,
+    await sendReplyWithTyping(replyDestination, {
       messageType: 'CUSTOM_DIRECT',
       message: fallbackUnregistered,
     });
@@ -601,8 +625,7 @@ export async function processInboundWhatsAppMessage(
         `Selamat mengikuti sesi pengajian, semoga Allah SWT senantiasa memberikan kemudahan, kelancaran, dan keberkahan.\n\n` +
         `— *Pengurus Pengajian*`;
 
-    await whatsAppClient.sendMessage({
-      to: replyDestination,
+    await sendReplyWithTyping(replyDestination, {
       messageType: 'CUSTOM_DIRECT',
       message: affirmationReply,
     });
@@ -630,8 +653,7 @@ export async function processInboundWhatsAppMessage(
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Pengurus Pengajian*`;
 
-    await whatsAppClient.sendMessage({
-      to: replyDestination,
+    await sendReplyWithTyping(replyDestination, {
       messageType: 'CUSTOM_DIRECT',
       message: greetingReply,
     });
@@ -654,8 +676,7 @@ export async function processInboundWhatsAppMessage(
       `Semoga Allah SWT senantiasa memberikan kemudahan, keberkahan, dan kelancaran dalam setiap aktivitas bimbingan generasi penerus.\n\n` +
       `— *Pengurus Pengajian*`;
 
-    await whatsAppClient.sendMessage({
-      to: replyDestination,
+    await sendReplyWithTyping(replyDestination, {
       messageType: 'CUSTOM_DIRECT',
       message: thanksReply,
     });
@@ -683,8 +704,7 @@ export async function processInboundWhatsAppMessage(
     `Alhamdulillah Jazakumullahu Khairan.\n` +
     `— *Pengurus Pengajian*`;
 
-  await whatsAppClient.sendMessage({
-    to: replyDestination,
+  await sendReplyWithTyping(replyDestination, {
     messageType: 'CUSTOM_DIRECT',
     message: generalReply,
   });

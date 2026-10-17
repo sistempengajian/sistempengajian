@@ -27,4 +27,14 @@ export interface IWhatsAppGateway {
    * Mengambil daftar grup WhatsApp yang tersedia dari gateway
    */
   fetchGroups?(): Promise<Array<{ id: string; name: string }>>;
+
+  /**
+   * Menampilkan status sedang mengetik (typing indicator) pada chat penerima
+   */
+  startTyping?(chatId: string): Promise<boolean>;
+
+  /**
+   * Menghentikan status sedang mengetik pada chat penerima
+   */
+  stopTyping?(chatId: string): Promise<boolean>;
 }
