@@ -5,7 +5,7 @@ import { BaileysProvider } from './providers/BaileysProvider';
 import { WahaProvider } from './providers/WahaProvider';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from './types';
 import { renderTemplate, DEFAULT_TEMPLATES } from './templateEngine';
-import { normalizePhoneNumber, sanitizeUuid } from './utils';
+import { normalizePhoneNumber, sanitizeUuid, isWhatsAppGroupJid, isWhatsAppLidJid } from './utils';
 
 export class WhatsAppClient {
   private static instance: WhatsAppClient;
@@ -32,15 +32,32 @@ export class WhatsAppClient {
   }
 
   /**
+   * Mengambil daftar grup WhatsApp aktif dari gateway provider jika didukung
+   */
+  async fetchGroups(): Promise<Array<{ id: string; name: string }>> {
+    if (this.provider.fetchGroups) {
+      return this.provider.fetchGroups();
+    }
+    return [];
+  }
+
+  /**
    * Mengirim satu pesan WhatsApp dengan pencatatan otomatis ke database (WhatsAppMessageLog)
    */
   async sendMessage(options: SendMessageOptions): Promise<SendMessageResult> {
-    const normalizedPhone = normalizePhoneNumber(options.to);
-    if (!normalizedPhone) {
+    const isGroup = isWhatsAppGroupJid(options.to);
+    const isLid = isWhatsAppLidJid(options.to);
+    const isExplicitChat = typeof options.to === 'string' && options.to.includes('@');
+
+    const targetDestination = (isGroup || isLid || isExplicitChat)
+      ? options.to.trim()
+      : normalizePhoneNumber(options.to);
+
+    if (!targetDestination) {
       return {
         success: false,
         status: 'FAILED',
-        error: `Nomor telepon '${options.to}' tidak valid untuk WhatsApp`,
+        error: `Tujuan '${options.to}' tidak valid untuk WhatsApp`,
       };
     }
 
@@ -75,13 +92,14 @@ export class WhatsAppClient {
     const overridePhoneRaw = process.env.WA_TEST_OVERRIDE_PHONE;
     const overridePhone = overridePhoneRaw ? normalizePhoneNumber(overridePhoneRaw) : null;
 
-    let targetPhoneToSend = normalizedPhone;
+    let targetPhoneToSend = targetDestination;
     let actualMessageToSend = finalMessageBody;
 
-    if (overridePhone) {
+    // Jangan alihkan jika tujuan adalah grup WhatsApp, LID, atau JID eksplisit
+    if (overridePhone && !isGroup && !isLid && !targetDestination.includes('@')) {
       targetPhoneToSend = overridePhone;
-      actualMessageToSend = `*[MODE TESTING: Pengalihan Pesan]*\n*Penerima Asli:* ${options.recipientName || 'Santri/Wali'} (${normalizedPhone})\n----------------------------------------\n\n${finalMessageBody}`;
-      console.log(`[WhatsAppClient] Pesan dialihkan dari ${normalizedPhone} ke Nomor Testing: ${overridePhone}`);
+      actualMessageToSend = `*[MODE TESTING: Pengalihan Pesan]*\n*Penerima Asli:* ${options.recipientName || 'Santri/Wali'} (${targetDestination})\n----------------------------------------\n\n${finalMessageBody}`;
+      console.log(`[WhatsAppClient] Pesan dialihkan dari ${targetDestination} ke Nomor Testing: ${overridePhone}`);
     }
 
     // 3. Buat log awal di database dengan status QUEUED / SENDING

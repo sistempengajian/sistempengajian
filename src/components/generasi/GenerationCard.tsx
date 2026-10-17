@@ -12,6 +12,7 @@ import {
   Trash2,
   ArrowUpRight,
   Layers,
+  MessageSquare,
 } from 'lucide-react';
 import { GenerationWithStats } from './types';
 
@@ -158,6 +159,37 @@ export default function GenerationCard({
           {generation.description ||
             'Fokus pembinaan terstruktur diselaraskan dengan tahapan usia santri dan kurikulum target capaian.'}
         </p>
+
+        {/* Status Notifikasi WhatsApp Grup */}
+        <div className="pt-1">
+          {generation.whatsappGroupId ? (
+            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-800 text-[11px] font-semibold">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate" title={generation.whatsappGroupName || generation.whatsappGroupId}>
+                  {generation.whatsappGroupName || 'Grup WA Terhubung'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {generation.waGroupH1Enabled && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-200/80 text-emerald-800 text-[9px] font-black uppercase">
+                    H-1
+                  </span>
+                )}
+                {generation.waGroupWeeklyEnabled && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-sky-200/80 text-sky-800 text-[9px] font-black uppercase">
+                    Mingguan
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-400 text-[11px]">
+              <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">Grup WA: Belum diatur</span>
+            </div>
+          )}
+        </div>
 
         {/* Statistik Terkait */}
         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">

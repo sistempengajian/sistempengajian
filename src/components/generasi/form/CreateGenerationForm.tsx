@@ -17,6 +17,9 @@ import {
   Palette,
   BookOpen,
   Info,
+  MessageSquare,
+  Bell,
+  CalendarDays,
 } from 'lucide-react';
 import { createGeneration } from '@/app/(protected)/generasi/actions';
 
@@ -40,6 +43,12 @@ export default function CreateGenerationForm() {
   const [maxAge, setMaxAge] = useState<number | ''>('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('emerald');
+
+  // WhatsApp Group Settings
+  const [whatsappGroupId, setWhatsappGroupId] = useState('');
+  const [whatsappGroupName, setWhatsappGroupName] = useState('');
+  const [waGroupH1Enabled, setWaGroupH1Enabled] = useState(true);
+  const [waGroupWeeklyEnabled, setWaGroupWeeklyEnabled] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -105,6 +114,10 @@ export default function CreateGenerationForm() {
         maxAge: parsedMaxAge,
         description: description.trim() || null,
         color,
+        whatsappGroupId: whatsappGroupId.trim() || null,
+        whatsappGroupName: whatsappGroupName.trim() || null,
+        waGroupH1Enabled,
+        waGroupWeeklyEnabled,
       });
 
       if (!res.success || !res.generation) {
@@ -329,6 +342,94 @@ export default function CreateGenerationForm() {
                 <p className="text-[11px] text-slate-500">
                   Deskripsi ini akan ditampilkan sebagai panduan kurikulum santri dan orang tua.
                 </p>
+              </div>
+            </div>
+
+            {/* Card 5: Integrasi Notifikasi WhatsApp Grup Jenjang */}
+            <div className="rounded-3xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-800">Notifikasi Grup WhatsApp Jenjang</h2>
+                    <p className="text-[11px] text-slate-500">Pengingat H-1 dan rangkuman jadwal sepekan (opsional)</p>
+                  </div>
+                </div>
+
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  WAHA GATEWAY
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Nama / Label Grup WhatsApp (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Grup WA Caberawit Kelompok"
+                    value={whatsappGroupName}
+                    onChange={(e) => setWhatsappGroupName(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    ID Grup WhatsApp (ChatId / JID)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="12036302839482910@g.us"
+                    value={whatsappGroupId}
+                    onChange={(e) => setWhatsappGroupId(e.target.value)}
+                    className="w-full px-4 py-2.5 font-mono rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    ID grup berakhiran <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">@g.us</code>. Dapat diisi atau disesuaikan kemudian melalui halaman edit.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <label className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/70 hover:bg-slate-50 border border-slate-150 transition-colors cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={waGroupH1Enabled}
+                    onChange={(e) => setWaGroupH1Enabled(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Bell className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Pengingat Sesi H-1 Otomatis ke Grup</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Otomatis memposting ringkasan pengajian esok hari ke grup jenjang ini ~20 jam sebelum sesi dimulai.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/70 hover:bg-slate-50 border border-slate-150 transition-colors cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={waGroupWeeklyEnabled}
+                    onChange={(e) => setWaGroupWeeklyEnabled(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <CalendarDays className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Rangkuman Jadwal 1 Minggu ke Depan (Weekly Digest)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Otomatis mengirimkan daftar seluruh sesi pengajian jenjang ini (Senin s/d Ahad) setiap Ahad sore (17:00 WIB).
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
           </div>

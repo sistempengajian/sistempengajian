@@ -22,4 +22,9 @@ export interface IWhatsAppGateway {
    * Menghapus / menarik (revoke) pesan yang telah terkirim sebelumnya di WhatsApp
    */
   deleteMessage?(chatId: string, messageId: string): Promise<{ success: boolean; error?: string }>;
+
+  /**
+   * Mengambil daftar grup WhatsApp yang tersedia dari gateway
+   */
+  fetchGroups?(): Promise<Array<{ id: string; name: string }>>;
 }

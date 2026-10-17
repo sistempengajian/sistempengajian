@@ -97,6 +97,20 @@ export async function POST(req: NextRequest) {
       body.from ||
       body.phone;
 
+    // Deteksi nomor telepon pengirim jika payload menyediakan metadata author/participant
+    let authorPhone: string | undefined;
+    const authorRaw =
+      body.payload?.author ||
+      body.payload?._data?.author ||
+      body.payload?._data?.participant ||
+      body.payload?.participant;
+
+    if (typeof authorRaw === 'string' && authorRaw.includes('@c.us')) {
+      authorPhone = authorRaw.replace(/@c\.us$/, '');
+    } else if (typeof authorRaw === 'string' && !authorRaw.includes('@lid') && !authorRaw.includes('@g.us')) {
+      authorPhone = authorRaw;
+    }
+
     const incomingText =
       body.payload?.body ||
       body.message ||
@@ -111,7 +125,7 @@ export async function POST(req: NextRequest) {
     const msgId = body.payload?.id || body.id;
 
     if (sender && incomingText !== undefined && incomingText !== null) {
-      console.log(`[WhatsApp Webhook] Pesan masuk dari ${sender} (fromMe: ${fromMe}): "${incomingText}"`);
+      console.log(`[WhatsApp Webhook] Pesan masuk dari ${sender} (authorPhone: ${authorPhone || '-'}, fromMe: ${fromMe}): "${incomingText}"`);
 
       // Delegasikan ke Smart Webhook Auto-Responder Service
       const result = await processInboundWhatsAppMessage({
@@ -119,6 +133,7 @@ export async function POST(req: NextRequest) {
         body: String(incomingText),
         fromMe: Boolean(fromMe),
         messageId: msgId ? String(msgId) : undefined,
+        authorPhone,
       });
 
       return NextResponse.json({

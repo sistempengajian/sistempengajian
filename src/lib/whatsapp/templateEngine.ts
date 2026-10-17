@@ -217,6 +217,71 @@ Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
   },
 
+  GROUP_SCHEDULE_REMINDER_H1: {
+    code: 'GROUP_SCHEDULE_REMINDER_H1',
+    name: 'Pengingat Jadwal H-1 Grup WhatsApp Jenjang',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_jenjang',
+      'judul_sesi',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'nama_ustadz',
+      'materi_block',
+      'catatan_tambahan',
+      'url_jadwal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Bapak/Ibu Orang Tua & Santri Jenjang *{{nama_jenjang}}* 📢
+
+Mengingatkan agenda pengajian besok hari:
+*{{judul_sesi}}*
+*{{hari_tanggal}}*
+
+*• Waktu* \`\`\`{{waktu_mulai}} - {{waktu_selesai}} WIB\`\`\`
+*• Tempat* _{{nama_tempat}} ({{nama_kelompok}})_
+*• Pengajar* _{{nama_ustadz}}_{{materi_block}}{{catatan_tambahan}}
+
+*Informasi Detail Jadwal & Materi:*
+{{url_jadwal}}
+
+Mari persiapkan kehadiran ananda dengan tertib dan tepat waktu. Semoga Allah SWT memberikan kemudahan, kepahaman, dan kebarokahan dalam menuntut ilmu. 🤲
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  GROUP_WEEKLY_SCHEDULE_DIGEST: {
+    code: 'GROUP_WEEKLY_SCHEDULE_DIGEST',
+    name: 'Informasi Jadwal 1 Minggu ke Depan Grup Jenjang',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'nama_jenjang',
+      'periode_minggu',
+      'nama_kelompok',
+      'daftar_sesi_pekanan',
+      'url_jadwal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+Bapak/Ibu Orang Tua & Santri Jenjang *{{nama_jenjang}}* 🗓️✨
+
+Berikut adalah *Informasi Jadwal Pengajian 1 Minggu ke Depan*:
+*Periode:* {{periode_minggu}}
+
+{{daftar_sesi_pekanan}}
+
+*Portal Jadwal Lengkap:*
+{{url_jadwal}}
+
+Mari kita dukung kelancaran dan ketertiban belajar mengajar ananda tercinta. Semoga setiap langkah ananda menuju majelis ilmu bernilai pahala berlipat ganda. 🤲
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
   SCHEDULE_REMINDER_H1_TEACHER: {
     code: 'SCHEDULE_REMINDER_H1_TEACHER',
     name: 'Pengingat Jadwal H-1 (Pengajar / Ustadz/Ustadzah)',

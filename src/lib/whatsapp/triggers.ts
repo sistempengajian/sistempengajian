@@ -1201,3 +1201,83 @@ export async function sendTeacherWithDispensationReminder(params: {
   });
 }
 
+/**
+ * Pemicu Notifikasi Pengingat Jadwal H-1 ke Grup WhatsApp Jenjang
+ */
+export async function sendGroupScheduleReminderH1(params: {
+  groupId: string;
+  groupName?: string | null;
+  generationName: string;
+  scheduleTitle: string;
+  scheduleDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  organizationName: string;
+  teachersName: string;
+  materialsBlock?: string;
+  teacherNote?: string | null;
+  scheduleId: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const urlJadwal = `${baseUrl}/jadwal/${params.scheduleId}`;
+
+  const catatanTambahan = params.teacherNote?.trim()
+    ? `\n\n*Catatan Pengajar:*\n_${params.teacherNote.trim()}_`
+    : '';
+
+  return whatsAppClient.sendMessage({
+    to: params.groupId,
+    recipientName: params.groupName || `Grup ${params.generationName}`,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'GROUP_SCHEDULE_REMINDER_H1',
+    message: '',
+    referenceId: params.scheduleId,
+    templateVariables: {
+      nama_jenjang: params.generationName,
+      judul_sesi: params.scheduleTitle,
+      hari_tanggal: params.scheduleDate,
+      waktu_mulai: params.startTime,
+      waktu_selesai: params.endTime,
+      nama_tempat: params.venueName,
+      nama_kelompok: params.organizationName,
+      nama_ustadz: params.teachersName || 'Pengajar Terjadwal',
+      materi_block: params.materialsBlock || '',
+      catatan_tambahan: catatanTambahan,
+      url_jadwal: urlJadwal,
+    },
+  });
+}
+
+/**
+ * Pemicu Rangkuman Jadwal Pengajian 1 Pekan ke Depan ke Grup WhatsApp Jenjang
+ */
+export async function sendGroupWeeklyScheduleDigest(params: {
+  groupId: string;
+  groupName?: string | null;
+  generationName: string;
+  weekPeriodText: string;
+  organizationName: string;
+  weeklySessionsListText: string;
+  referenceId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const urlJadwal = `${baseUrl}/jadwal`;
+
+  return whatsAppClient.sendMessage({
+    to: params.groupId,
+    recipientName: params.groupName || `Grup ${params.generationName}`,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'GROUP_WEEKLY_SCHEDULE_DIGEST',
+    message: '',
+    referenceId: params.referenceId || `weekly_${Date.now()}`,
+    templateVariables: {
+      nama_jenjang: params.generationName,
+      periode_minggu: params.weekPeriodText,
+      nama_kelompok: params.organizationName,
+      daftar_sesi_pekanan: params.weeklySessionsListText,
+      url_jadwal: urlJadwal,
+    },
+  });
+}
+
