@@ -45,14 +45,27 @@ export class WahaProvider implements IWhatsAppGateway {
     }
 
     try {
-      const endpoint = `${this.apiUrl}/api/sendText`;
-      const payload = {
-        chatId: targetChatId,
-        text: options.message,
-        session: this.session,
-      };
+      const hasMedia = Boolean(options.mediaUrl);
+      const endpoint = hasMedia
+        ? `${this.apiUrl}/api/sendImage`
+        : `${this.apiUrl}/api/sendText`;
 
-      const response = await fetch(endpoint, {
+      const payload = hasMedia
+        ? {
+            chatId: targetChatId,
+            file: {
+              url: options.mediaUrl,
+            },
+            caption: options.message,
+            session: this.session,
+          }
+        : {
+            chatId: targetChatId,
+            text: options.message,
+            session: this.session,
+          };
+
+      let response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +75,26 @@ export class WahaProvider implements IWhatsAppGateway {
         signal: AbortSignal.timeout(15000),
       });
 
-      const data = await response.json().catch(() => null);
+      let data = await response.json().catch(() => null);
+
+      // Jika sendImage gagal (misal kendala upload), coba fallback ke sendText
+      if (!response.ok && hasMedia) {
+        console.warn(`[WahaProvider] sendImage gagal (${response.status}), mencoba fallback ke sendText...`);
+        response = await fetch(`${this.apiUrl}/api/sendText`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': this.apiKey,
+          },
+          body: JSON.stringify({
+            chatId: targetChatId,
+            text: options.message,
+            session: this.session,
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        data = await response.json().catch(() => null);
+      }
 
       if (response.ok && data) {
         const rawId = data.key?.id || data.id || data.messageId;

@@ -1,7 +1,9 @@
+import fs from 'fs';
+import path from 'path';
 import prisma from '@/lib/prisma';
 import { whatsAppClient } from './WhatsAppClient';
 import { getUpcomingWeekRangeWIB } from './groupScheduleNotificationService';
-import { isWhatsAppGroupJid } from './utils';
+import { isWhatsAppGroupJid, getBaseAppUrl } from './utils';
 
 export interface GroupInboundPayload {
   groupId: string;
@@ -15,6 +17,7 @@ export interface GroupInboundPayload {
 export interface GroupInboundResult {
   handled: boolean;
   action?:
+    | 'BAYAR_KAS'
     | 'JADWAL_HARI_INI'
     | 'JADWAL_MINGGUAN'
     | 'JADWAL_BESOK'
@@ -24,6 +27,7 @@ export interface GroupInboundResult {
     | 'KONTAK_PENGURUS'
     | 'IZIN_INFO'
     | 'MENU_BANTUAN'
+    | 'COOLDOWN_ACTIVE'
     | 'IGNORED_NOT_MENTIONED'
     | 'IGNORED_UNREGISTERED'
     | 'RATE_LIMITED';
@@ -32,18 +36,17 @@ export interface GroupInboundResult {
   groupId?: string;
 }
 
-// In-memory rate limiter per grup (maksimal 1 balasan bot per 5 detik di grup yang sama)
+// In-memory rate limiter spam ketukan cepat per grup (maksimal 1 balasan bot per 4 detik di grup yang sama)
 const recentGroupReplies = new Map<string, number>();
 
 function isGroupRateLimited(groupId: string): boolean {
   const now = Date.now();
   const lastTime = recentGroupReplies.get(groupId);
-  if (lastTime && now - lastTime < 5000) {
+  if (lastTime && now - lastTime < 4000) {
     return true;
   }
   recentGroupReplies.set(groupId, now);
 
-  // Bersihkan cache jika terlalu besar (> 200 entri)
   if (recentGroupReplies.size > 200) {
     for (const [k, v] of recentGroupReplies.entries()) {
       if (now - v > 60000) recentGroupReplies.delete(k);
@@ -51,6 +54,45 @@ function isGroupRateLimited(groupId: string): boolean {
   }
 
   return false;
+}
+
+// =========================================================================
+// SISTEM COOLDOWN 1 JAM PER PERINTAH DI GRUP
+// Mencegah anggota grup melakukan perintah yang sama berulang kali
+// jika sebelumnya sudah diminta oleh anggota lain dalam 1 jam terakhir.
+// =========================================================================
+export const GROUP_COMMAND_COOLDOWN_MS = 60 * 60 * 1000; // 1 Jam (3.600.000 ms)
+export const groupCommandCooldowns = new Map<string, number>();
+const groupCommandWarningTimes = new Map<string, number>();
+
+const ACTION_LABELS: Record<string, string> = {
+  BAYAR_KAS: 'Pembayaran Kas / QRIS',
+  JADWAL_HARI_INI: 'Jadwal Hari Ini',
+  JADWAL_MINGGUAN: 'Jadwal Mingguan',
+  JADWAL_BESOK: 'Jadwal Besok',
+  MATERI_BULANAN: 'Target Kurikulum Bulan Ini',
+  PENGAJAR_HARI_INI: 'Informasi Pengajar Bertugas',
+  LOKASI_PENGAJIAN: 'Lokasi Pengajian',
+  KONTAK_PENGURUS: 'Kontak Pengurus',
+  IZIN_INFO: 'Panduan Izin Santri',
+  MENU_BANTUAN: 'Menu Bantuan Bot',
+};
+
+/**
+ * Mengambil file QRIS Barcode dalam format Data URL (base64) atau URL absolut
+ */
+export function getQrisImageUrl(): string {
+  try {
+    const filePath = path.join(process.cwd(), 'public', 'images', 'qris-kas.jpeg');
+    if (fs.existsSync(filePath)) {
+      const base64Data = fs.readFileSync(filePath).toString('base64');
+      return `data:image/jpeg;base64,${base64Data}`;
+    }
+  } catch (err) {
+    console.warn('[QRIS] Gagal membaca gambar lokal:', err);
+  }
+  const baseUrl = getBaseAppUrl();
+  return `${baseUrl}/images/qris-kas.jpeg`;
 }
 
 /**
@@ -125,7 +167,7 @@ export function extractMentionedJids(payload: any): string[] {
  * 1. Melalui fitur tag WhatsApp native (mentionedJidList berisi nomor / LID bot)
  * 2. Menyertakan tag nomor bot (@6285165868482 / @085165868482)
  * 3. Menyertakan tag keyword resmi (@no_bot / @bot / @asisten / @pengajian)
- * 4. Awalan slash command grup (/bot, /jadwal, /menu)
+ * 4. Awalan slash command grup (/bot, /jadwal, /kas, /menu)
  */
 export function isBotMentionedInGroup(
   text: string,
@@ -174,8 +216,8 @@ export function isBotMentionedInGroup(
     return true;
   }
 
-  // 4. Perintah awalan slash / bang di grup: /bot, /jadwal, /menu, !bot, !jadwal
-  const commandPrefixRegex = /^[/!](bot|jadwal|menu|bantuan)\b/i;
+  // 4. Perintah awalan slash / bang di grup: /bot, /jadwal, /kas, /menu, !bot, !jadwal, !kas
+  const commandPrefixRegex = /^[/!](bot|jadwal|kas|bayar|qris|menu|bantuan)\b/i;
   if (commandPrefixRegex.test(clean.trim())) {
     return true;
   }
@@ -256,7 +298,7 @@ export async function processGroupInboundWhatsAppMessage(
     return { handled: false, action: 'IGNORED_NOT_MENTIONED' };
   }
 
-  // 3. Proteksi Rate Limit per Grup (Maksimal 1 respons per 5 detik per grup)
+  // 3. Proteksi Rate Limit Cepat per Grup (Maksimal 1 respons per 4 detik per grup)
   if (isGroupRateLimited(groupId)) {
     return { handled: true, action: 'RATE_LIMITED', replySent: false, groupId };
   }
@@ -265,6 +307,16 @@ export async function processGroupInboundWhatsAppMessage(
   const cleanQuery = cleanGroupQuery(rawText);
 
   // 5. Klasifikasi Aksi / Perintah
+  const isKas =
+    cleanQuery.includes('bayar kas') ||
+    cleanQuery.includes('kas') ||
+    cleanQuery.includes('qris') ||
+    cleanQuery.includes('iuran') ||
+    cleanQuery.includes('infaq') ||
+    cleanQuery.includes('infak') ||
+    cleanQuery.includes('rekening') ||
+    cleanQuery.includes('donasi');
+
   const isToday =
     cleanQuery.includes('hari ini') ||
     cleanQuery.includes('sekarang') ||
@@ -332,8 +384,32 @@ export async function processGroupInboundWhatsAppMessage(
     cleanQuery.includes('panduan') ||
     cleanQuery === '';
 
+  // Tentukan Aksi Sasaran
+  let targetAction:
+    | 'BAYAR_KAS'
+    | 'JADWAL_HARI_INI'
+    | 'JADWAL_MINGGUAN'
+    | 'JADWAL_BESOK'
+    | 'MATERI_BULANAN'
+    | 'PENGAJAR_HARI_INI'
+    | 'LOKASI_PENGAJIAN'
+    | 'KONTAK_PENGURUS'
+    | 'IZIN_INFO'
+    | 'MENU_BANTUAN' = 'MENU_BANTUAN';
+
+  if (isKas) targetAction = 'BAYAR_KAS';
+  else if (isToday) targetAction = 'JADWAL_HARI_INI';
+  else if (isWeekly) targetAction = 'JADWAL_MINGGUAN';
+  else if (isTomorrow) targetAction = 'JADWAL_BESOK';
+  else if (isMaterial && generationId) targetAction = 'MATERI_BULANAN';
+  else if (isTeacher) targetAction = 'PENGAJAR_HARI_INI';
+  else if (isLocation) targetAction = 'LOKASI_PENGAJIAN';
+  else if (isContact) targetAction = 'KONTAK_PENGURUS';
+  else if (isAbsence) targetAction = 'IZIN_INFO';
+  else targetAction = 'MENU_BANTUAN';
+
   // Helper pengiriman balasan dengan typing presence (delay 2.0 - 3.2 detik)
-  const sendGroupReply = async (message: string) => {
+  const sendGroupReply = async (message: string, mediaUrl?: string | null) => {
     await whatsAppClient.startTyping(groupId).catch(() => {});
     const delay = Math.floor(Math.random() * 1200) + 2000;
     await new Promise((resolve) => setTimeout(resolve, delay));
@@ -342,11 +418,57 @@ export async function processGroupInboundWhatsAppMessage(
       to: groupId,
       messageType: 'CUSTOM_DIRECT',
       message,
+      mediaUrl: mediaUrl || null,
     });
 
     await whatsAppClient.stopTyping(groupId).catch(() => {});
     return result;
   };
+
+  // =========================================================================
+  // 6. PROTEKSI DELAY 1 JAM PER PERINTAH DI GRUP
+  // Agar setiap user tidak dapat melakukan perintah yang sama berulang kali
+  // jika sebelumnya sudah diminta oleh anggota lain dalam rentang 1 jam terakhir.
+  // =========================================================================
+  const cooldownKey = `${groupId}:${targetAction}`;
+  const now = Date.now();
+  const lastExecuted = groupCommandCooldowns.get(cooldownKey);
+
+  if (lastExecuted && now - lastExecuted < GROUP_COMMAND_COOLDOWN_MS) {
+    const remainingMs = GROUP_COMMAND_COOLDOWN_MS - (now - lastExecuted);
+    const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+    const actionLabel = ACTION_LABELS[targetAction] || targetAction;
+
+    // Batasi pengiriman pesan pengingat cooldown (maks 1x per 3 menit per action)
+    const lastWarn = groupCommandWarningTimes.get(cooldownKey);
+    if (!lastWarn || now - lastWarn > 3 * 60 * 1000) {
+      groupCommandWarningTimes.set(cooldownKey, now);
+
+      const cooldownNotice =
+        `⏳ *PERINTAH TELAH DIMINTA SEBELUMNYA*\n` +
+        `🏷️ *Grup:* ${groupTargetName}\n\n` +
+        `Informasi *${actionLabel}* baru saja diminta oleh anggota lain dalam 1 jam terakhir.\n\n` +
+        `Mohon cek riwayat pesan sebelumnya di atas 👆 agar percakapan grup tetap rapi dan tidak banjir pesan duplikat.\n\n` +
+        `Perintah ini dapat dipanggil kembali dalam *${remainingMinutes} menit*.\n` +
+        `${orgSignature}`;
+
+      await sendGroupReply(cooldownNotice);
+      return {
+        handled: true,
+        action: 'COOLDOWN_ACTIVE',
+        replySent: true,
+        replyMessage: cooldownNotice,
+        groupId,
+      };
+    }
+
+    return {
+      handled: true,
+      action: 'COOLDOWN_ACTIVE',
+      replySent: false,
+      groupId,
+    };
+  }
 
   // Helper pencarian jadwal
   const findSchedulesInRange = async (start: Date, end: Date) => {
@@ -389,9 +511,38 @@ export async function processGroupInboundWhatsAppMessage(
   };
 
   // =========================================================================
-  // AKSI 1: JADWAL HARI INI
+  // AKSI 1: BAYAR KAS & INFAQ (DENGAN GAMBAR QRIS)
   // =========================================================================
-  if (isToday) {
+  if (targetAction === 'BAYAR_KAS') {
+    const qrisImageUrl = getQrisImageUrl();
+    const replyMessage =
+      `💳 *PEMBAYARAN KAS & INFAQ PENGAJIAN*\n` +
+      `🏷️ *Jenjang:* ${groupTargetName}\n` +
+      `🏛️ *Organisasi:* ${orgName}\n\n` +
+      `Berikut adalah barcode QRIS resmi untuk pembayaran uang kas / iuran / infaq pengajian:\n\n` +
+      `• *Nama Merchant:* WAROENG.KITA, ADIWERNA\n` +
+      `• *NMID:* ID1025447324233\n` +
+      `• *Metode Pembayaran:* Scan melalui seluruh aplikasi Mobile Banking (BCA, Mandiri, BRI, BNI, BSI, dll) atau E-Wallet (GoPay, OVO, DANA, ShopeePay, LinkAja)\n\n` +
+      `📝 *Catatan:* Setelah melakukan scan/transfer, mohon simpan bukti transaksi dan konfirmasikan ke bendahara / pengurus kelas masing-masing.\n\n` +
+      `Semoga kas dan infaq yang ditunaikan senantiasa barokah dan menjadi amal jariyah yang berlipat ganda. 🤲\n` +
+      `${orgSignature}`;
+
+    await sendGroupReply(replyMessage, qrisImageUrl);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
+    return {
+      handled: true,
+      action: 'BAYAR_KAS',
+      replySent: true,
+      replyMessage,
+      groupId,
+    };
+  }
+
+  // =========================================================================
+  // AKSI 2: JADWAL HARI INI
+  // =========================================================================
+  if (targetAction === 'JADWAL_HARI_INI') {
     const { startOfDay, endOfDay } = getDayRangeWIB(new Date());
     const schedules = await findSchedulesInRange(startOfDay, endOfDay);
     const dateLabel = formatIndonesianDateWIB(new Date());
@@ -423,17 +574,19 @@ export async function processGroupInboundWhatsAppMessage(
         `📆 *${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Semoga Allah SWT memberikan kemudahan dan kelancaran untuk hadir tepat waktu. 🌟\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `📅 *JADWAL PENGAJIAN HARI INI*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n` +
         `📆 *${dateLabel}*\n\n` +
         `Alhamdulillah, tidak ada jadwal pengajian terjadwal untuk hari ini. Selamat beristirahat atau muraja'ah mandiri di rumah! 🌿\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'JADWAL_HARI_INI',
@@ -444,9 +597,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 2: JADWAL MINGGUAN / PEKAN INI
+  // AKSI 3: JADWAL MINGGUAN / PEKAN INI
   // =========================================================================
-  if (isWeekly) {
+  if (targetAction === 'JADWAL_MINGGUAN') {
     const { weekStart, weekEnd, periodLabel } = getUpcomingWeekRangeWIB(new Date());
     const schedules = await findSchedulesInRange(weekStart, weekEnd);
 
@@ -477,17 +630,19 @@ export async function processGroupInboundWhatsAppMessage(
         `${itemsText}\n\n` +
         `Total ada *${schedules.length} sesi pengajian* terjadwal untuk sepekan ini.\n` +
         `Alhamdulillah Jazakumullahu Khairan.\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `📋 *AGENDA PENGAJIAN PEKAN INI*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n` +
         `📆 *Periode:* ${periodLabel}\n\n` +
         `Belum ada sesi pengajian yang diagendakan pada rentang pekan ini.\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'JADWAL_MINGGUAN',
@@ -498,9 +653,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 3: JADWAL BESOK (H-1)
+  // AKSI 4: JADWAL BESOK (H-1)
   // =========================================================================
-  if (isTomorrow) {
+  if (targetAction === 'JADWAL_BESOK') {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const { startOfDay, endOfDay } = getDayRangeWIB(tomorrow);
     const schedules = await findSchedulesInRange(startOfDay, endOfDay);
@@ -530,17 +685,19 @@ export async function processGroupInboundWhatsAppMessage(
         `📆 *${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Persiapkan diri dan perlengkapan mengaji dari sekarang ya! 🌟\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `🔔 *JADWAL PENGAJIAN BESOK*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n` +
         `📆 *${dateLabel}*\n\n` +
         `Alhamdulillah, tidak ada jadwal pengajian untuk esok hari.\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'JADWAL_BESOK',
@@ -551,9 +708,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 4: TARGET MATERI / KURIKULUM BULAN INI
+  // AKSI 5: TARGET MATERI / KURIKULUM BULAN INI
   // =========================================================================
-  if (isMaterial && generationId) {
+  if (targetAction === 'MATERI_BULANAN' && generationId) {
     const now = new Date();
     const currentMonth = Number(
       new Intl.DateTimeFormat('id-ID', { month: 'numeric', timeZone: 'Asia/Jakarta' }).format(now)
@@ -593,17 +750,19 @@ export async function processGroupInboundWhatsAppMessage(
         `🗓️ *Bulan:* ${monthName} ${currentYear}\n\n` +
         `${itemsText}\n\n` +
         `Mari bersama-sama kita capai target materi kurikulum ini dengan tekun dan istiqomah! 💪\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `📚 *TARGET KURIKULUM BULAN INI*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n` +
         `🗓️ *Bulan:* ${monthName} ${currentYear}\n\n` +
         `Target kurikulum bulanan khusus belum diset oleh PJ Kurikulum. Kegiatan pengajian berjalan mengacu pada silabus materi rutin aktif.\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'MATERI_BULANAN',
@@ -614,9 +773,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 5: INFORMASI PENGAJAR BERTUGAS
+  // AKSI 6: INFORMASI PENGAJAR BERTUGAS
   // =========================================================================
-  if (isTeacher) {
+  if (targetAction === 'PENGAJAR_HARI_INI') {
     const { startOfDay, endOfDay } = getDayRangeWIB(new Date());
     const schedules = await findSchedulesInRange(startOfDay, endOfDay);
     const dateLabel = formatIndonesianDateWIB(new Date());
@@ -638,17 +797,19 @@ export async function processGroupInboundWhatsAppMessage(
         `📆 *${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Mari kita doakan para Ustadz/Ustadzah senantiasa diberikan kelancaran dan kesehatan dalam membimbing kita. 🤲\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `👨‍🏫 *INFORMASI PENGAJAR*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n` +
         `📆 *${dateLabel}*\n\n` +
         `Tidak ada sesi pengajian terjadwal untuk hari ini.\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'PENGAJAR_HARI_INI',
@@ -659,9 +820,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 6: INFORMASI LOKASI / TEMPAT PENGAJIAN
+  // AKSI 7: INFORMASI LOKASI / TEMPAT PENGAJIAN
   // =========================================================================
-  if (isLocation) {
+  if (targetAction === 'LOKASI_PENGAJIAN') {
     const { startOfDay, endOfDay } = getDayRangeWIB(new Date());
     const todaySchedules = await findSchedulesInRange(startOfDay, endOfDay);
 
@@ -684,17 +845,19 @@ export async function processGroupInboundWhatsAppMessage(
         `🏷️ *Jenjang:* ${groupTargetName}\n\n` +
         `${itemsText}\n` +
         `Mari hadir tepat waktu dengan pakaian rapi dan sopan. 🕌\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     } else {
       replyMessage =
         `📍 *INFORMASI LOKASI PENGAJIAN*\n` +
         `🏷️ *Jenjang:* ${groupTargetName}\n\n` +
         `Hari ini tidak ada sesi pengajian terjadwal. Lokasi pengajian reguler jenjang ini bertempat di Masjid / Aula binaan *${orgName}*.\n\n` +
         `Ketik *@no_bot jadwal besok* atau *@no_bot jadwal mingguan* untuk melihat tempat sesi berikutnya! 🌿\n\n` +
-        `— *Sistem Pengajian ${orgName}*`;
+        `${orgSignature}`;
     }
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'LOKASI_PENGAJIAN',
@@ -705,9 +868,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 7: INFORMASI KONTAK PENGURUS & ADMINISTRASI
+  // AKSI 8: INFORMASI KONTAK PENGURUS & ADMINISTRASI
   // =========================================================================
-  if (isContact) {
+  if (targetAction === 'KONTAK_PENGURUS') {
     const replyMessage =
       `📞 *INFORMASI PENGURUS & ADMINISTRASI*\n` +
       `🏷️ *Jenjang:* ${groupTargetName}\n` +
@@ -719,6 +882,8 @@ export async function processGroupInboundWhatsAppMessage(
       `— *Pengurus Pengajian ${orgName}*`;
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'KONTAK_PENGURUS',
@@ -729,9 +894,9 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 8: INFORMASI PERMOHONAN IZIN (PRIVASI JAPRI)
+  // AKSI 9: INFORMASI PERMOHONAN IZIN (PRIVASI JAPRI)
   // =========================================================================
-  if (isAbsence) {
+  if (targetAction === 'IZIN_INFO') {
     const replyMessage =
       `ℹ️ *PANDUAN PENGAJUAN IZIN SANTRI*\n` +
       `🏷️ *Grup:* ${groupTargetName}\n\n` +
@@ -739,9 +904,11 @@ export async function processGroupInboundWhatsAppMessage(
       `👉 wa.me/6285165868482\n\n` +
       `Cukup ketik *'izin'* atau *'sakit'* di chat pribadi bot untuk mendapatkan formulir konfirmasi digital instan tanpa login.\n\n` +
       `Alhamdulillah Jazakumullahu Khairan.\n` +
-      `— *Sistem Pengajian ${orgName}*`;
+      `${orgSignature}`;
 
     await sendGroupReply(replyMessage);
+    groupCommandCooldowns.set(cooldownKey, Date.now());
+
     return {
       handled: true,
       action: 'IZIN_INFO',
@@ -752,13 +919,14 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // AKSI 9: MENU BANTUAN & PERINTAH GRUP
+  // AKSI 10: MENU BANTUAN & PERINTAH GRUP
   // =========================================================================
   const helpMessage =
     `🤖 *LAYANAN ASISTEN PENGAJIAN GRUP*\n` +
     `🏷️ *Grup:* ${groupTargetName}\n\n` +
     `Halo Bapak/Ibu & Rekan-Rekan sekalian! Saya adalah asisten bot sistem pengajian.\n` +
     `Agar bot merespon di grup, awali pesan dengan tag *@no_bot* atau *@bot* diikuti perintah berikut:\n\n` +
+    `• *@no_bot bayar kas* — Barcode QRIS iuran kas & infaq\n` +
     `• *@no_bot jadwal hari ini* — Cek jadwal pengajian hari ini\n` +
     `• *@no_bot jadwal mingguan* — Cek agenda pengajian sepekan\n` +
     `• *@no_bot jadwal besok* — Cek jadwal pengajian esok hari (H-1)\n` +
@@ -767,10 +935,13 @@ export async function processGroupInboundWhatsAppMessage(
     `• *@no_bot lokasi* — Cek tempat / masjid pengajian\n` +
     `• *@no_bot kontak* — Informasi kontak pengurus\n` +
     `• *@no_bot izin* — Info pengajuan izin santri via japri\n\n` +
+    `💡 *Catatan:* Demi kenyamanan bersama agar grup tidak banjir pesan, setiap perintah memiliki jeda (cooldown) 1 jam antar permintaan di grup ini.\n\n` +
     `Semoga senantiasa lancar dan barokah! 🌟\n` +
     `— *Pengurus Pengajian ${orgName}*`;
 
   await sendGroupReply(helpMessage);
+  groupCommandCooldowns.set(cooldownKey, Date.now());
+
   return {
     handled: true,
     action: 'MENU_BANTUAN',
