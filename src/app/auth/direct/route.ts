@@ -3,12 +3,16 @@ import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyDirectPresensiToken } from '@/lib/badalToken';
-import { verifyStudentDirectPresensiToken } from '@/lib/studentAbsenceToken';
+import {
+  verifyStudentDirectPresensiToken,
+  verifyFamilyActionHubToken,
+  verifyTeacherLessonPlanToken,
+} from '@/lib/studentAbsenceToken';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Route Handler: Akses Langsung Absensi Pengajar / Santri Tanpa Login Manual
+ * Route Handler: Akses Langsung Absensi Pengajar / Santri / Orang Tua Tanpa Login Manual
  * Menerima token HMAC, menginisialisasi sesi otentikasi browser, dan redirect ke cockpit absensi jadwal
  */
 export async function GET(request: NextRequest) {
@@ -16,11 +20,18 @@ export async function GET(request: NextRequest) {
   const target = searchParams.get('target');
   const token = searchParams.get('token');
   const fallbackScheduleId = searchParams.get('scheduleId');
+  const studentIdParam = searchParams.get('studentId');
 
   const baseUrl = request.nextUrl.origin;
 
+  const tab = searchParams.get('tab');
+  const tabSuffix = tab ? `&tab=${encodeURIComponent(tab)}` : '';
+  const studentSuffix = studentIdParam ? `&studentId=${encodeURIComponent(studentIdParam)}` : '';
+
   if (!token) {
-    const targetUrl = fallbackScheduleId ? `/presensi?scheduleId=${fallbackScheduleId}` : '/presensi';
+    const targetUrl = fallbackScheduleId
+      ? `/presensi?scheduleId=${fallbackScheduleId}${studentSuffix}${tabSuffix}`
+      : '/presensi';
     return NextResponse.redirect(`${baseUrl}/login?redirect=${encodeURIComponent(targetUrl)}`);
   }
 
@@ -31,19 +42,49 @@ export async function GET(request: NextRequest) {
     const result = verifyStudentDirectPresensiToken(token);
     if (!result.valid || !result.scheduleId || !result.studentId) {
       console.warn('[DirectAuth Presensi Santri] Token tidak valid:', result.error);
-      const targetUrl = fallbackScheduleId ? `/presensi?scheduleId=${fallbackScheduleId}` : '/presensi';
+      const targetUrl = fallbackScheduleId
+        ? `/presensi?scheduleId=${fallbackScheduleId}${studentSuffix}${tabSuffix}`
+        : '/presensi';
       return NextResponse.redirect(
         `${baseUrl}/login?auth_error=${encodeURIComponent(result.error || 'Tautan absensi santri kedaluwarsa')}&redirect=${encodeURIComponent(targetUrl)}`
       );
     }
     scheduleId = result.scheduleId;
     targetUserId = result.studentId;
+  } else if (target === 'presensi_ortu' || target === 'presensi_keluarga') {
+    const result = verifyFamilyActionHubToken(token);
+    if (!result.valid || !result.scheduleId || !result.parentUserId) {
+      console.warn('[DirectAuth Presensi Ortu] Token tidak valid:', result.error);
+      const targetUrl = fallbackScheduleId
+        ? `/presensi?scheduleId=${fallbackScheduleId}${studentSuffix}${tabSuffix}`
+        : '/presensi';
+      return NextResponse.redirect(
+        `${baseUrl}/login?auth_error=${encodeURIComponent(result.error || 'Tautan presensi orang tua tidak sah atau kedaluwarsa')}&redirect=${encodeURIComponent(targetUrl)}`
+      );
+    }
+    scheduleId = result.scheduleId;
+    targetUserId = result.parentUserId;
+  } else if (target === 'persiapan_mengajar' || target === 'rencana_materi') {
+    const result = verifyTeacherLessonPlanToken(token);
+    if (!result.valid || !result.scheduleId || !result.teacherUserId) {
+      console.warn('[DirectAuth Persiapan Mengajar] Token tidak valid:', result.error);
+      const targetUrl = fallbackScheduleId
+        ? `/pengajar/sesi/${token}`
+        : '/presensi';
+      return NextResponse.redirect(
+        `${baseUrl}/login?auth_error=${encodeURIComponent(result.error || 'Tautan rencana ajar pengajar tidak sah atau kedaluwarsa')}&redirect=${encodeURIComponent(targetUrl)}`
+      );
+    }
+    scheduleId = result.scheduleId;
+    targetUserId = result.teacherUserId;
   } else {
     // Default: Presensi Pengajar
     const result = verifyDirectPresensiToken(token);
     if (!result.valid || !result.scheduleId || !result.teacherUserId) {
       console.warn('[DirectAuth Presensi] Token tidak valid:', result.error);
-      const targetUrl = fallbackScheduleId ? `/presensi?scheduleId=${fallbackScheduleId}` : '/presensi';
+      const targetUrl = fallbackScheduleId
+        ? `/presensi?scheduleId=${fallbackScheduleId}${studentSuffix}${tabSuffix}`
+        : '/presensi';
       return NextResponse.redirect(
         `${baseUrl}/login?auth_error=${encodeURIComponent(result.error || 'Tautan absensi kedaluwarsa')}&redirect=${encodeURIComponent(targetUrl)}`
       );
@@ -86,10 +127,26 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Redirect langsung ke Cockpit Presensi Sesi Terkait
-    return NextResponse.redirect(`${baseUrl}/presensi?scheduleId=${scheduleId}`);
+    if (target === 'persiapan_mengajar' || target === 'rencana_materi') {
+      return NextResponse.redirect(`${baseUrl}/pengajar/sesi/${token}`);
+    }
+
+    const effectiveScheduleId = scheduleId || fallbackScheduleId;
+    const redirectUrl = effectiveScheduleId
+      ? `${baseUrl}/presensi?scheduleId=${encodeURIComponent(effectiveScheduleId)}${studentSuffix}${tabSuffix}`
+      : `${baseUrl}/presensi`;
+
+    // Redirect langsung ke Cockpit Presensi Sesi Terkait (dengan tab & studentId yang diminta jika ada)
+    return NextResponse.redirect(redirectUrl);
   } catch (err: any) {
     console.error('[DirectAuth Presensi Exception]:', err);
-    return NextResponse.redirect(`${baseUrl}/presensi?scheduleId=${scheduleId}`);
+    if (target === 'persiapan_mengajar' || target === 'rencana_materi') {
+      return NextResponse.redirect(`${baseUrl}/pengajar/sesi/${token}`);
+    }
+    const effectiveScheduleId = scheduleId || fallbackScheduleId;
+    const redirectUrl = effectiveScheduleId
+      ? `${baseUrl}/presensi?scheduleId=${encodeURIComponent(effectiveScheduleId)}${studentSuffix}${tabSuffix}`
+      : `${baseUrl}/presensi`;
+    return NextResponse.redirect(redirectUrl);
   }
 }

@@ -1,6 +1,17 @@
 import crypto from 'crypto';
 
-const MAGIC_SECRET = process.env.MAGIC_LINK_SECRET || 'sistem-pengajian-magic-secret-key-2026';
+function getMagicSecret(): string {
+  const secret = process.env.MAGIC_LINK_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'SECURITY CONFIGURATION ERROR: MAGIC_LINK_SECRET environment variable must be set in production.'
+      );
+    }
+    return 'dev-local-secret-do-not-use-in-prod-2026';
+  }
+  return secret;
+}
 
 /**
  * 1. Token Pengajuan Izin/Sakit Santri Mandiri (Akses santri / ortu dari WA)
@@ -15,7 +26,7 @@ export function generateStudentAbsenceRequestToken(
   const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
   const data = `STU_ABS_REQ:${scheduleId}:${studentId}:${submitterUserId}:${submitterRole}:${exp}`;
   const signature = crypto
-    .createHmac('sha256', MAGIC_SECRET)
+    .createHmac('sha256', getMagicSecret())
     .update(data)
     .digest('hex');
   const payloadStr = Buffer.from(data).toString('base64url');
@@ -52,7 +63,7 @@ export function verifyStudentAbsenceRequestToken(token: string): {
 
     const exp = parseInt(expStr, 10);
     const expectedSignature = crypto
-      .createHmac('sha256', MAGIC_SECRET)
+      .createHmac('sha256', getMagicSecret())
       .update(data)
       .digest('hex');
 
@@ -92,7 +103,7 @@ export function generateStudentAbsenceApprovalToken(
   const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
   const data = `STU_ABS_CONF:${requestId}:${targetUserId}:${approverRole}:${exp}`;
   const signature = crypto
-    .createHmac('sha256', MAGIC_SECRET)
+    .createHmac('sha256', getMagicSecret())
     .update(data)
     .digest('hex');
   const payloadStr = Buffer.from(data).toString('base64url');
@@ -121,7 +132,7 @@ export function verifyStudentAbsenceApprovalToken(token: string): {
 
     const exp = parseInt(expStr, 10);
     const expectedSignature = crypto
-      .createHmac('sha256', MAGIC_SECRET)
+      .createHmac('sha256', getMagicSecret())
       .update(data)
       .digest('hex');
 
@@ -159,7 +170,7 @@ export function generateStudentDirectPresensiToken(
   const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
   const data = `STU_ATT:${scheduleId}:${studentId}:${exp}`;
   const signature = crypto
-    .createHmac('sha256', MAGIC_SECRET)
+    .createHmac('sha256', getMagicSecret())
     .update(data)
     .digest('hex');
   const payloadStr = Buffer.from(data).toString('base64url');
@@ -187,7 +198,7 @@ export function verifyStudentDirectPresensiToken(token: string): {
 
     const exp = parseInt(expStr, 10);
     const expectedSignature = crypto
-      .createHmac('sha256', MAGIC_SECRET)
+      .createHmac('sha256', getMagicSecret())
       .update(data)
       .digest('hex');
 
@@ -212,3 +223,134 @@ export function verifyStudentDirectPresensiToken(token: string): {
     return { valid: false, error: err.message || 'Gagal memverifikasi tautan presensi.' };
   }
 }
+
+/**
+ * 4. Token Portal Aksi Keluarga (Family Action Hub - Multi-Santri 1-Klik)
+ */
+export function generateFamilyActionHubToken(
+  scheduleId: string,
+  parentUserId: string,
+  expiresInHours = 72
+): string {
+  const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
+  const data = `FAM_HUB:${scheduleId}:${parentUserId}:${exp}`;
+  const signature = crypto
+    .createHmac('sha256', getMagicSecret())
+    .update(data)
+    .digest('hex');
+  const payloadStr = Buffer.from(data).toString('base64url');
+  return `${payloadStr}.${signature}`;
+}
+
+export function verifyFamilyActionHubToken(token: string): {
+  valid: boolean;
+  scheduleId?: string;
+  parentUserId?: string;
+  error?: string;
+} {
+  try {
+    const [payloadStr, signature] = token.split('.');
+    if (!payloadStr || !signature) {
+      return { valid: false, error: 'Format tautan portal keluarga tidak valid.' };
+    }
+
+    const data = Buffer.from(payloadStr, 'base64url').toString('utf-8');
+    const [prefix, scheduleId, parentUserId, expStr] = data.split(':');
+
+    if (prefix !== 'FAM_HUB' || !scheduleId || !parentUserId || !expStr) {
+      return { valid: false, error: 'Data tautan portal keluarga tidak sesuai.' };
+    }
+
+    const exp = parseInt(expStr, 10);
+    const expectedSignature = crypto
+      .createHmac('sha256', getMagicSecret())
+      .update(data)
+      .digest('hex');
+
+    if (
+      signature.length !== expectedSignature.length ||
+      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    ) {
+      return { valid: false, error: 'Tanda tangan digital portal keluarga tidak sah.' };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now > exp) {
+      return { valid: false, error: 'Tautan portal keluarga telah kedaluwarsa (berlaku 72 jam).' };
+    }
+
+    return {
+      valid: true,
+      scheduleId,
+      parentUserId,
+    };
+  } catch (err: any) {
+    return { valid: false, error: err.message || 'Gagal memverifikasi tautan portal keluarga.' };
+  }
+}
+
+/**
+ * 5. Token Akses Portal Rencana Ajar & Persiapan Sesi Pengajar
+ */
+export function generateTeacherLessonPlanToken(
+  scheduleId: string,
+  teacherUserId: string,
+  expiresInHours = 72
+): string {
+  const exp = Math.floor(Date.now() / 1000) + expiresInHours * 3600;
+  const data = `TEA_PLAN:${scheduleId}:${teacherUserId}:${exp}`;
+  const signature = crypto
+    .createHmac('sha256', getMagicSecret())
+    .update(data)
+    .digest('hex');
+  const payloadStr = Buffer.from(data).toString('base64url');
+  return `${payloadStr}.${signature}`;
+}
+
+export function verifyTeacherLessonPlanToken(token: string): {
+  valid: boolean;
+  scheduleId?: string;
+  teacherUserId?: string;
+  error?: string;
+} {
+  try {
+    const [payloadStr, signature] = token.split('.');
+    if (!payloadStr || !signature) {
+      return { valid: false, error: 'Format tautan rencana ajar pengajar tidak valid.' };
+    }
+
+    const data = Buffer.from(payloadStr, 'base64url').toString('utf-8');
+    const [prefix, scheduleId, teacherUserId, expStr] = data.split(':');
+
+    if (prefix !== 'TEA_PLAN' || !scheduleId || !teacherUserId || !expStr) {
+      return { valid: false, error: 'Data tautan rencana ajar tidak sesuai.' };
+    }
+
+    const exp = parseInt(expStr, 10);
+    const expectedSignature = crypto
+      .createHmac('sha256', getMagicSecret())
+      .update(data)
+      .digest('hex');
+
+    if (
+      signature.length !== expectedSignature.length ||
+      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+    ) {
+      return { valid: false, error: 'Tanda tangan digital rencana ajar pengajar tidak sah.' };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now > exp) {
+      return { valid: false, error: 'Tautan rencana ajar pengajar telah kedaluwarsa (berlaku 72 jam).' };
+    }
+
+    return {
+      valid: true,
+      scheduleId,
+      teacherUserId,
+    };
+  } catch (err: any) {
+    return { valid: false, error: err.message || 'Gagal memverifikasi tautan rencana ajar pengajar.' };
+  }
+}
+

@@ -544,6 +544,7 @@ export default async function JadwalPage({
       needFormData
         ? prisma.user.findMany({
             where: {
+              status: 'ACTIVE',
               roles: {
                 some: {
                   role: { in: ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'] },

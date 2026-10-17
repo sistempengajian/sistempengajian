@@ -413,6 +413,7 @@ export async function submitStudentAbsenceRequest({
     // 3. PJ Wilayah (PJ Kelompok / PJ Desa)
     const pjUsers = await prisma.user.findMany({
       where: {
+        status: 'ACTIVE',
         organizationId: schedule.organizationId,
         roles: { some: { role: { in: ['PJ_KELOMPOK', 'PJ_DESA'] } } },
         phoneNumber: { not: null },
