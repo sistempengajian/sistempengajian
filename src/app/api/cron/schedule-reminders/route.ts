@@ -282,7 +282,14 @@ async function handleScheduleReminders(request: NextRequest) {
       type: 'USTADZ' | 'ORANG_TUA' | 'SANTRI';
       name: string;
       phone: string;
-      execute: () => Promise<{ success: boolean; log: string; error?: string }>;
+      execute: () => Promise<{
+        success: boolean;
+        skipped?: boolean;
+        sentCount?: number;
+        skippedCount?: number;
+        log: string;
+        error?: string;
+      }>;
     };
 
     const dispatchQueue: DispatchItem[] = [];
@@ -1128,7 +1135,7 @@ async function handleScheduleReminders(request: NextRequest) {
               };
             }
 
-            return { success: true, log: `[Skipped Empty Bucket] ${bucket.name}` };
+            return { success: false, skipped: true, log: `[Skipped Empty Bucket] ${bucket.name}` };
           },
         });
       }
@@ -1137,21 +1144,36 @@ async function handleScheduleReminders(request: NextRequest) {
       // 7B. Pengingat Sesi H-1 ke Grup WhatsApp Jenjang Sasaran
       // =========================================================================
       if (isH1Reminder) {
-        dispatchQueue.push({
-          type: 'ORANG_TUA' as any,
-          name: `Grup WA Jenjang [${schedule.title}]`,
-          phone: 'Grup WA',
-          execute: async () => {
-            const { dispatchGroupScheduleReminderH1 } = await import(
-              '@/lib/whatsapp/groupScheduleNotificationService'
-            );
-            const res = await dispatchGroupScheduleReminderH1(schedule.id);
-            return {
-              success: res.success || res.skippedCount > 0,
-              log: `[Grup WA H-1: ${schedule.title}] ${res.sentCount} grup terkirim, ${res.skippedCount} dilewati/idempoten`,
-            };
-          },
-        });
+        const groupH1Key = `GROUP_H1_REMINDER_${schedule.id}`;
+        if (sentTokensSet.has(groupH1Key)) {
+          skippedCount++;
+        } else {
+          sentTokensSet.add(groupH1Key);
+          dispatchQueue.push({
+            type: 'ORANG_TUA' as any,
+            name: `Grup WA Jenjang [${schedule.title}]`,
+            phone: 'Grup WA',
+            execute: async () => {
+              const { dispatchGroupScheduleReminderH1 } = await import(
+                '@/lib/whatsapp/groupScheduleNotificationService'
+              );
+              const res = await dispatchGroupScheduleReminderH1(schedule.id);
+              if (res.sentCount > 0) {
+                return {
+                  success: true,
+                  sentCount: res.sentCount,
+                  log: `[Grup WA H-1: ${schedule.title}] ${res.sentCount} grup terkirim`,
+                };
+              }
+              return {
+                success: false,
+                skipped: true,
+                skippedCount: res.skippedCount,
+                log: `[Grup WA H-1: ${schedule.title}] 0 grup terkirim (${res.skippedCount} dilewati/idempoten)`,
+              };
+            },
+          });
+        }
       }
     }
 
@@ -1171,21 +1193,35 @@ async function handleScheduleReminders(request: NextRequest) {
     const jDayOfWeek = new Date(now.getTime() + 7 * 3600 * 1000).getUTCDay();
 
     if (jDayOfWeek === 0 && jHour >= 16 && jHour <= 20) {
-      dispatchQueue.push({
-        type: 'ORANG_TUA' as any,
-        name: 'Rangkuman Jadwal Mingguan Grup Jenjang',
-        phone: 'Grup WA Mingguan',
-        execute: async () => {
-          const { dispatchAllWeeklyScheduleDigests } = await import(
-            '@/lib/whatsapp/groupScheduleNotificationService'
-          );
-          const res = await dispatchAllWeeklyScheduleDigests();
-          return {
-            success: true,
-            log: `[Rangkuman Mingguan Otomatis Ahad] ${res.totalSent} grup terkirim, ${res.totalSkipped} dilewati.`,
-          };
-        },
-      });
+      const jakartaDateStr = `${parts.find((p) => p.type === 'year')?.value}-${parts.find((p) => p.type === 'month')?.value}-${parts.find((p) => p.type === 'day')?.value}`;
+      const weeklyDigestKey = `WEEKLY_DIGEST_${jakartaDateStr}`;
+      if (!sentTokensSet.has(weeklyDigestKey)) {
+        sentTokensSet.add(weeklyDigestKey);
+        dispatchQueue.push({
+          type: 'ORANG_TUA' as any,
+          name: 'Rangkuman Jadwal Mingguan Grup Jenjang',
+          phone: 'Grup WA Mingguan',
+          execute: async () => {
+            const { dispatchAllWeeklyScheduleDigests } = await import(
+              '@/lib/whatsapp/groupScheduleNotificationService'
+            );
+            const res = await dispatchAllWeeklyScheduleDigests();
+            if (res.totalSent > 0) {
+              return {
+                success: true,
+                sentCount: res.totalSent,
+                log: `[Rangkuman Mingguan Otomatis Ahad] ${res.totalSent} grup terkirim`,
+              };
+            }
+            return {
+              success: false,
+              skipped: true,
+              skippedCount: res.totalSkipped,
+              log: `[Rangkuman Mingguan Otomatis Ahad] 0 grup terkirim (${res.totalSkipped} dilewati)`,
+            };
+          },
+        });
+      }
     }
 
     // =========================================================================
@@ -1501,8 +1537,12 @@ async function handleScheduleReminders(request: NextRequest) {
       const item = dispatchQueue[i];
       try {
         const res = await item.execute();
-        if (res.success) {
-          sentCount++;
+        if (res.skipped) {
+          skippedCount += res.skippedCount !== undefined ? res.skippedCount : 1;
+          processLogs.push(`[Dilewati] ${res.log}`);
+        } else if (res.success) {
+          const count = res.sentCount !== undefined ? res.sentCount : 1;
+          sentCount += count;
           consecutiveErrors = 0;
           processLogs.push(res.log);
         } else {
@@ -1603,7 +1643,25 @@ async function handleScheduleReminders(request: NextRequest) {
 
     const remainingInQueue = Math.max(0, dispatchQueue.length - (sentCount + failedCount));
 
-    if (hasActivity && !isDryRun && adminPhone) {
+    // Throttling: Jika tidak ada pesan gagal (failedCount === 0), batasi laporan admin maksimal 1 kali per 30 menit
+    // untuk mencegah notifikasi laporan berulang tiap menit ketika cron berjalan rutin.
+    let isThrottled = false;
+    if (hasActivity && !isDryRun && adminPhone && failedCount === 0) {
+      const recentAdminReport = await prisma.whatsAppMessageLog.findFirst({
+        where: {
+          recipientPhone: adminPhone,
+          templateCode: 'CRON_ADMIN_BATCH_REPORT',
+          createdAt: { gte: new Date(now.getTime() - 30 * 60 * 1000) },
+          status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+        },
+      });
+      if (recentAdminReport) {
+        isThrottled = true;
+        console.log('[Cron ScheduleReminders] ℹ️ Laporan batch admin dilewati (sudah terkirim dalam 30 menit terakhir).');
+      }
+    }
+
+    if (hasActivity && !isDryRun && adminPhone && !isThrottled) {
       try {
         const timeStr = new Intl.DateTimeFormat('id-ID', {
           weekday: 'long',
@@ -1687,6 +1745,7 @@ async function handleScheduleReminders(request: NextRequest) {
           message: adminReportText,
           recipientName: 'Admin Pengajian',
           messageType: 'CUSTOM_DIRECT',
+          templateCode: 'CRON_ADMIN_BATCH_REPORT',
         });
         console.log(`[Cron ScheduleReminders] 📲 Laporan batch komprehensif dikirim ke Admin (${adminPhone})`);
       } catch (adminSendErr) {
