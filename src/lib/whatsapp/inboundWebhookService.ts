@@ -803,29 +803,18 @@ export async function processInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // KASUS F: PESAN LAINNYA / PERTANYAAN UMUM
+  // KASUS F: PESAN TANPA KATA KUNCI (SILENT / TIDAK MERESPON DEMI MENCEGAH SPAM)
   // =========================================================================
-  const generalReply =
-    `Assalamu'alaikum Warahmatullahi Wabarakatuh,\n\n` +
-    `Terima kasih telah menghubungi Layanan Notifikasi Sistem Pengajian.\n\n` +
-    `Nomor ini beroperasi sebagai pusat pengingat dan notifikasi otomatis. Pesan obrolan masuk tidak dipantau secara langsung oleh admin.\n\n` +
-    `Panduan Layanan:\n` +
-    `*• Pengajuan Izin* _Kirim pesan memuat kata izin atau sakit untuk mendapatkan tautan formulir instan_\n` +
-    `*• Jadwal & Presensi* _Gunakan tautan portal yang tertera pada pesan pengingat jadwal sebelumnya_\n` +
-    `*• Konsultasi Langsung* _Silakan hubungi Wali Kelas atau Pengurus Wilayah setempat_\n\n` +
-    `Alhamdulillah Jazakumullahu Khairan.\n` +
-    `— *Pengurus Pengajian*`;
-
-  await sendReplyWithTyping(replyDestination, {
-    messageType: 'CUSTOM_DIRECT',
-    message: generalReply,
-  });
+  // Jika pesan pengguna tidak mengandung kata kunci yang dikenali (misal: stiker, reaksi,
+  // atau percakapan acak), bot tetap diam tanpa mengirimkan balasan otomatis.
+  console.log(
+    `[Inbound WhatsApp] Pesan dari ${replyDestination} tidak memuat kata kunci ("${rawText}"). Bot tetap diam (silent / no-reply).`
+  );
 
   return {
-    handled: true,
+    handled: false,
     intent: 'OTHER',
-    replySent: true,
-    replyMessage: generalReply,
+    replySent: false,
     recipientPhone: replyDestination,
   };
 }
