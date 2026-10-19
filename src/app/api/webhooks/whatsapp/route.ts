@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { WhatsAppMessageStatus } from '@prisma/client';
 import { processInboundWhatsAppMessage } from '@/lib/whatsapp/inboundWebhookService';
-import { isWhatsAppGroupJid } from '@/lib/whatsapp/utils';
+import { isWhatsAppGroupJid, extractCleanPhoneFromJid } from '@/lib/whatsapp/utils';
 import {
   processGroupInboundWhatsAppMessage,
   extractMentionedJids,
@@ -125,16 +125,24 @@ export async function POST(req: NextRequest) {
 
     for (const candidate of authorCandidates) {
       if (typeof candidate === 'string' && candidate.trim()) {
-        const clean = candidate.trim();
-        if (clean.includes('@c.us') || clean.includes('@s.whatsapp.net')) {
-          authorPhone = clean.replace(/@.*$/, '');
-          break;
-        } else if (!clean.includes('@lid') && !clean.includes('@g.us') && /\d{9,15}/.test(clean)) {
-          authorPhone = clean;
+        const cleanPhone = extractCleanPhoneFromJid(candidate);
+        if (cleanPhone) {
+          authorPhone = cleanPhone;
           break;
         }
       }
     }
+
+    // Ekstrak ID pesan yang dikutip / di-reply (quoted stanza ID / reply-to ID)
+    const quotedMessageId: string | undefined =
+      body.payload?._data?.quotedStanzaID ||
+      body.payload?._data?.contextInfo?.stanzaId ||
+      body.payload?.replyTo?.id ||
+      body.payload?.quotedMsg?.id ||
+      body.payload?.contextInfo?.stanzaId ||
+      body.quotedMsgId ||
+      body.quotedMessageId ||
+      undefined;
 
     const incomingText =
       body.payload?.body ||
@@ -193,7 +201,7 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(
-        `[WhatsApp Webhook] Pesan pribadi masuk dari ${sender} (authorPhone: ${authorPhone || '-'}): "${incomingText}"`
+        `[WhatsApp Webhook] Pesan pribadi masuk dari ${sender} (authorPhone: ${authorPhone || '-'}, quotedMessageId: ${quotedMessageId || '-'}): "${incomingText}"`
       );
 
       // Delegasikan ke Smart Webhook Auto-Responder Service (1-on-1 direct chat)
@@ -203,6 +211,7 @@ export async function POST(req: NextRequest) {
         fromMe: Boolean(fromMe),
         messageId: msgId ? String(msgId) : undefined,
         authorPhone,
+        quotedMessageId,
       });
 
       return NextResponse.json({

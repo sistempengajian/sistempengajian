@@ -22,10 +22,28 @@ export function isWhatsAppLidJid(target: string | null | undefined): boolean {
 export function normalizeRecipientDestination(rawTarget: string | null | undefined): string | null {
   if (!rawTarget) return null;
   const trimmed = rawTarget.trim();
-  if (isWhatsAppGroupJid(trimmed) || isWhatsAppLidJid(trimmed) || trimmed.endsWith('@c.us')) {
+  if (isWhatsAppGroupJid(trimmed) || isWhatsAppLidJid(trimmed) || trimmed.endsWith('@c.us') || trimmed.endsWith('@s.whatsapp.net')) {
     return trimmed;
   }
   return normalizePhoneNumber(trimmed);
+}
+
+/**
+ * Mengekstrak dan membersihkan nomor telepon dari berbagai format JID WhatsApp
+ * (termasuk multi-device suffix seperti 628xxx:1@c.us atau 628xxx:2@s.whatsapp.net).
+ * Mengabaikan JID Grup (@g.us) dan LID (@lid).
+ */
+export function extractCleanPhoneFromJid(rawJid: string | null | undefined): string | null {
+  if (!rawJid) return null;
+  const trimmed = rawJid.trim();
+  if (trimmed.includes('@lid') || trimmed.includes('@g.us')) return null;
+
+  // Pisahkan bagian domain (@c.us, @s.whatsapp.net, dll)
+  const withoutDomain = trimmed.split('@')[0];
+  // Pisahkan multi-device index suffix (:0, :1, :2, dll)
+  const withoutDevice = withoutDomain.split(':')[0];
+
+  return normalizePhoneNumber(withoutDevice);
 }
 
 export function normalizePhoneNumber(rawPhone: string | null | undefined): string | null {

@@ -3,6 +3,7 @@ import { whatsAppClient } from './WhatsAppClient';
 import { SendMessageOptions } from './types';
 import {
   normalizePhoneNumber,
+  extractCleanPhoneFromJid,
   getCanonicalPhoneVariants,
   formatParentSalutation,
   formatStudentSalutation,
@@ -168,6 +169,127 @@ function formatIndonesianTime(date: Date): string {
   });
 }
 
+const INBOUND_USER_INCLUDE = {
+  roles: true,
+  children: {
+    include: {
+      student: {
+        include: {
+          generation: true,
+          organization: true,
+        },
+      },
+    },
+  },
+  generation: true,
+  organization: true,
+};
+
+/**
+ * Resolusi data pengguna pengirim melalui 4 lapisan identifikasi:
+ * Lapisan 1: JID / Nomor HP kanonikal pengirim (membersihkan multi-device suffix seperti :1@c.us, :2@s.whatsapp.net, dll)
+ * Lapisan 2: ID WhatsApp LID (@lid) yang sudah tersimpan pada profil user
+ * Lapisan 3: Riwayat pesan keluar (whatsAppMessageLog) via quotedMessageId (stanzaId pengingat sebelumnya)
+ * Lapisan 4: Nomor HP yang diketikkan di dalam teks pesan (fallback registrasi/penautan mandiri)
+ *
+ * Serta otomatis menautkan whatsappLid jika berhasil diidentifikasi dari kanal @lid.
+ */
+async function resolveInboundUser(params: {
+  replyDestination: string;
+  normalizedPhone: string | null;
+  quotedMessageId?: string;
+  rawText?: string;
+}) {
+  const { replyDestination, normalizedPhone, quotedMessageId, rawText } = params;
+
+  // 1. Cari berdasarkan whatsappLid atau normalizedPhone
+  const userConditions: any[] = [{ whatsappLid: replyDestination }];
+  if (normalizedPhone) {
+    userConditions.push({ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } });
+  }
+
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: userConditions,
+      status: 'ACTIVE',
+    },
+    include: INBOUND_USER_INCLUDE,
+  });
+
+  // 2. Jika belum ditemukan dan ada quotedMessageId, cari dari riwayat pengiriman pesan keluar (whatsAppMessageLog)
+  if (!user && quotedMessageId) {
+    const cleanQuotedId = quotedMessageId.trim();
+    const quotedLog = await prisma.whatsAppMessageLog.findFirst({
+      where: {
+        OR: [
+          { gatewayMessageId: cleanQuotedId },
+          { gatewayMessageId: { endsWith: cleanQuotedId } },
+        ],
+      },
+      select: {
+        recipientUserId: true,
+        recipientPhone: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (quotedLog) {
+      if (quotedLog.recipientUserId) {
+        user = await prisma.user.findFirst({
+          where: {
+            id: quotedLog.recipientUserId,
+            status: 'ACTIVE',
+          },
+          include: INBOUND_USER_INCLUDE,
+        });
+      }
+
+      if (!user && quotedLog.recipientPhone) {
+        const logCleanPhone = extractCleanPhoneFromJid(quotedLog.recipientPhone);
+        if (logCleanPhone) {
+          user = await prisma.user.findFirst({
+            where: {
+              phoneNumber: { in: getCanonicalPhoneVariants(logCleanPhone) },
+              status: 'ACTIVE',
+            },
+            include: INBOUND_USER_INCLUDE,
+          });
+        }
+      }
+    }
+  }
+
+  // 3. Jika belum ditemukan, periksa apakah pengguna menyertakan nomor HP dalam pesan teksnya
+  if (!user && rawText) {
+    const phoneRegex = /\b(08\d{8,12}|628\d{8,12}|\+628\d{8,12})\b/;
+    const match = rawText.match(phoneRegex);
+    if (match) {
+      const extractedPhone = normalizePhoneNumber(match[1]);
+      if (extractedPhone) {
+        user = await prisma.user.findFirst({
+          where: {
+            phoneNumber: { in: getCanonicalPhoneVariants(extractedPhone) },
+            status: 'ACTIVE',
+          },
+          include: INBOUND_USER_INCLUDE,
+        });
+      }
+    }
+  }
+
+  // 4. Auto-link whatsappLid jika user berhasil ditemukan dan kanal masuk adalah @lid
+  if (user && isWhatsAppLidJid(replyDestination) && user.whatsappLid !== replyDestination) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { whatsappLid: replyDestination },
+    }).catch((err) => {
+      console.error(`[WhatsApp Inbound] Gagal auto-link whatsappLid ${replyDestination} ke user ${user.id}:`, err);
+    });
+  }
+
+  return user;
+}
+
 export interface InboundMessagePayload {
   from: string;
   body: string;
@@ -175,6 +297,7 @@ export interface InboundMessagePayload {
   messageId?: string;
   timestamp?: number;
   authorPhone?: string;
+  quotedMessageId?: string;
 }
 
 export interface InboundProcessResult {
@@ -228,10 +351,10 @@ export async function processInboundWhatsAppMessage(
   // 2. Normalisasi nomor telepon pengirim untuk pencarian database profil pengguna
   let cleanPhoneCandidate: string | null = null;
   if (payload.authorPhone) {
-    cleanPhoneCandidate = normalizePhoneNumber(payload.authorPhone);
+    cleanPhoneCandidate = extractCleanPhoneFromJid(payload.authorPhone) || normalizePhoneNumber(payload.authorPhone);
   }
-  if (!cleanPhoneCandidate && payload.from.endsWith('@c.us')) {
-    cleanPhoneCandidate = normalizePhoneNumber(payload.from.replace(/@c\.us$/, ''));
+  if (!cleanPhoneCandidate && payload.from) {
+    cleanPhoneCandidate = extractCleanPhoneFromJid(payload.from);
   }
   if (!cleanPhoneCandidate && !payload.from.includes('@')) {
     cleanPhoneCandidate = normalizePhoneNumber(payload.from);
@@ -304,82 +427,13 @@ export async function processInboundWhatsAppMessage(
   // KASUS A: INTENT IZIN / SAKIT (SMART ABSENCE AUTO-RESPONDER)
   // =========================================================================
   if (isAbsence) {
-    // 1. Cari User di database berdasarkan whatsappLid ATAU nomor HP
-    const userConditions: any[] = [{ whatsappLid: replyDestination }];
-    if (normalizedPhone) {
-      userConditions.push({ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } });
-    }
-
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: userConditions,
-        status: 'ACTIVE',
-      },
-      include: {
-        roles: true,
-        children: {
-          include: {
-            student: {
-              include: {
-                generation: true,
-                organization: true,
-              },
-            },
-          },
-        },
-        generation: true,
-        organization: true,
-      },
+    // Resolusi User melalui strategi 4 lapisan (Phone Kanonikal, WhatsApp LID, Quoted Reminder Log, atau Input Nomor Teks)
+    const user = await resolveInboundUser({
+      replyDestination,
+      normalizedPhone,
+      quotedMessageId: payload.quotedMessageId,
+      rawText,
     });
-
-    // 2. Jika belum ditemukan, periksa apakah pengguna menyertakan nomor HP dalam pesan teksnya
-    if (!user) {
-      const phoneRegex = /\b(08\d{8,12}|628\d{8,12}|\+628\d{8,12})\b/;
-      const match = rawText.match(phoneRegex);
-      if (match) {
-        const extractedPhone = normalizePhoneNumber(match[1]);
-        if (extractedPhone) {
-          const userByPhone = await prisma.user.findFirst({
-            where: {
-              phoneNumber: { in: getCanonicalPhoneVariants(extractedPhone) },
-              status: 'ACTIVE',
-            },
-            include: {
-              roles: true,
-              children: {
-                include: {
-                  student: {
-                    include: {
-                      generation: true,
-                      organization: true,
-                    },
-                  },
-                },
-              },
-              generation: true,
-              organization: true,
-            },
-          });
-
-          if (userByPhone) {
-            user = userByPhone;
-            // Tautkan whatsappLid secara otomatis
-            if (isWhatsAppLidJid(replyDestination)) {
-              await prisma.user.update({
-                where: { id: user.id },
-                data: { whatsappLid: replyDestination },
-              }).catch(() => {});
-            }
-          }
-        }
-      }
-    } else if (isWhatsAppLidJid(replyDestination) && user.whatsappLid !== replyDestination) {
-      // Auto-cache whatsappLid jika user ditemukan via phone tapi belum tersimpan LID-nya
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { whatsappLid: replyDestination },
-      }).catch(() => {});
-    }
 
     const now = new Date();
     const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 jam ke belakang
@@ -717,15 +771,11 @@ export async function processInboundWhatsAppMessage(
   // Pengguna membalas pengingat jadwal dengan kesiapan hadir
   // =========================================================================
   if (isAffirmation) {
-    const userSender = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { whatsappLid: replyDestination },
-          ...(normalizedPhone ? [{ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } }] : []),
-        ],
-        status: 'ACTIVE',
-      },
-      include: { roles: true },
+    const userSender = await resolveInboundUser({
+      replyDestination,
+      normalizedPhone,
+      quotedMessageId: payload.quotedMessageId,
+      rawText,
     });
 
     const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
