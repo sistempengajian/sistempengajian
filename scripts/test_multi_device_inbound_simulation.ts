@@ -12,9 +12,9 @@ async function runMultiDeviceSimulation() {
   let passedTests = 0;
   let totalTests = 0;
 
-  function assert(condition: boolean, testName: string, detail?: string) {
+  function assert(condition: unknown, testName: string, detail?: string) {
     totalTests++;
-    if (condition) {
+    if (Boolean(condition)) {
       console.log(`✅ [PASS] ${testName}`);
       passedTests++;
     } else {
@@ -172,7 +172,7 @@ async function runMultiDeviceSimulation() {
     assert(resSubsequent.handled === true, 'Pesan lanjutan dari LID berhasil di-handle tanpa quote');
     assert(resSubsequent.intent === 'AFFIRMATION', 'Intent AFFIRMATION berhasil terdeteksi');
     assert(
-      resSubsequent.replyMessage?.includes('Alhamdulillah, terima kasih atas konfirmasinya'),
+      Boolean(resSubsequent.replyMessage?.includes('Alhamdulillah, terima kasih atas konfirmasinya')),
       'Balasan konfirmasi kehadiran terkirim sukses'
     );
 
