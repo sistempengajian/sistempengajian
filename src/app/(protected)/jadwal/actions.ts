@@ -463,6 +463,8 @@ export async function updateSchedule(formData: FormData) {
       const notificationData = await getScheduleChangeNotificationPreview({
         scheduleId,
         changeDescription: changeDesc,
+        isUrgentShortNotice: eligibility.isUrgentShortNotice,
+        warningMessage: eligibility.warningMessage,
       });
 
       if (notificationData) {
@@ -637,6 +639,8 @@ export async function updateScheduleStatus(scheduleId: string, status: ScheduleS
       const notificationData = await getScheduleChangeNotificationPreview({
         scheduleId,
         changeDescription: changeDesc,
+        isUrgentShortNotice: eligibility.isUrgentShortNotice,
+        warningMessage: eligibility.warningMessage,
       });
 
       if (notificationData) {

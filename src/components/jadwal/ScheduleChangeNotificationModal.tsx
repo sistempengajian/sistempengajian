@@ -12,6 +12,7 @@ import {
   MapPin,
   CheckCheck,
   AlertCircle,
+  AlertTriangle,
   X,
 } from 'lucide-react';
 import { confirmAndDispatchScheduleChangeNotification } from '@/app/(protected)/jadwal/actions';
@@ -27,6 +28,8 @@ export interface ScheduleNotificationData {
   venueName: string;
   teacherNames: string;
   estimatedRecipientsCount: number;
+  isUrgentShortNotice?: boolean;
+  warningMessage?: string;
 }
 
 interface ScheduleChangeNotificationModalProps {
@@ -153,6 +156,22 @@ export default function ScheduleChangeNotificationModal({
             </div>
           )}
 
+          {/* Soft-Warning Banner untuk Perubahan Mendadak (< 5 Jam) */}
+          {data.isUrgentShortNotice && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300/80 text-amber-900 flex items-start gap-3 shadow-2xs animate-fade-in">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 text-xs">
+                <span className="font-bold flex items-center gap-1.5 text-amber-950">
+                  Peringatan: Perubahan Mendadak (&lt; 5 Jam)
+                </span>
+                <p className="text-amber-800/90 text-[11px] leading-relaxed">
+                  {data.warningMessage ||
+                    'Perubahan jadwal dilakukan kurang dari 5 jam sebelum waktu pelaksanaan. Kirimkan pesan WhatsApp hanya jika bersifat mendesak/darurat bagi peserta, atau pilih Bisukan jika tidak ingin mengirim pesan WA.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Target Audience Pill & Auto-Revoke Badge */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700">
@@ -235,7 +254,11 @@ export default function ScheduleChangeNotificationModal({
             type="button"
             onClick={handleSend}
             disabled={isSending}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer ${
+              data.isUrgentShortNotice
+                ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-md shadow-amber-600/25'
+                : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-md shadow-emerald-600/20'
+            }`}
           >
             {isSending ? (
               <>
@@ -245,7 +268,7 @@ export default function ScheduleChangeNotificationModal({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>Kirimkan Pesan</span>
+                <span>{data.isUrgentShortNotice ? 'Kirim Pesan Darurat' : 'Kirimkan Pesan'}</span>
               </>
             )}
           </button>

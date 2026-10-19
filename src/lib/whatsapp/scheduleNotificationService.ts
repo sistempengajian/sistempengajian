@@ -170,21 +170,30 @@ export async function getTargetStudentsForSchedule(schedule: NonNullable<Awaited
 }
 
 /**
- * 1. Evaluasi Kelayakan Pengiriman Notifikasi Perubahan Jadwal:
- * - Syarat 1: Jadwal lama belum terlewat lebih dari 5 jam (now - oldStartTime <= 5 jam).
- * - Syarat 2: Perubahan terjadi minimal 5 jam sebelum waktu jadwal baru (newStartTime - now >= 5 jam).
+ * 1. Evaluasi Kelayakan Pengiriman Notifikasi Perubahan Jadwal (Opsi C: Soft-Warning):
+ * - Syarat Mutlak: Jadwal lama belum terlewat lebih dari 5 jam (now - oldStartTime <= 5 jam).
+ *   Jika jadwal lama sudah lewat > 5 jam, perubahan dianggap arsip masa lalu sehingga modal tidak muncul.
+ * - Deteksi Peringatan Mendadak (< 5 jam):
+ *   Jika perubahan dilakukan kurang dari 5 jam sebelum waktu jadwal baru (newStartTime - now < 5 jam),
+ *   modal konfirmasi TETAP MUNCUL namun ditandai sebagai `isUrgentShortNotice: true` dengan pesan peringatan
+ *   agar Admin hanya mengirimkan jika bersifat mendesak/darurat (seperti pembatalan sesi / ustadz sakit).
  */
 export function checkScheduleChangeNotificationEligibility(
   oldStartTime: Date,
   newStartTime: Date,
   now = new Date()
-): { isEligible: boolean; reason?: string } {
+): {
+  isEligible: boolean;
+  reason?: string;
+  isUrgentShortNotice?: boolean;
+  warningMessage?: string;
+} {
   const fiveHoursMs = 5 * 60 * 60 * 1000;
   const oldStartMs = new Date(oldStartTime).getTime();
   const newStartMs = new Date(newStartTime).getTime();
   const nowMs = now.getTime();
 
-  // Syarat 1: Jadwal lama belum terlewat lebih dari 5 jam
+  // Syarat Mutlak: Jadwal lama belum terlewat lebih dari 5 jam
   if (nowMs - oldStartMs > fiveHoursMs) {
     return {
       isEligible: false,
@@ -192,15 +201,17 @@ export function checkScheduleChangeNotificationEligibility(
     };
   }
 
-  // Syarat 2: Perubahan terjadi minimal 5 jam sebelum waktu jadwal baru
-  if (newStartMs - nowMs < fiveHoursMs) {
-    return {
-      isEligible: false,
-      reason: 'Perubahan jadwal dilakukan kurang dari 5 jam sebelum waktu jadwal baru.',
-    };
-  }
+  // Deteksi perubahan mendadak (< 5 jam sebelum jadwal baru)
+  const isUrgentShortNotice = newStartMs - nowMs < fiveHoursMs;
+  const warningMessage = isUrgentShortNotice
+    ? 'Perubahan jadwal dilakukan kurang dari 5 jam sebelum sesi dimulai. Kirimkan pesan hanya jika bersifat mendesak/darurat bagi peserta, atau pilih Bisukan jika tidak ingin mengirim pesan WA.'
+    : undefined;
 
-  return { isEligible: true };
+  return {
+    isEligible: true,
+    isUrgentShortNotice,
+    warningMessage,
+  };
 }
 
 export interface ScheduleNotificationPreviewData {
@@ -214,6 +225,8 @@ export interface ScheduleNotificationPreviewData {
   venueName: string;
   teacherNames: string;
   estimatedRecipientsCount: number;
+  isUrgentShortNotice?: boolean;
+  warningMessage?: string;
 }
 
 /**
@@ -222,6 +235,8 @@ export interface ScheduleNotificationPreviewData {
 export async function getScheduleChangeNotificationPreview(params: {
   scheduleId: string;
   changeDescription: string;
+  isUrgentShortNotice?: boolean;
+  warningMessage?: string;
 }): Promise<ScheduleNotificationPreviewData | null> {
   const schedule = await getScheduleDetailForNotification(params.scheduleId);
   if (!schedule) return null;
@@ -287,6 +302,8 @@ export async function getScheduleChangeNotificationPreview(params: {
     venueName,
     teacherNames,
     estimatedRecipientsCount: recipientPhones.size,
+    isUrgentShortNotice: params.isUrgentShortNotice,
+    warningMessage: params.warningMessage,
   };
 }
 
