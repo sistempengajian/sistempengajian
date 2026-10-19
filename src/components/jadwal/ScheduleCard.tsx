@@ -28,6 +28,9 @@ import { ScheduleStatus, ScheduleType, TierLevel } from '@prisma/client';
 import {
   updateScheduleStatus,
 } from '@/app/(protected)/jadwal/actions';
+import ScheduleChangeNotificationModal, {
+  ScheduleNotificationData,
+} from './ScheduleChangeNotificationModal';
 
 export interface TeacherRelation {
   teacher: {
@@ -132,6 +135,7 @@ export default function ScheduleCard({
   const [isPending, startTransition] = useTransition();
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const [notificationModalData, setNotificationModalData] = useState<ScheduleNotificationData | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [isTeacherTooltipOpen, setIsTeacherTooltipOpen] = useState(false);
   const teacherTooltipRef = useRef<HTMLDivElement>(null);
@@ -276,6 +280,8 @@ export default function ScheduleCard({
       const res = await updateScheduleStatus(schedule.id, newStatus);
       if (res.error) {
         alert(res.error);
+      } else if (res.needsConfirmation && res.notificationData) {
+        setNotificationModalData(res.notificationData);
       }
     });
   };
@@ -771,6 +777,15 @@ export default function ScheduleCard({
           </Link>
         </div>
       </div>
+
+      {notificationModalData && (
+        <ScheduleChangeNotificationModal
+          isOpen={!!notificationModalData}
+          data={notificationModalData}
+          onClose={() => setNotificationModalData(null)}
+          onSuccess={() => setNotificationModalData(null)}
+        />
+      )}
     </div>
   );
 }

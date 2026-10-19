@@ -27,6 +27,9 @@ import {
 import { TierLevel, ScheduleStatus, RollingTargetScope } from '@prisma/client';
 import { createSchedule, updateSchedule } from '@/app/(protected)/jadwal/actions';
 import { ScheduleItem } from './ScheduleCard';
+import ScheduleChangeNotificationModal, {
+  ScheduleNotificationData,
+} from './ScheduleChangeNotificationModal';
 import {
   AvailableTeacher,
   AvailableClass,
@@ -105,6 +108,7 @@ export default function ScheduleFormModal({
   const [notes, setNotes] = useState('');
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notificationModalData, setNotificationModalData] = useState<ScheduleNotificationData | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Batasan peran PJ:
@@ -434,6 +438,8 @@ export default function ScheduleFormModal({
         const res = await updateSchedule(formData);
         if (res.error) {
           setErrorMessage(res.error);
+        } else if (res.needsConfirmation && res.notificationData) {
+          setNotificationModalData(res.notificationData);
         } else {
           onSuccess();
           onClose();
@@ -1269,6 +1275,23 @@ export default function ScheduleFormModal({
           </button>
         </div>
       </div>
+
+      {notificationModalData && (
+        <ScheduleChangeNotificationModal
+          isOpen={!!notificationModalData}
+          data={notificationModalData}
+          onClose={() => {
+            setNotificationModalData(null);
+            onSuccess();
+            onClose();
+          }}
+          onSuccess={() => {
+            setNotificationModalData(null);
+            onSuccess();
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

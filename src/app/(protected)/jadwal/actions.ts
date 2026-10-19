@@ -5,7 +5,13 @@ import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, RollingTargetScope, UserRole, ApprovalStatus } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
-import { notifyScheduleChangeIfHariH, broadcastScheduleReminder } from '@/lib/whatsapp/scheduleNotificationService';
+import {
+  notifyScheduleChangeIfHariH,
+  broadcastScheduleReminder,
+  checkScheduleChangeNotificationEligibility,
+  getScheduleChangeNotificationPreview,
+  dispatchConfirmedScheduleChangeNotification,
+} from '@/lib/whatsapp/scheduleNotificationService';
 
 function parseArrayField(formData: FormData, fieldName: string): string[] {
   const val = formData.get(fieldName) as string;
@@ -294,6 +300,7 @@ export async function updateSchedule(formData: FormData) {
       organizationId: true,
       approvalStatus: true,
       requestedByUserId: true,
+      startTime: true,
     },
   });
 
@@ -442,18 +449,37 @@ export async function updateSchedule(formData: FormData) {
     revalidatePath(`/jadwal/${scheduleId}`);
     revalidatePath('/dashboard');
 
-    // Pemicu Notifikasi Darurat jika jadwal diubah pada Hari-H
-    try {
-      const changeDesc = `Pembaruan jadwal: Waktu ${startDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB di ${venuePlaceName}. ${notes ? `Catatan: ${notes}` : ''}`;
-      await notifyScheduleChangeIfHariH({
+    // Evaluasi Aturan 5 Jam untuk Notifikasi Perubahan Jadwal:
+    // 1. Jadwal lama belum terlewat lebih dari 5 jam (now - oldStartTime <= 5 jam)
+    // 2. Perubahan terjadi minimal 5 jam sebelum waktu jadwal baru (newStartTime - now >= 5 jam)
+    const eligibility = checkScheduleChangeNotificationEligibility(
+      existingSchedule.startTime,
+      startDate
+    );
+
+    if (eligibility.isEligible) {
+      const changeDesc = `Pembaruan jadwal: Waktu ${startDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB di ${venuePlaceName}.${notes ? ` Catatan: ${notes}` : ''}`;
+
+      const notificationData = await getScheduleChangeNotificationPreview({
         scheduleId,
         changeDescription: changeDesc,
       });
-    } catch (notifErr) {
-      console.error('Non-blocking error dispatching Hari-H schedule change notification:', notifErr);
+
+      if (notificationData) {
+        return {
+          success: true,
+          needsConfirmation: true,
+          notificationData,
+          message: 'Jadwal pengajian berhasil diperbarui.',
+        };
+      }
     }
 
-    return { success: true, message: 'Jadwal pengajian berhasil diperbarui.' };
+    return {
+      success: true,
+      needsConfirmation: false,
+      message: 'Jadwal pengajian berhasil diperbarui.',
+    };
   } catch (err: any) {
     console.error('Error in updateSchedule:', err);
     return { error: err.message || 'Gagal memperbarui jadwal pengajian.' };
@@ -567,6 +593,15 @@ export async function updateScheduleStatus(scheduleId: string, status: ScheduleS
   }
 
   try {
+    const existing = await prisma.schedule.findUnique({
+      where: { id: scheduleId },
+      select: { id: true, startTime: true, status: true, title: true },
+    });
+
+    if (!existing) {
+      return { error: 'Jadwal tidak ditemukan.' };
+    }
+
     await prisma.schedule.update({
       where: { id: scheduleId },
       data: { status },
@@ -580,26 +615,95 @@ export async function updateScheduleStatus(scheduleId: string, status: ScheduleS
       });
     }
 
-    // Jika sesi diliburkan / dibatalkan pada Hari-H, kirim notifikasi darurat
-    if (status === 'CANCELLED') {
-      try {
-        await notifyScheduleChangeIfHariH({
-          scheduleId,
-          changeDescription: 'PENGUMUMAN: Sesi pengajian pada hari ini DILIBURKAN / DIBATALKAN.',
-        });
-      } catch (notifErr) {
-        console.error('Non-blocking error sending cancel notification:', notifErr);
-      }
-    }
-
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
     revalidatePath('/presensi');
     revalidatePath('/dashboard');
-    return { success: true, status };
+
+    // Evaluasi aturan 5 jam untuk notifikasi perubahan status:
+    // 1. Jadwal belum terlewat lebih dari 5 jam
+    // 2. Perubahan terjadi minimal 5 jam sebelum waktu jadwal baru
+    const eligibility = checkScheduleChangeNotificationEligibility(
+      existing.startTime,
+      existing.startTime
+    );
+
+    if (eligibility.isEligible && (status === 'CANCELLED' || status === 'SCHEDULED' || status === 'ACTIVE')) {
+      const changeDesc =
+        status === 'CANCELLED'
+          ? 'PENGUMUMAN: Sesi pengajian pada hari ini DILIBURKAN / DIBATALKAN.'
+          : `Pembaruan status sesi pengajian menjadi: ${status === 'ACTIVE' ? 'Sedang Berlangsung' : 'Terjadwal'}.`;
+
+      const notificationData = await getScheduleChangeNotificationPreview({
+        scheduleId,
+        changeDescription: changeDesc,
+      });
+
+      if (notificationData) {
+        return {
+          success: true,
+          status,
+          needsConfirmation: true,
+          notificationData,
+        };
+      }
+    }
+
+    return { success: true, status, needsConfirmation: false };
   } catch (err: any) {
     console.error('Error in updateScheduleStatus:', err);
     return { error: err.message || 'Gagal mengubah status jadwal.' };
+  }
+}
+
+/**
+ * Server action untuk mengeksekusi pengiriman notifikasi perubahan jadwal
+ * setelah dikonfirmasi oleh Admin melalui modal konfirmasi
+ */
+export async function confirmAndDispatchScheduleChangeNotification(params: {
+  scheduleId: string;
+  changeDescription: string;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Anda harus masuk untuk mengirimkan notifikasi.' };
+  }
+
+  const userProfile = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { roles: true },
+  });
+
+  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const isManager = roleCodes.some((r) =>
+    ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r)
+  );
+
+  if (!isManager) {
+    return {
+      error:
+        'Hanya Pengurus Wilayah yang berwenang mengirimkan notifikasi siaran pembaruan jadwal.',
+    };
+  }
+
+  try {
+    const result = await dispatchConfirmedScheduleChangeNotification({
+      scheduleId: params.scheduleId,
+      changeDescription: params.changeDescription,
+    });
+
+    revalidatePath('/jadwal');
+    revalidatePath(`/jadwal/${params.scheduleId}`);
+    revalidatePath('/dashboard');
+
+    return result;
+  } catch (err: any) {
+    console.error('Error in confirmAndDispatchScheduleChangeNotification:', err);
+    return { error: err.message || 'Gagal mengirim notifikasi perubahan jadwal.' };
   }
 }
 

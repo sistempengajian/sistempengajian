@@ -44,6 +44,9 @@ import {
   broadcastScheduleReminderAction,
 } from '@/app/(protected)/jadwal/actions';
 import ScheduleFormModal from '../ScheduleFormModal';
+import ScheduleChangeNotificationModal, {
+  ScheduleNotificationData,
+} from '../ScheduleChangeNotificationModal';
 import {
   AvailableTeacher,
   AvailableClass,
@@ -168,6 +171,7 @@ export default function ScheduleDetailView({
   const [rejectionReason, setRejectionReason] = useState('');
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [notificationModalData, setNotificationModalData] = useState<ScheduleNotificationData | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const isPersonal = progressData?.mode === 'PERSONAL';
@@ -294,6 +298,8 @@ export default function ScheduleDetailView({
       const res = await updateScheduleStatus(schedule.id, newStatus);
       if (res.error) {
         alert(res.error);
+      } else if (res.needsConfirmation && res.notificationData) {
+        setNotificationModalData(res.notificationData);
       } else {
         router.refresh();
       }
@@ -1765,6 +1771,21 @@ export default function ScheduleDetailView({
           </div>
         )
       }
+
+      {notificationModalData && (
+        <ScheduleChangeNotificationModal
+          isOpen={!!notificationModalData}
+          data={notificationModalData}
+          onClose={() => {
+            setNotificationModalData(null);
+            router.refresh();
+          }}
+          onSuccess={() => {
+            setNotificationModalData(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div >
   );
 }
