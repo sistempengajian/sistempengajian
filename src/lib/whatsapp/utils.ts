@@ -330,3 +330,24 @@ export function getBaseAppUrl(): string {
   }
   return 'http://localhost:3000';
 }
+
+export function formatTime(date: Date): string {
+  const formatted = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Jakarta',
+  }).format(date);
+  return formatted.replace('.', ':');
+}
+
+export function formatIndonesianDate(date: Date): string {
+  const formatted = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta',
+  }).format(date);
+  return formatted.replace(/^Minggu,/i, 'Ahad,');
+}
