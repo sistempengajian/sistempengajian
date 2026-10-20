@@ -9,6 +9,8 @@ import {
   resetChecklistItemOverride,
 } from '@/app/(protected)/kurikulum/actions';
 import { CompletionTierLevel } from '@prisma/client';
+import { useConfirm } from '@/components/ui/ConfirmModal';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface ChecklistItemModalProps {
   isOpen: boolean;
@@ -61,6 +63,7 @@ export default function ChecklistItemModal({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   const isModifiedFromOriginal = Boolean(
     itemToEdit && (
@@ -138,21 +141,30 @@ export default function ChecklistItemModal({
       ? `Hapus capaian "${itemToEdit.itemTitle}"?`
       : `Hapus penyesuaian versi ${tierLabel} untuk capaian "${itemToEdit.itemTitle}"? Capaian akan kembali ke nilai asli.`;
 
-    if (!window.confirm(confirmMsg)) return;
+    openConfirm(
+      {
+        title: itemToEdit.isNewLocal ? 'Hapus Capaian' : 'Hapus Penyesuaian Capaian',
+        description: confirmMsg,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+        cancelText: 'Batal',
+      },
+      () => {
+        startTransition(async () => {
+          const res =
+            itemToEdit.isNewLocal || (itemToEdit.organizationId && itemToEdit.organizationId !== null)
+              ? await deleteChecklistItem(itemToEdit.id)
+              : await resetChecklistItemOverride(materialId, itemToEdit.id);
 
-    startTransition(async () => {
-      const res =
-        itemToEdit.isNewLocal || (itemToEdit.organizationId && itemToEdit.organizationId !== null)
-          ? await deleteChecklistItem(itemToEdit.id)
-          : await resetChecklistItemOverride(materialId, itemToEdit.id);
-
-      if (res.error) {
-        setErrorMessage(res.error);
-      } else {
-        onSuccess();
-        onClose();
+          if (res.error) {
+            setErrorMessage(res.error);
+          } else {
+            onSuccess();
+            onClose();
+          }
+        });
       }
-    });
+    );
   };
 
   const handleResetItem = () => {
@@ -176,17 +188,26 @@ export default function ChecklistItemModal({
 
     // Jika butir ini telah tersimpan sebagai override di database, tawarkan reset di database
     if (itemToEdit.isOverridden) {
-      if (!window.confirm(`Kembalikan penyesuaian capaian "${itemToEdit.itemTitle}" ke versi asli?`)) return;
-
-      startTransition(async () => {
-        const res = await resetChecklistItemOverride(materialId, itemToEdit.id);
-        if (res.error) {
-          setErrorMessage(res.error);
-        } else {
-          onSuccess();
-          onClose();
+      openConfirm(
+        {
+          title: 'Kembalikan ke Versi Asli?',
+          description: `Kembalikan penyesuaian capaian "${itemToEdit.itemTitle}" ke versi asli?`,
+          variant: 'danger',
+          confirmText: 'Ya, Kembalikan',
+          cancelText: 'Batal',
+        },
+        () => {
+          startTransition(async () => {
+            const res = await resetChecklistItemOverride(materialId, itemToEdit.id);
+            if (res.error) {
+              setErrorMessage(res.error);
+            } else {
+              onSuccess();
+              onClose();
+            }
+          });
         }
-      });
+      );
     }
   };
 
@@ -311,22 +332,23 @@ export default function ChecklistItemModal({
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Otoritas Pengujian
               </label>
-              <select
+              <CustomSelect
                 value={completionTierLevel}
-                onChange={(e) => setCompletionTierLevel(e.target.value as CompletionTierLevel)}
-                className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer"
-              >
-                <option value={CompletionTierLevel.ANY_TIER}>Semua Tingkat (Ustadz)</option>
-                {(userTierLevel === 'DAERAH' ||
-                  userTierLevel === 'DESA' ||
-                  completionTierLevel === CompletionTierLevel.DESA_AND_ABOVE) && (
-                    <option value={CompletionTierLevel.DESA_AND_ABOVE}>Khusus Desa ke Atas</option>
-                  )}
-                {(userTierLevel === 'DAERAH' ||
-                  completionTierLevel === CompletionTierLevel.DAERAH_ONLY) && (
-                    <option value={CompletionTierLevel.DAERAH_ONLY}>Khusus Daerah</option>
-                  )}
-              </select>
+                onChange={(val) => setCompletionTierLevel(val as CompletionTierLevel)}
+                options={[
+                  { value: CompletionTierLevel.ANY_TIER, label: 'Semua Tingkat (Ustadz)' },
+                  ...((userTierLevel === 'DAERAH' ||
+                    userTierLevel === 'DESA' ||
+                    completionTierLevel === CompletionTierLevel.DESA_AND_ABOVE)
+                    ? [{ value: CompletionTierLevel.DESA_AND_ABOVE, label: 'Khusus Desa ke Atas' }]
+                    : []),
+                  ...((userTierLevel === 'DAERAH' ||
+                    completionTierLevel === CompletionTierLevel.DAERAH_ONLY)
+                    ? [{ value: CompletionTierLevel.DAERAH_ONLY, label: 'Khusus Daerah' }]
+                    : []),
+                ]}
+                placeholder="Pilih Otoritas Pengujian"
+              />
             </div>
           </div>
 
@@ -395,7 +417,8 @@ export default function ChecklistItemModal({
             </button>
           </div>
         </div>
-      </form >
-    </div >
+      </form>
+      {ConfirmModalComponent()}
+    </div>
   );
 }

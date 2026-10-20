@@ -55,6 +55,8 @@ import {
   ScopedOrganization,
 } from '../InteractiveCalendar';
 import CircularProgressBar from '@/components/kurikulum/CircularProgressBar';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 export interface ScheduleChecklistItemProgress {
   checklistItemId: string;
@@ -173,6 +175,8 @@ export default function ScheduleDetailView({
   const [broadcastStatus, setBroadcastStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [notificationModalData, setNotificationModalData] = useState<ScheduleNotificationData | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   const isPersonal = progressData?.mode === 'PERSONAL';
 
@@ -297,7 +301,7 @@ export default function ScheduleDetailView({
     startTransition(async () => {
       const res = await updateScheduleStatus(schedule.id, newStatus);
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else if (res.needsConfirmation && res.notificationData) {
         setNotificationModalData(res.notificationData);
       } else {
@@ -311,7 +315,7 @@ export default function ScheduleDetailView({
     startTransition(async () => {
       const res = await assignSubstituteTeacher(schedule.id, selectedSubstituteId);
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else {
         setIsBadalModalOpen(false);
         setSelectedSubstituteId('');
@@ -321,27 +325,45 @@ export default function ScheduleDetailView({
   };
 
   const handleRemoveBadal = () => {
-    if (!confirm('Cabut delegasi ustadz badal dan kembalikan ke Ustadz utama?')) return;
-    startTransition(async () => {
-      const res = await removeSubstituteTeacher(schedule.id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        router.refresh();
+    openConfirm(
+      {
+        title: 'Cabut Delegasi Badal?',
+        description: 'Cabut delegasi ustadz badal dan kembalikan ke Ustadz utama?',
+        variant: 'warning',
+        confirmText: 'Ya, Cabut',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await removeSubstituteTeacher(schedule.id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            router.refresh();
+          }
+        });
       }
-    });
+    );
   };
 
   const handleDelete = () => {
-    if (!confirm('Apakah Anda yakin ingin menghapus jadwal pengajian ini? Tindakan ini tidak dapat dibatalkan.')) return;
-    startTransition(async () => {
-      const res = await deleteSchedule(schedule.id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        router.push('/jadwal');
+    openConfirm(
+      {
+        title: 'Hapus Jadwal Pengajian?',
+        description: 'Apakah Anda yakin ingin menghapus jadwal pengajian ini? Tindakan ini tidak dapat dibatalkan.',
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await deleteSchedule(schedule.id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            router.push('/jadwal');
+          }
+        });
       }
-    });
+    );
   };
 
   const handleBroadcastReminder = () => {
@@ -362,26 +384,35 @@ export default function ScheduleDetailView({
   };
 
   const handleApprove = () => {
-    if (!confirm('Setujui pengajuan jadwal pengajian ini agar resmi aktif bagi seluruh santri & pengajar?')) return;
-    startTransition(async () => {
-      const res = await approveScheduleProposal(schedule.id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        router.refresh();
+    openConfirm(
+      {
+        title: 'Setujui Pengajuan Jadwal?',
+        description: 'Setujui pengajuan jadwal pengajian ini agar resmi aktif bagi seluruh santri & pengajar?',
+        variant: 'info',
+        confirmText: 'Ya, Setujui',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await approveScheduleProposal(schedule.id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            router.refresh();
+          }
+        });
       }
-    });
+    );
   };
 
   const handleReject = () => {
     if (!rejectionReason.trim()) {
-      alert('Alasan penolakan pengajuan wajib diisi.');
+      toast.warning('Alasan penolakan pengajuan wajib diisi.');
       return;
     }
     startTransition(async () => {
       const res = await rejectScheduleProposal(schedule.id, rejectionReason);
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else {
         setRejectModalOpen(false);
         router.refresh();
@@ -1786,6 +1817,9 @@ export default function ScheduleDetailView({
           }}
         />
       )}
+
+      {ConfirmModalComponent()}
     </div >
   );
 }
+

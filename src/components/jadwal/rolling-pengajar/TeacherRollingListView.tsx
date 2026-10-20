@@ -23,6 +23,8 @@ import {
 import type { RollingIntervalType, TierLevel } from '@prisma/client';
 import TeacherRollingFormModal from './TeacherRollingFormModal';
 import { deleteTeacherRolling } from '@/app/(protected)/jadwal/rolling-pengajar/actions';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface TeacherRollingListViewProps {
   initialRollings: any[];
@@ -41,6 +43,8 @@ export default function TeacherRollingListView({
   const [rollingToEdit, setRollingToEdit] = useState<any | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Prefetch rute kembali ke kalender agar navigasi kembali instan
   useEffect(() => {
@@ -81,18 +85,24 @@ export default function TeacherRollingListView({
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus rolling pengajar "${name}"?`)) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await deleteTeacherRolling(id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setRollings((prev) => prev.filter((r) => r.id !== id));
+    openConfirm(
+      {
+        title: 'Hapus Rolling Pengajar?',
+        description: `Apakah Anda yakin ingin menghapus rolling pengajar "${name}"?`,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await deleteTeacherRolling(id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            setRollings((prev) => prev.filter((r) => r.id !== id));
+          }
+        });
       }
-    });
+    );
   };
 
   const handleSuccess = () => {
@@ -382,6 +392,9 @@ export default function TeacherRollingListView({
         rollingToEdit={rollingToEdit}
         onSuccess={handleSuccess}
       />
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

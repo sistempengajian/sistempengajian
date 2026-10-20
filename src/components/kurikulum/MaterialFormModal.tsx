@@ -4,6 +4,7 @@ import React, { useState, useEffect, useTransition } from 'react';
 import { X, BookOpen, Lock, Sparkles, FileText, CheckCircle2, TrendingUp, ShieldCheck } from 'lucide-react';
 import { createMaterial, updateMaterial } from '@/app/(protected)/kurikulum/actions';
 import { TierLevel } from '@prisma/client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface MaterialFormModalProps {
   isOpen: boolean;
@@ -212,17 +213,15 @@ export default function MaterialFormModal({
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Jenjang Generasi <span className="text-rose-500">*</span>
             </label>
-            <select
+            <CustomSelect
               value={targetGenCode}
-              onChange={(e) => setTargetGenCode(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer"
-            >
-              {generations.map((gen) => (
-                <option key={gen.id} value={gen.code}>
-                  {gen.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setTargetGenCode(val as string)}
+              options={generations.map((gen) => ({
+                value: gen.code,
+                label: gen.name,
+              }))}
+              placeholder="Pilih Jenjang Generasi"
+            />
           </div>
 
           {/* Deskripsi Materi */}

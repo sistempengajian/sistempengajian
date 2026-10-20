@@ -28,6 +28,68 @@ function formatIndonesianTime(date: Date): string {
 }
 
 /**
+ * Helper untuk memvalidasi apakah santri merupakan peserta sah dari jadwal
+ */
+export function isStudentEligibleForSchedule(
+  student: {
+    id?: string;
+    organizationId?: string | null;
+    generationId?: string | null;
+  },
+  schedule: {
+    organizationId?: string | null;
+    targetScope?: string | null;
+    class?: { organizationId?: string | null; generationId?: string | null } | null;
+    targetClasses?: Array<{ class?: { organizationId?: string | null; generationId?: string | null } | null }>;
+    targetGenerations?: Array<{ generationId?: string | null; generation?: { id: string } | null }>;
+  }
+): boolean {
+  // 1. Sesi berskala WILAYAH_UMUM terbuka bagi seluruh santri dalam organisasi yang sama
+  if (schedule.targetScope === 'WILAYAH_UMUM') {
+    if (!schedule.organizationId || !student.organizationId) return true;
+    return schedule.organizationId === student.organizationId;
+  }
+
+  if (!student.generationId) return false;
+
+  // 2. Cek kesesuaian target kelas spesifik (targetClasses atau class)
+  const targetClasses = [
+    ...(schedule.targetClasses?.map((tc) => tc?.class).filter(Boolean) || []),
+    ...(schedule.class ? [schedule.class] : []),
+  ];
+
+  if (targetClasses.length > 0) {
+    const matchClass = targetClasses.some((cls) => {
+      if (!cls) return false;
+      const genMatches = cls.generationId === student.generationId;
+      const orgMatches = !cls.organizationId || !student.organizationId || cls.organizationId === student.organizationId;
+      return genMatches && orgMatches;
+    });
+    if (matchClass) return true;
+  }
+
+  // 3. Cek kesesuaian target jenjang (targetGenerations)
+  if (schedule.targetGenerations && schedule.targetGenerations.length > 0) {
+    const matchGen = schedule.targetGenerations.some((tg) => {
+      if (!tg) return false;
+      const genId = tg.generationId || tg.generation?.id;
+      const genMatches = genId === student.generationId;
+      const orgMatches = !schedule.organizationId || !student.organizationId || schedule.organizationId === student.organizationId;
+      return genMatches && orgMatches;
+    });
+    if (matchGen) return true;
+  }
+
+  // 4. Fallback jika tidak ada filter kelas / jenjang terdaftar
+  if (!schedule.class && (!schedule.targetClasses || schedule.targetClasses.length === 0) && (!schedule.targetGenerations || schedule.targetGenerations.length === 0)) {
+    if (!schedule.organizationId || !student.organizationId) return true;
+    return schedule.organizationId === student.organizationId;
+  }
+
+  return false;
+}
+
+/**
  * 1. Mengambil data komprehensif Family Action Hub (Portal Multi-Santri Keluarga)
  */
 export async function getFamilyActionHubData(token: string) {
@@ -57,10 +119,10 @@ export async function getFamilyActionHubData(token: string) {
         where: { id: verified.scheduleId },
         include: {
           organization: { select: { id: true, name: true } },
-          class: { select: { id: true, name: true, generationId: true } },
+          class: { select: { id: true, name: true, generationId: true, organizationId: true } },
           targetClasses: {
             include: {
-              class: { select: { id: true, name: true, generationId: true } },
+              class: { select: { id: true, name: true, generationId: true, organizationId: true } },
             },
           },
           targetGenerations: {
@@ -119,6 +181,30 @@ export async function getFamilyActionHubData(token: string) {
     const startTimeStr = formatIndonesianTime(primarySchedule.startTime);
     const endTimeStr = formatIndonesianTime(primarySchedule.endTime);
 
+    // Cari jadwal-jadwal lain pada hari yang sama untuk mendeteksi sesi anak yang berbeda
+    const scheduleDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(primarySchedule.startTime);
+    const dayStart = new Date(`${scheduleDateStr}T00:00:00+07:00`);
+    const dayEnd = new Date(`${scheduleDateStr}T23:59:59.999+07:00`);
+
+    const otherSchedulesOnDay = await prisma.schedule.findMany({
+      where: {
+        id: { not: primarySchedule.id },
+        status: { in: ['SCHEDULED', 'ACTIVE', 'COMPLETED'] },
+        startTime: { gte: dayStart, lte: dayEnd },
+        AND: [
+          {
+            OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+          },
+        ],
+      },
+      include: {
+        class: true,
+        targetClasses: { include: { class: true } },
+        targetGenerations: true,
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
     // Ambil data kehadiran dan permohonan izin untuk setiap anak pada jadwal ini
     const studentIds = parentRelations.map((r) => r.student.id);
 
@@ -150,13 +236,29 @@ export async function getFamilyActionHubData(token: string) {
 
     const childrenData = parentRelations.map((rel) => {
       const student = rel.student;
-      const attRecord = attendanceRecords.find((a) => a.studentId === student.id) || null;
-      const absReq = absenceRequests.find((r) => r.studentId === student.id) || null;
+      const isParticipant = isStudentEligibleForSchedule(student, primarySchedule);
+
+      let otherScheduleInfo: { id: string; title: string; time: string } | null = null;
+      if (!isParticipant) {
+        const matchSchedule = otherSchedulesOnDay.find((s) => isStudentEligibleForSchedule(student, s));
+        if (matchSchedule) {
+          otherScheduleInfo = {
+            id: matchSchedule.id,
+            title: matchSchedule.title,
+            time: `${formatIndonesianTime(matchSchedule.startTime)} - ${formatIndonesianTime(matchSchedule.endTime)} WIB`,
+          };
+        }
+      }
+
+      const attRecord = isParticipant ? (attendanceRecords.find((a) => a.studentId === student.id) || null) : null;
+      const absReq = isParticipant ? (absenceRequests.find((r) => r.studentId === student.id) || null) : null;
 
       // Evaluasi status kehadiran riil berbasis verifikasi Pengajar di majelis
-      let statusBadge: 'HADIR' | 'TERLAMBAT' | 'ABSENCE_PENDING' | 'ABSENCE_APPROVED' | 'ABSENCE_REJECTED' | 'NOT_CHECKED_IN' = 'NOT_CHECKED_IN';
+      let statusBadge: 'HADIR' | 'TERLAMBAT' | 'ABSENCE_PENDING' | 'ABSENCE_APPROVED' | 'ABSENCE_REJECTED' | 'NOT_CHECKED_IN' | 'NOT_PARTICIPANT' = 'NOT_CHECKED_IN';
 
-      if (attRecord?.status === 'HADIR') {
+      if (!isParticipant) {
+        statusBadge = 'NOT_PARTICIPANT';
+      } else if (attRecord?.status === 'HADIR') {
         statusBadge = 'HADIR';
       } else if (attRecord?.status === 'TERLAMBAT') {
         statusBadge = 'TERLAMBAT';
@@ -180,6 +282,8 @@ export async function getFamilyActionHubData(token: string) {
       return {
         student,
         relationshipType: rel.relationshipType,
+        isParticipant,
+        otherScheduleInfo,
         attendanceRecord: attRecord
           ? {
               status: attRecord.status,
@@ -197,8 +301,17 @@ export async function getFamilyActionHubData(token: string) {
             }
           : null,
         statusBadge,
-        directPresensiUrl: `/auth/direct?target=presensi_ortu&scheduleId=${primarySchedule.id}&studentId=${student.id}&token=${token}`,
+        directPresensiUrl: isParticipant
+          ? `/auth/direct?target=presensi_ortu&scheduleId=${primarySchedule.id}&studentId=${student.id}&token=${token}`
+          : undefined,
       };
+    });
+
+    // Urutkan peserta sesi di posisi teratas, non-peserta di bawah
+    childrenData.sort((a, b) => {
+      if (a.isParticipant && !b.isParticipant) return -1;
+      if (!a.isParticipant && b.isParticipant) return 1;
+      return 0;
     });
 
     return {
@@ -272,6 +385,7 @@ export async function submitFamilyChildAbsence({
               fullName: true,
               gender: true,
               generationId: true,
+              organizationId: true,
               generation: { select: { id: true, name: true } },
             },
           },
@@ -291,12 +405,26 @@ export async function submitFamilyChildAbsence({
           organization: true,
           class: true,
           targetClasses: { include: { class: true } },
+          targetGenerations: {
+            include: {
+              generation: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
     ]);
 
     if (!relation || !schedule) {
       return { success: false, error: 'Data relasi santri atau jadwal tidak ditemukan.' };
+    }
+
+    // Validasi apakah santri merupakan peserta sah dari jadwal ini
+    const isEligible = isStudentEligibleForSchedule(relation.student, schedule);
+    if (!isEligible) {
+      return {
+        success: false,
+        error: `Ananda ${relation.student.fullName} bukan peserta yang terdaftar pada sesi "${schedule.title}". Pengajuan izin hanya dapat dilakukan pada sesi yang diikuti ananda.`,
+      };
     }
 
     // 1. Simpan StudentAbsenceRequest

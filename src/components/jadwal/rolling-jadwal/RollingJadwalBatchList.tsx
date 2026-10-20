@@ -20,6 +20,7 @@ import {
 import { deleteRollingJadwalBatch } from '@/app/(protected)/jadwal/rolling-jadwal/actions';
 import RollingScheduleGeneratorModal from './RollingScheduleGeneratorModal';
 import { getRoleRollingTheme } from '@/lib/theme';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface BatchItem {
   batchId: string;
@@ -57,6 +58,7 @@ export default function RollingJadwalBatchList({
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   const theme = getRoleRollingTheme(roleCodes);
 
@@ -66,20 +68,27 @@ export default function RollingJadwalBatchList({
   }, [router]);
 
   function handleDelete(batchId: string, blueprintName: string) {
-    if (!confirm(`Hapus semua sesi jadwal dari batch "${blueprintName}"? Tindakan ini tidak dapat dibatalkan.`)) {
-      return;
-    }
-    setDeletingId(batchId);
-    setError(null);
-    startTransition(async () => {
-      const res = await deleteRollingJadwalBatch(batchId);
-      if (res.success) {
-        setBatches((prev) => prev.filter((b) => b.batchId !== batchId));
-      } else {
-        setError(res.error ?? 'Gagal menghapus batch jadwal');
+    openConfirm(
+      {
+        title: 'Hapus Batch Jadwal?',
+        description: `Hapus semua sesi jadwal dari batch "${blueprintName}"? Tindakan ini tidak dapat dibatalkan.`,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus Semua',
+      },
+      async () => {
+        setDeletingId(batchId);
+        setError(null);
+        startTransition(async () => {
+          const res = await deleteRollingJadwalBatch(batchId);
+          if (res.success) {
+            setBatches((prev) => prev.filter((b) => b.batchId !== batchId));
+          } else {
+            setError(res.error ?? 'Gagal menghapus batch jadwal');
+          }
+          setDeletingId(null);
+        });
       }
-      setDeletingId(null);
-    });
+    );
   }
 
   // Filter batches
@@ -280,6 +289,9 @@ export default function RollingJadwalBatchList({
         }}
         roleCodes={roleCodes}
       />
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

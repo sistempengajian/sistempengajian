@@ -31,6 +31,7 @@ import {
 import ScheduleChangeNotificationModal, {
   ScheduleNotificationData,
 } from './ScheduleChangeNotificationModal';
+import { useToast } from '@/components/ui/Toast';
 
 export interface TeacherRelation {
   teacher: {
@@ -139,6 +140,7 @@ export default function ScheduleCard({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [isTeacherTooltipOpen, setIsTeacherTooltipOpen] = useState(false);
   const teacherTooltipRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
 
   // Tutup tooltip saat klik di luar
   useEffect(() => {
@@ -279,7 +281,7 @@ export default function ScheduleCard({
     startTransition(async () => {
       const res = await updateScheduleStatus(schedule.id, newStatus);
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else if (res.needsConfirmation && res.notificationData) {
         setNotificationModalData(res.notificationData);
       }

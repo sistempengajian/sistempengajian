@@ -13,6 +13,8 @@ import {
   deleteChecklistItem,
   deleteMaterialVersion,
 } from '@/app/(protected)/kurikulum/actions';
+import { useToast } from '@/components/ui/Toast';
+import CustomSelect from '@/components/ui/CustomSelect';
 import {
   Search,
   X,
@@ -128,6 +130,7 @@ export default function KurikulumInfiniteList({
   subOrganizations = [],
   activeFilterOrgId = null,
 }: KurikulumInfiniteListProps) {
+  const toast = useToast();
   const initialKey = buildCacheKey(activeStudentId, activeClassId, activeFilterOrgId, currentGenCode);
   // Cek apakah ada data cache global dari kunjungan halaman sebelumnya yang masih valid
   const cachedForCurrent = globalKurikulumCache[initialKey];
@@ -872,24 +875,27 @@ export default function KurikulumInfiniteList({
       if (deleteConfirm.type === 'MATERIAL') {
         const res = await deleteMaterial(deleteConfirm.id);
         if (res.error) {
-          alert(res.error);
+          toast.error(res.error);
         } else {
+          toast.success('Materi berhasil dihapus');
           setDeleteConfirm(null);
           await refreshList();
         }
       } else if (deleteConfirm.type === 'VERSION') {
         const res = await deleteMaterialVersion(deleteConfirm.id);
         if (res.error) {
-          alert(res.error);
+          toast.error(res.error);
         } else {
+          toast.success('Versi materi berhasil dihapus');
           setDeleteConfirm(null);
           await refreshList();
         }
       } else if (deleteConfirm.type === 'ITEM') {
         const res = await deleteChecklistItem(deleteConfirm.id);
         if (res.error) {
-          alert(res.error);
+          toast.error(res.error);
         } else {
+          toast.success('Butir capaian berhasil dihapus');
           setDeleteConfirm(null);
           await refreshList();
         }
@@ -1010,29 +1016,30 @@ export default function KurikulumInfiniteList({
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
+            <div className="flex items-center gap-2 w-full sm:w-auto min-w-[260px]">
+              <CustomSelect
                 value={selectedStudentId || ''}
-                onChange={(e) => {
-                  const val = e.target.value || null;
+                onChange={(selectedVal) => {
+                  const val = (selectedVal as string) || null;
                   const found = currentClassStudents.find((s) => s.id === val);
                   handleSwitchStudent(val, found?.generationCode);
                 }}
-                className="w-full sm:w-auto px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-indigo-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer shadow-2xs"
-              >
-                <option value="">
-                  ✨ Seluruh Santri {homeroomClasses && homeroomClasses.length > 0 ? `Kelas (${currentClassStudents.length} Santri)` : `(${currentClassStudents.length} Santri)`} - Capaian Kolektif
-                </option>
-                {currentClassStudents.length > 0 && (
-                  <optgroup label="── Santri Perorangan (Individu) ──">
-                    {currentClassStudents.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        👤 {s.fullName} {s.generationName ? `(${s.generationName})` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+                options={[
+                  {
+                    value: '',
+                    label: `✨ Seluruh Santri ${homeroomClasses && homeroomClasses.length > 0 ? `Kelas (${currentClassStudents.length} Santri)` : `(${currentClassStudents.length} Santri)`} - Capaian Kolektif`,
+                  },
+                  ...currentClassStudents.map((s) => ({
+                    value: s.id,
+                    label: `👤 ${s.fullName}${s.generationName ? ` (${s.generationName})` : ''}`,
+                    group: '── Santri Perorangan (Individu) ──',
+                  })),
+                ]}
+                size="sm"
+                searchable={currentClassStudents.length > 5}
+                searchPlaceholder="Cari nama santri..."
+                placeholder="Pilih Sudut Pandang Santri"
+              />
             </div>
           </div>
         </div>
@@ -1061,22 +1068,28 @@ export default function KurikulumInfiniteList({
           {/* Jika PJ Desa: Filter drill-down per kelompok */}
           {subOrganizations && subOrganizations.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 font-medium">Filter Kelompok:</span>
-              <select
-                value={selectedFilterOrgId || ''}
-                onChange={(e) => {
-                  const val = e.target.value || null;
-                  handleSwitchSubOrg(val);
-                }}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer shadow-2xs"
-              >
-                <option value="">✨ Seluruh Kelompok Desa ({subOrganizations.length} Kelompok)</option>
-                {subOrganizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    Kelompok {org.name}
-                  </option>
-                ))}
-              </select>
+              <span className="text-xs text-slate-500 font-medium shrink-0">Filter Kelompok:</span>
+              <div className="min-w-[220px]">
+                <CustomSelect
+                  value={selectedFilterOrgId || ''}
+                  onChange={(selectedVal) => {
+                    const val = (selectedVal as string) || null;
+                    handleSwitchSubOrg(val);
+                  }}
+                  options={[
+                    {
+                      value: '',
+                      label: `✨ Seluruh Kelompok Desa (${subOrganizations.length} Kelompok)`,
+                    },
+                    ...subOrganizations.map((org) => ({
+                      value: org.id,
+                      label: `Kelompok ${org.name}`,
+                    })),
+                  ]}
+                  size="sm"
+                  placeholder="Filter Kelompok"
+                />
+              </div>
             </div>
           )}
         </div>

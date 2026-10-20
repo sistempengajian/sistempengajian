@@ -34,6 +34,8 @@ import ScheduleFormModal from './ScheduleFormModal';
 import RollingScheduleGeneratorModal from './rolling-jadwal/RollingScheduleGeneratorModal';
 import RollingWorkflowModal from './rolling-jadwal/RollingWorkflowModal';
 import { getRoleRollingTheme } from '@/lib/theme';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 export interface AvailableTeacher {
   id: string;
@@ -123,6 +125,8 @@ export default function InteractiveCalendar({
   const [isRollingWorkflowOpen, setIsRollingWorkflowOpen] = useState(false);
   const [isRollingModalOpen, setIsRollingModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Prefetch sub-halaman rolling agar saat user mengklik menu atau tombol, transisi instan
   useEffect(() => {
@@ -286,13 +290,22 @@ export default function InteractiveCalendar({
   };
 
   const handleDeleteSchedule = (scheduleId: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus jadwal pengajian ini?')) return;
-    startTransition(async () => {
-      const res = await deleteSchedule(scheduleId);
-      if (res.error) {
-        alert(res.error);
+    openConfirm(
+      {
+        title: 'Hapus Jadwal Pengajian?',
+        description: 'Apakah Anda yakin ingin menghapus jadwal pengajian ini?',
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await deleteSchedule(scheduleId);
+          if (res.error) {
+            toast.error(res.error);
+          }
+        });
       }
-    });
+    );
   };
 
   const monthNames = [
@@ -779,6 +792,9 @@ export default function InteractiveCalendar({
         onSuccess={() => setIsRollingModalOpen(false)}
         roleCodes={roleCodes}
       />
+
+      {ConfirmModalComponent()}
     </div >
   );
 }
+

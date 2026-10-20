@@ -9,6 +9,9 @@ import {
   sendScheduleReminderCountdownTeacher,
   sendTeacherActionLinksH1,
   sendTeacherPresensiLink2h,
+  sendTeacherMultiScheduleDigestH1,
+  sendTeacherMultiScheduleActionsH1,
+  TeacherMultiScheduleItem,
   sendScheduleReminderCountdown,
   sendStudentActionLinks2h,
   sendFamilyScheduleReminderH1,
@@ -275,16 +278,25 @@ async function handleScheduleReminders(request: NextRequest) {
       singleParentFiltered: 0,
     };
 
-    // Preload semua log pesan berhasil & in-flight 24 jam terakhir dalam 1 query DB
+    // Preload semua log pesan berhasil & in-flight 24 jam terakhir dalam 1 query DB (termasuk pesan grup)
     const existingLogs = await prisma.whatsAppMessageLog.findMany({
       where: {
         createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
-        magicToken: { not: null },
         status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+        OR: [
+          { magicToken: { not: null } },
+          { templateCode: 'GROUP_SCHEDULE_REMINDER_H1', referenceId: { not: null } },
+        ],
       },
-      select: { magicToken: true },
+      select: { magicToken: true, templateCode: true, referenceId: true },
     });
-    const sentTokensSet = new Set(existingLogs.map((l) => l.magicToken).filter(Boolean) as string[]);
+    const sentTokensSet = new Set<string>();
+    for (const l of existingLogs) {
+      if (l.magicToken) sentTokensSet.add(l.magicToken);
+      if (l.templateCode === 'GROUP_SCHEDULE_REMINDER_H1' && l.referenceId) {
+        sentTokensSet.add(`GROUP_H1_REMINDER_${l.referenceId}`);
+      }
+    }
 
     type DispatchItem = {
       type: 'USTADZ' | 'ORANG_TUA' | 'SANTRI';
@@ -688,8 +700,8 @@ async function handleScheduleReminders(request: NextRequest) {
         return bucket;
       };
 
-      // A. Masukkan Seluruh Dewan Pengajar (HANYA PADA H-1)
-      if (isH1Reminder) {
+      // A. Masukkan Seluruh Dewan Pengajar (H-1 dan Countdown 2 Jam)
+      if (isH1Reminder || isCountdownReminder) {
         for (const st of scheduledTeachers) {
           const teacher = st.teacher;
           if (!teacher.phoneNumber) continue;
@@ -915,6 +927,122 @@ async function handleScheduleReminders(request: NextRequest) {
       for (const [normPhone, bucket] of recipientPhoneMap.entries()) {
         const dedupKey = `SCHED_${schedule.id}_${normPhone}_${reminderType}`;
 
+        if (sentTokensSet.has(dedupKey)) {
+          skippedCount++;
+          continue;
+        }
+
+        // Deteksi Pengajar Multi-Sesi pada H-1 (>= 2 Sesi Mengajar pada hari esok)
+        let teacherTomorrowSchedules: any[] = [];
+        let isMultiSessionTeacher = false;
+        let multiSessionItems: TeacherMultiScheduleItem[] = [];
+
+        if (bucket.isTeacher && isH1Reminder && bucket.userId) {
+          const scheduleDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(schedule.startTime);
+          const dayStart = new Date(`${scheduleDateStr}T00:00:00+07:00`);
+          const dayEnd = new Date(`${scheduleDateStr}T23:59:59.999+07:00`);
+
+          teacherTomorrowSchedules = await prisma.schedule.findMany({
+            where: {
+              status: { in: [ScheduleStatus.SCHEDULED, ScheduleStatus.ACTIVE] },
+              startTime: { gte: dayStart, lte: dayEnd },
+              teachers: {
+                some: {
+                  teacherId: bucket.userId,
+                },
+              },
+              AND: [
+                {
+                  OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+                },
+              ],
+            },
+            include: {
+              organization: true,
+              class: { include: { generation: true } },
+              targetClasses: { include: { class: { include: { generation: true } } } },
+              targetGenerations: { include: { generation: true } },
+              teachers: {
+                include: { teacher: true },
+                orderBy: [{ isPrimary: 'desc' }, { isSubstitute: 'asc' }],
+              },
+              scheduleMaterials: {
+                include: { material: true },
+                orderBy: { slotIndex: 'asc' },
+              },
+            },
+            orderBy: { startTime: 'asc' },
+          });
+
+          if (teacherTomorrowSchedules.length > 1) {
+            isMultiSessionTeacher = true;
+            multiSessionItems = teacherTomorrowSchedules.map((s) => {
+              const sIsCombined =
+                isScheduleCombined(s) ||
+                (s.targetGenerations?.length || 0) > 1 ||
+                (s.targetClasses?.length || 0) > 1;
+              const sCleanTitle = s.title.replace(/^\[GABUNGAN\]\s*/i, '').trim();
+              const sDisplayTitle = sIsCombined ? `[GABUNGAN] ${sCleanTitle}` : sCleanTitle;
+
+              const sGenNames: string[] = [];
+              if (s.class?.generation?.name) sGenNames.push(s.class.generation.name);
+              s.targetGenerations?.forEach((tg: any) => {
+                if (tg.generation?.name) sGenNames.push(tg.generation.name);
+              });
+              s.targetClasses?.forEach((tc: any) => {
+                if (tc.class?.generation?.name) sGenNames.push(tc.class.generation.name);
+              });
+              const sUniqueGenNames = Array.from(new Set(sGenNames));
+
+              const sClassNames: string[] = [];
+              if (s.class?.name) sClassNames.push(s.class.name);
+              s.targetClasses?.forEach((tc: any) => {
+                if (tc.class?.name) sClassNames.push(tc.class.name);
+              });
+              const sUniqueClassNames = Array.from(new Set(sClassNames));
+
+              let sDisplayClassOrGenList: string[] = [];
+              if (sUniqueGenNames.length > 1) {
+                sDisplayClassOrGenList = sUniqueGenNames;
+              } else if (sUniqueClassNames.length > 1) {
+                sDisplayClassOrGenList = sUniqueClassNames;
+              } else if (sUniqueGenNames.length === 1) {
+                sDisplayClassOrGenList = sUniqueGenNames;
+              } else if (sUniqueClassNames.length === 1) {
+                sDisplayClassOrGenList = sUniqueClassNames;
+              } else {
+                sDisplayClassOrGenList = ['Umum'];
+              }
+
+              const sMaterialTitles =
+                s.scheduleMaterials
+                  ?.map((sm: any) => sm.material?.title)
+                  .filter(Boolean)
+                  .join(', ') ||
+                s.title ||
+                'Materi Pengajian Rutin';
+              const sTeacherSt = s.teachers?.find((t: any) => t.teacherId === bucket.userId);
+
+              return {
+                scheduleId: s.id,
+                scheduleTitle: sDisplayTitle,
+                startTime: formatTime(s.startTime),
+                endTime: formatTime(s.endTime),
+                venueName: s.venuePlaceName || 'Masjid Kelompok',
+                organizationName: s.organization?.name,
+                generationClassName: sDisplayClassOrGenList,
+                materialTitle: sMaterialTitles,
+                isBadal: sTeacherSt?.isSubstitute || false,
+              };
+            });
+
+            // Tandai dedup key seluruh sesi mengajar di hari tersebut agar sesi berikutnya tidak memicu pesan H-1 lagi
+            for (const otherSched of teacherTomorrowSchedules) {
+              sentTokensSet.add(`SCHED_${otherSched.id}_${normPhone}_H1`);
+            }
+          }
+        }
+
         if (isDryRun) {
           dryRunRecipients.push({
             phone: normPhone,
@@ -922,16 +1050,15 @@ async function handleScheduleReminders(request: NextRequest) {
             isTeacher: bucket.isTeacher,
             parentStudentCount: bucket.studentsAsParent.length,
             isDirectStudent: bucket.isDirectStudent,
-            type: reminderType,
-            scheduleTitle: schedule.title,
+            type: isMultiSessionTeacher ? 'H1_MULTI_SESI' : reminderType,
+            scheduleTitle: isMultiSessionTeacher
+              ? `[MULTI-SESI] ${multiSessionItems.length} Sesi Agenda Mengajar`
+              : schedule.title,
+            multiSessionCount: isMultiSessionTeacher ? multiSessionItems.length : undefined,
           });
           continue;
         }
 
-        if (sentTokensSet.has(dedupKey)) {
-          skippedCount++;
-          continue;
-        }
         sentTokensSet.add(dedupKey);
 
         dispatchQueue.push({
@@ -975,6 +1102,59 @@ async function handleScheduleReminders(request: NextRequest) {
             }
 
             let res;
+
+            // Skenario Khusus H-1: Ustadz Multi-Sesi (>= 2 Sesi Mengajar Esok Hari)
+            if (isMultiSessionTeacher && multiSessionItems.length > 1) {
+              res = await sendTeacherMultiScheduleDigestH1({
+                teacherPhone: bucket.phone,
+                teacherName: bucket.name,
+                teacherGender: bucket.gender,
+                dayDate: dayDateStr,
+                organizationName: orgName,
+                items: multiSessionItems,
+                magicToken: `${dedupKey}_MAIN`,
+                teacherUserId: bucket.userId,
+              });
+
+              await sendTeacherMultiScheduleActionsH1({
+                teacherPhone: bucket.phone,
+                teacherName: bucket.name,
+                teacherGender: bucket.gender,
+                dayDate: dayDateStr,
+                items: multiSessionItems,
+                magicToken: `${dedupKey}_ACTION`,
+                teacherUserId: bucket.userId,
+              });
+
+              // Tandai log di database untuk jadwal-jadwal lain agar eksekusi cron berikutnya tidak mengirim ulang
+              for (const otherSched of teacherTomorrowSchedules) {
+                if (otherSched.id !== schedule.id) {
+                  try {
+                    await prisma.whatsAppMessageLog.create({
+                      data: {
+                        recipientPhone: normPhone,
+                        recipientName: bucket.name,
+                        recipientUserId: bucket.userId,
+                        messageType: 'SCHEDULE_REMINDER',
+                        templateCode: 'TEACHER_MULTI_SCHEDULE_DIGEST_H1',
+                        messageBody: `[Multi-Sesi Digest Bundled] Sesi ini telah disertakan dalam rangkuman multi-sesi bersama jadwal ${schedule.id}.`,
+                        status: 'SENT',
+                        magicToken: `SCHED_${otherSched.id}_${normPhone}_H1`,
+                        referenceId: otherSched.id,
+                      },
+                    });
+                  } catch (e) {
+                    // Abaikan jika log sudah tersimpan
+                  }
+                }
+              }
+
+              return {
+                success: Boolean(res.success),
+                log: `[H1 Ustadz Multi-Sesi (${multiSessionItems.length} Sesi, 2 Pesan)] ${bucket.name} (Tanggal: ${dayDateStr})`,
+                error: res.error,
+              };
+            }
 
             // Skenario A: Ustadz yang juga Orang Tua dari santri pada sesi ini (Unified)
             if (bucket.isTeacher && bucket.studentsAsParent.length > 0) {
@@ -1427,31 +1607,47 @@ async function handleScheduleReminders(request: NextRequest) {
         if (sentTokensSet.has(groupH1Key)) {
           skippedCount++;
         } else {
-          sentTokensSet.add(groupH1Key);
-          dispatchQueue.push({
-            type: 'ORANG_TUA' as any,
-            name: `Grup WA Jenjang [${schedule.title}]`,
-            phone: 'Grup WA',
-            execute: async () => {
-              const { dispatchGroupScheduleReminderH1 } = await import(
-                '@/lib/whatsapp/groupScheduleNotificationService'
-              );
-              const res = await dispatchGroupScheduleReminderH1(schedule.id);
-              if (res.sentCount > 0) {
-                return {
-                  success: true,
-                  sentCount: res.sentCount,
-                  log: `[Grup WA H-1: ${schedule.title}] ${res.sentCount} grup terkirim`,
-                };
-              }
-              return {
-                success: false,
-                skipped: true,
-                skippedCount: res.skippedCount,
-                log: `[Grup WA H-1: ${schedule.title}] 0 grup terkirim (${res.skippedCount} dilewati/idempoten)`,
-              };
+          // Cek juga di DB apakah sudah pernah ada log GROUP_SCHEDULE_REMINDER_H1 untuk schedule ini dalam 36 jam terakhir
+          const existingDbGroupLog = await prisma.whatsAppMessageLog.findFirst({
+            where: {
+              referenceId: schedule.id,
+              templateCode: 'GROUP_SCHEDULE_REMINDER_H1',
+              status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+              createdAt: { gte: new Date(now.getTime() - 36 * 60 * 60 * 1000) },
             },
+            select: { id: true },
           });
+
+          if (existingDbGroupLog) {
+            sentTokensSet.add(groupH1Key);
+            skippedCount++;
+          } else {
+            sentTokensSet.add(groupH1Key);
+            dispatchQueue.push({
+              type: 'ORANG_TUA' as any,
+              name: `Grup WA Jenjang [${schedule.title}]`,
+              phone: 'Grup WA',
+              execute: async () => {
+                const { dispatchGroupScheduleReminderH1 } = await import(
+                  '@/lib/whatsapp/groupScheduleNotificationService'
+                );
+                const res = await dispatchGroupScheduleReminderH1(schedule.id);
+                if (res.sentCount > 0) {
+                  return {
+                    success: true,
+                    sentCount: res.sentCount,
+                    log: `[Grup WA H-1: ${schedule.title}] ${res.sentCount} grup terkirim`,
+                  };
+                }
+                return {
+                  success: false,
+                  skipped: true,
+                  skippedCount: res.skippedCount,
+                  log: `[Grup WA H-1: ${schedule.title}] 0 grup terkirim (${res.skippedCount} dilewati/idempoten)`,
+                };
+              },
+            });
+          }
         }
       }
     }

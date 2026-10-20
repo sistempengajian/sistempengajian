@@ -27,6 +27,8 @@ import type { RollingIntervalType, RollingTargetScope, TierLevel } from '@prisma
 import RollingPengajianFormModal from './RollingPengajianFormModal';
 import RotationProjectionTable from './RotationProjectionTable';
 import { deleteRollingPengajian } from '@/app/(protected)/jadwal/rolling-pengajian/actions';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface RollingPengajianListViewProps {
   initialList: any[];
@@ -48,6 +50,8 @@ export default function RollingPengajianListView({
   const [itemToEdit, setItemToEdit] = useState<any | null>(null);
   const [expandedProjectionId, setExpandedProjectionId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Prefetch rute kembali ke kalender agar navigasi kembali instan
   useEffect(() => {
@@ -96,18 +100,24 @@ export default function RollingPengajianListView({
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus pengajian rolling "${name}"?`)) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await deleteRollingPengajian(id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setList((prev) => prev.filter((item) => item.id !== id));
+    openConfirm(
+      {
+        title: 'Hapus Pengajian Rolling?',
+        description: `Apakah Anda yakin ingin menghapus pengajian rolling "${name}"?`,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await deleteRollingPengajian(id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            setList((prev) => prev.filter((item) => item.id !== id));
+          }
+        });
       }
-    });
+    );
   };
 
   const handleSuccess = () => {
@@ -415,6 +425,9 @@ export default function RollingPengajianListView({
         referenceData={referenceData}
         onSuccess={handleSuccess}
       />
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

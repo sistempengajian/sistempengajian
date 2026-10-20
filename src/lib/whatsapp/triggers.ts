@@ -564,6 +564,122 @@ export async function sendTeacherPresensiLink2h(params: {
   });
 }
 
+export interface TeacherMultiScheduleItem {
+  scheduleId: string;
+  scheduleTitle: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  organizationName?: string;
+  generationClassName?: string | string[];
+  materialTitle: string;
+  isBadal?: boolean;
+}
+
+/**
+ * 6.4a. Pemicu Rangkuman Agenda Mengajar H-1 (Multi-Sesi Pengajar - Pesan 1: Info Jadwal)
+ */
+export async function sendTeacherMultiScheduleDigestH1(params: {
+  teacherPhone: string;
+  teacherName: string;
+  teacherGender?: string | null;
+  dayDate: string;
+  organizationName: string;
+  items: TeacherMultiScheduleItem[];
+  magicToken?: string;
+  teacherUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const schedulePortalUrl = `${baseUrl}/jadwal`;
+
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
+
+  // Format daftar sesi esok hari
+  const daftarSesiRingkas = params.items
+    .map((item, idx) => {
+      const badalSuffix = item.isBadal
+        ? `\n *• Status Penugasan :* _Guru Badal (Pengganti)_`
+        : '';
+      const jenjangStr = formatScheduleClassBlock(item.generationClassName || 'Umum');
+      const materiStr = formatScheduleMaterialsBlock(item.materialTitle);
+      return `*${idx + 1}. ${item.scheduleTitle.trim()}*
+ *• Waktu :* \`\`\`${item.startTime} - ${item.endTime} WIB\`\`\`
+ *• Tempat :* _${item.venueName}${item.organizationName ? ` (${item.organizationName})` : ''}_
+ *• Jenjang :*${jenjangStr}
+ *• Materi :*${materiStr}${badalSuffix}`;
+    })
+    .join('\n\n');
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'TEACHER_MULTI_SCHEDULE_DIGEST_H1',
+    message: '',
+    templateVariables: {
+      sapaan_ustadz: sapaanUstadzHeader,
+      title_ustadz: titleUstadz,
+      hari_tanggal: params.dayDate,
+      jumlah_sesi: String(params.items.length),
+      daftar_sesi_ringkas: daftarSesiRingkas,
+      url_jadwal: schedulePortalUrl,
+      nama_kelompok: params.organizationName || '',
+    },
+    magicToken: params.magicToken,
+    referenceId: params.items[0]?.scheduleId,
+  });
+}
+
+/**
+ * 6.4b. Pemicu Tautan Aksi Mengajar & Badal H-1 (Multi-Sesi Pengajar - Pesan 2: Tautan Aksi)
+ */
+export async function sendTeacherMultiScheduleActionsH1(params: {
+  teacherPhone: string;
+  teacherName: string;
+  teacherGender?: string | null;
+  dayDate: string;
+  items: TeacherMultiScheduleItem[];
+  magicToken?: string;
+  teacherUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+
+  const daftarTautanAksi = params.items
+    .map((item, idx) => {
+      const teacherIdForToken = params.teacherUserId || item.scheduleId;
+      const lessonPlanToken = generateTeacherLessonPlanToken(item.scheduleId, teacherIdForToken);
+      const lessonPlanUrl = `${baseUrl}/pengajar/sesi/${lessonPlanToken}`;
+
+      const badalToken = generateSubstituteRequestToken(item.scheduleId, teacherIdForToken);
+      const requestBadalUrl = `${baseUrl}/badal/ajukan/${badalToken}`;
+
+      return `*Sesi ${idx + 1}: ${item.scheduleTitle.trim()} (${item.startTime} WIB)*
+*• Persiapan Materi:*
+${lessonPlanUrl}
+*• Berhalangan Mengajar ? Ajukan Badal:*
+${requestBadalUrl}`;
+    })
+    .join('\n\n');
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'TEACHER_MULTI_SCHEDULE_ACTIONS_H1',
+    message: '',
+    templateVariables: {
+      hari_tanggal: params.dayDate,
+      daftar_tautan_aksi: daftarTautanAksi,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.items[0]?.scheduleId,
+  });
+}
+
 /**
  * 6.5. Pemicu Permohonan Delegasi Guru Badal (Ke Calon Badal & PJ Wilayah)
  */
@@ -1473,6 +1589,7 @@ export async function sendGroupScheduleReminderH1(params: {
   detailBlock?: string;
   teacherNote?: string | null;
   scheduleId: string;
+  magicToken?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const urlJadwal = `${baseUrl}/jadwal/${params.scheduleId}`;
@@ -1491,6 +1608,7 @@ export async function sendGroupScheduleReminderH1(params: {
     messageType: 'SCHEDULE_REMINDER',
     templateCode: 'GROUP_SCHEDULE_REMINDER_H1',
     message: '',
+    magicToken: params.magicToken,
     referenceId: params.scheduleId,
     templateVariables: {
       sapaan_penerima: sapaanPenerima,
@@ -1522,6 +1640,7 @@ export async function sendGroupWeeklyScheduleDigest(params: {
   organizationName: string;
   weeklySessionsListText: string;
   referenceId?: string;
+  magicToken?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const urlJadwal = `${baseUrl}/jadwal`;
@@ -1536,6 +1655,7 @@ export async function sendGroupWeeklyScheduleDigest(params: {
     messageType: 'SCHEDULE_REMINDER',
     templateCode: 'GROUP_WEEKLY_SCHEDULE_DIGEST',
     message: '',
+    magicToken: params.magicToken,
     referenceId: params.referenceId || `weekly_${Date.now()}`,
     templateVariables: {
       sapaan_penerima: sapaanPenerima,

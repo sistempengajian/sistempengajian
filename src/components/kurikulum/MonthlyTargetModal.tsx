@@ -27,6 +27,8 @@ import {
   getAvailableMaterialsForMonthSelection,
   MonthlyTargetWithMaterial,
 } from '@/app/(protected)/kurikulum/actions';
+import { useConfirm } from '@/components/ui/ConfirmModal';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface GenerationItem {
   id: string;
@@ -89,6 +91,7 @@ export default function MonthlyTargetModal({
   const [availableMaterials, setAvailableMaterials] = useState<any[]>([]);
   const [isLoadingPicker, setIsLoadingPicker] = useState<boolean>(false);
   const [isPending, startTransition] = useTransition();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Update selectedGenId saat modal dibuka atau defaultGenCode berubah
   useEffect(() => {
@@ -183,18 +186,27 @@ export default function MonthlyTargetModal({
   };
 
   const handleRemoveTarget = (targetId: string, title: string) => {
-    if (!confirm(`Hapus "${title}" dari target bulan ini?`)) return;
-
-    startTransition(async () => {
-      const res = await removeMaterialFromMonthlyTarget(targetId);
-      if (res.success) {
-        setActionMessage({ type: 'success', text: 'Materi dihapus dari target bulan ini.' });
-        fetchTargets();
-        onUpdated?.();
-      } else {
-        setActionMessage({ type: 'error', text: res.error || 'Gagal menghapus materi.' });
+    openConfirm(
+      {
+        title: 'Hapus Target Bulanan?',
+        description: `Hapus "${title}" dari target bulan ini?`,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+        cancelText: 'Batal',
+      },
+      () => {
+        startTransition(async () => {
+          const res = await removeMaterialFromMonthlyTarget(targetId);
+          if (res.success) {
+            setActionMessage({ type: 'success', text: 'Materi dihapus dari target bulan ini.' });
+            fetchTargets();
+            onUpdated?.();
+          } else {
+            setActionMessage({ type: 'error', text: res.error || 'Gagal menghapus materi.' });
+          }
+        });
       }
-    });
+    );
   };
 
   const handleMoveOrder = (index: number, direction: 'UP' | 'DOWN') => {
@@ -293,17 +305,18 @@ export default function MonthlyTargetModal({
           {/* Selector Jenjang Santri */}
           <div className="flex items-center gap-2 flex-1">
             <span className="text-xs font-semibold text-slate-600 shrink-0">Jenjang:</span>
-            <select
-              value={selectedGenId}
-              onChange={(e) => setSelectedGenId(e.target.value)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs cursor-pointer flex-1 sm:max-w-xs"
-            >
-              {generations.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({g.code})
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 sm:max-w-xs">
+              <CustomSelect
+                value={selectedGenId}
+                onChange={(val) => setSelectedGenId(val as string)}
+                options={generations.map((g) => ({
+                  value: g.id,
+                  label: `${g.name} (${g.code})`,
+                }))}
+                size="sm"
+                placeholder="Pilih Jenjang"
+              />
+            </div>
           </div>
 
           {/* Selector Tahun Kalender */}
@@ -571,6 +584,7 @@ export default function MonthlyTargetModal({
           </button>
         </div>
       </div>
+      {ConfirmModalComponent()}
     </div>
   );
 }

@@ -460,10 +460,33 @@ export async function dispatchGroupScheduleReminderH1(scheduleId: string): Promi
       continue;
     }
 
-    // 6. Redis Idempotency Lock per Grup + Jadwal (Mencegah pesan ganda ke grup yang sama)
+    // 6. Deduplikasi Database & Redis Idempotency Lock per Grup + Jadwal (Mencegah pesan ganda ke grup yang sama)
     const cleanGroupId = groupId.replace(/[^a-zA-Z0-9]/g, '_');
+    const groupMagicToken = `GROUP_H1_${schedule.id}_${cleanGroupId}`;
     const redisLockKey = `cron:wa_group_h1:${schedule.id}:${cleanGroupId}`;
 
+    // A. Cek Ground-Truth Database Log 36 Jam Terakhir
+    const existingGroupLog = await prisma.whatsAppMessageLog.findFirst({
+      where: {
+        recipientPhone: groupId,
+        referenceId: schedule.id,
+        templateCode: 'GROUP_SCHEDULE_REMINDER_H1',
+        status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+        createdAt: { gte: new Date(Date.now() - 36 * 60 * 60 * 1000) },
+      },
+    });
+
+    if (existingGroupLog) {
+      skippedCount++;
+      results.push({
+        generationName: gensInGroupForSchedule.map((g) => g.name).join(', '),
+        groupId,
+        status: 'ALREADY_SENT_DATABASE',
+      });
+      continue;
+    }
+
+    // B. Cek Redis Lock (Jika Redis aktif)
     if (redis) {
       try {
         const alreadySent = await redis.get(redisLockKey);
@@ -512,6 +535,7 @@ export async function dispatchGroupScheduleReminderH1(scheduleId: string): Promi
       detailBlock,
       teacherNote: schedule.teacherBroadcastNote || schedule.notes,
       scheduleId: schedule.id,
+      magicToken: groupMagicToken,
     });
 
     if (sendResult.success) {
@@ -614,20 +638,46 @@ export async function dispatchWeeklyScheduleDigestForGeneration(
 
   const { weekStart, weekEnd, periodLabel, weekKey } = getUpcomingWeekRangeWIB(options?.referenceDate);
   const cleanGroupId = groupId.replace(/[^a-zA-Z0-9]/g, '_');
+  const weeklyMagicToken = `WEEKLY_DIGEST_${cleanGroupId}_${weekKey}`;
   const redisLockKey = `cron:wa_group_weekly:${cleanGroupId}:${weekKey}`;
 
-  if (redis && !options?.force) {
-    try {
-      const alreadySent = await redis.get(redisLockKey);
-      if (alreadySent) {
-        return {
-          success: true,
-          status: 'ALREADY_SENT_THIS_WEEK',
-          schedulesCount: 0,
-        };
+  if (!options?.force) {
+    // A. Cek Ground-Truth Database Log 6 Hari Terakhir
+    const existingWeeklyLog = await prisma.whatsAppMessageLog.findFirst({
+      where: {
+        recipientPhone: groupId,
+        templateCode: 'GROUP_WEEKLY_SCHEDULE_DIGEST',
+        status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+        createdAt: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) },
+        OR: [
+          { magicToken: weeklyMagicToken },
+          { referenceId: `weekly_${cleanGroupId}_${weekKey}` },
+        ],
+      },
+    });
+
+    if (existingWeeklyLog) {
+      return {
+        success: true,
+        status: 'ALREADY_SENT_THIS_WEEK',
+        schedulesCount: 0,
+      };
+    }
+
+    // B. Cek Redis Lock (Jika Redis aktif)
+    if (redis) {
+      try {
+        const alreadySent = await redis.get(redisLockKey);
+        if (alreadySent) {
+          return {
+            success: true,
+            status: 'ALREADY_SENT_THIS_WEEK',
+            schedulesCount: 0,
+          };
+        }
+      } catch (redisErr) {
+        console.warn('[groupScheduleNotificationService] Gagal membaca Redis lock mingguan:', redisErr);
       }
-    } catch (redisErr) {
-      console.warn('[groupScheduleNotificationService] Gagal membaca Redis lock mingguan:', redisErr);
     }
   }
 
@@ -752,6 +802,7 @@ export async function dispatchWeeklyScheduleDigestForGeneration(
     organizationName: orgSignatureName,
     weeklySessionsListText,
     referenceId: `weekly_${cleanGroupId}_${weekKey}`,
+    magicToken: weeklyMagicToken,
   });
 
   if (sendResult.success) {

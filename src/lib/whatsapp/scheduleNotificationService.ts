@@ -6,6 +6,9 @@ import {
   sendScheduleReminderCountdownTeacher,
   sendTeacherActionLinksH1,
   sendTeacherPresensiLink2h,
+  sendTeacherMultiScheduleDigestH1,
+  sendTeacherMultiScheduleActionsH1,
+  TeacherMultiScheduleItem,
   sendScheduleReminderCountdown,
   sendStudentActionLinks2h,
   sendScheduleChangeEmergencyAlert,
@@ -1045,37 +1048,166 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           magicToken: `${magicToken}_PRESENSI`,
         });
       } else {
-        res = await sendScheduleReminderH1ToTeacher({
-          teacherPhone: bucket.phone,
-          teacherName: bucket.name,
-          teacherGender: bucket.gender,
-          dayDate: dayDateStr,
-          startTime: startTimeStr,
-          endTime: endTimeStr,
-          venueName,
-          organizationName: orgName,
-          generationName: validGenNames,
-          className: displayClassOrGenList,
-          materialTitle: materialTitles,
-          isBadal: st?.isSubstitute,
-          notes: schedule.notes,
-          teacherBroadcastNote: schedule.teacherBroadcastNote,
-          scheduleId: schedule.id,
-          scheduleTitle: displayScheduleTitle,
-          teacherUserId: bucket.userId,
-          magicToken: `${magicToken}_MAIN`,
-        });
+        // Cek apakah guru mengajar >= 2 sesi esok hari
+        let isMultiSession = false;
+        let multiSessionItems: TeacherMultiScheduleItem[] = [];
+        let teacherTomorrowSchedules: any[] = [];
 
-        await sendTeacherActionLinksH1({
-          teacherPhone: bucket.phone,
-          teacherName: bucket.name,
-          teacherGender: bucket.gender,
-          scheduleTitle: displayScheduleTitle,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          teacherUserId: bucket.userId,
-          magicToken: `${magicToken}_ACTION`,
-        });
+        if (bucket.userId) {
+          const scheduleDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(schedule.startTime);
+          const dayStart = new Date(`${scheduleDateStr}T00:00:00+07:00`);
+          const dayEnd = new Date(`${scheduleDateStr}T23:59:59.999+07:00`);
+
+          teacherTomorrowSchedules = await prisma.schedule.findMany({
+            where: {
+              status: { in: [ScheduleStatus.SCHEDULED, ScheduleStatus.ACTIVE] },
+              startTime: { gte: dayStart, lte: dayEnd },
+              teachers: {
+                some: {
+                  teacherId: bucket.userId,
+                },
+              },
+              AND: [
+                {
+                  OR: [{ approvalStatus: 'APPROVED' }, { approvalStatus: null }],
+                },
+              ],
+            },
+            include: {
+              organization: true,
+              class: { include: { generation: true } },
+              targetClasses: { include: { class: { include: { generation: true } } } },
+              targetGenerations: { include: { generation: true } },
+              teachers: {
+                include: { teacher: true },
+                orderBy: [{ isPrimary: 'desc' }, { isSubstitute: 'asc' }],
+              },
+              scheduleMaterials: {
+                include: { material: true },
+                orderBy: { slotIndex: 'asc' },
+              },
+            },
+            orderBy: { startTime: 'asc' },
+          });
+
+          if (teacherTomorrowSchedules.length > 1) {
+            isMultiSession = true;
+            multiSessionItems = teacherTomorrowSchedules.map((s) => {
+              const sIsCombined =
+                isScheduleCombined(s) ||
+                (s.targetGenerations?.length || 0) > 1 ||
+                (s.targetClasses?.length || 0) > 1;
+              const sCleanTitle = s.title.replace(/^\[GABUNGAN\]\s*/i, '').trim();
+              const sDisplayTitle = sIsCombined ? `[GABUNGAN] ${sCleanTitle}` : sCleanTitle;
+
+              const sGenNames: string[] = [];
+              if (s.class?.generation?.name) sGenNames.push(s.class.generation.name);
+              s.targetGenerations?.forEach((tg: any) => {
+                if (tg.generation?.name) sGenNames.push(tg.generation.name);
+              });
+              s.targetClasses?.forEach((tc: any) => {
+                if (tc.class?.generation?.name) sGenNames.push(tc.class.generation.name);
+              });
+              const sUniqueGenNames = Array.from(new Set(sGenNames));
+
+              const sClassNames: string[] = [];
+              if (s.class?.name) sClassNames.push(s.class.name);
+              s.targetClasses?.forEach((tc: any) => {
+                if (tc.class?.name) sClassNames.push(tc.class.name);
+              });
+              const sUniqueClassNames = Array.from(new Set(sClassNames));
+
+              let sDisplayClassOrGenList: string[] = [];
+              if (sUniqueGenNames.length > 1) {
+                sDisplayClassOrGenList = sUniqueGenNames;
+              } else if (sUniqueClassNames.length > 1) {
+                sDisplayClassOrGenList = sUniqueClassNames;
+              } else if (sUniqueGenNames.length === 1) {
+                sDisplayClassOrGenList = sUniqueGenNames;
+              } else if (sUniqueClassNames.length === 1) {
+                sDisplayClassOrGenList = sUniqueClassNames;
+              } else {
+                sDisplayClassOrGenList = ['Umum'];
+              }
+
+              const sMaterialTitles =
+                s.scheduleMaterials
+                  ?.map((sm: any) => sm.material?.title)
+                  .filter(Boolean)
+                  .join(', ') ||
+                s.title ||
+                'Materi Pengajian Rutin';
+              const sTeacherSt = s.teachers?.find((t: any) => t.teacherId === bucket.userId);
+
+              return {
+                scheduleId: s.id,
+                scheduleTitle: sDisplayTitle,
+                startTime: formatTime(s.startTime),
+                endTime: formatTime(s.endTime),
+                venueName: s.venuePlaceName || 'Masjid Kelompok',
+                organizationName: s.organization?.name,
+                generationClassName: sDisplayClassOrGenList,
+                materialTitle: sMaterialTitles,
+                isBadal: sTeacherSt?.isSubstitute || false,
+              };
+            });
+          }
+        }
+
+        if (isMultiSession && multiSessionItems.length > 1) {
+          res = await sendTeacherMultiScheduleDigestH1({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            dayDate: dayDateStr,
+            organizationName: orgName,
+            items: multiSessionItems,
+            magicToken: `${magicToken}_MAIN`,
+            teacherUserId: bucket.userId,
+          });
+
+          await sendTeacherMultiScheduleActionsH1({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            dayDate: dayDateStr,
+            items: multiSessionItems,
+            magicToken: `${magicToken}_ACTION`,
+            teacherUserId: bucket.userId,
+          });
+        } else {
+          res = await sendScheduleReminderH1ToTeacher({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            dayDate: dayDateStr,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            venueName,
+            organizationName: orgName,
+            generationName: validGenNames,
+            className: displayClassOrGenList,
+            materialTitle: materialTitles,
+            isBadal: st?.isSubstitute,
+            notes: schedule.notes,
+            teacherBroadcastNote: schedule.teacherBroadcastNote,
+            scheduleId: schedule.id,
+            scheduleTitle: displayScheduleTitle,
+            teacherUserId: bucket.userId,
+            magicToken: `${magicToken}_MAIN`,
+          });
+
+          await sendTeacherActionLinksH1({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            scheduleTitle: displayScheduleTitle,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            teacherUserId: bucket.userId,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       }
 
       if (res.success) sentCount++;

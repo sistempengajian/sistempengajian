@@ -6,6 +6,7 @@ import {
   saveMaterialCustomization,
   resetMaterialCustomization,
 } from '@/app/(protected)/kurikulum/actions';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface MaterialCustomizeModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export default function MaterialCustomizeModal({
   const [customDescription, setCustomDescription] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   const tierLabel = tierLevel === 'DESA' ? 'Desa' : 'Kelompok';
   const hasCustomization = Boolean(currentCustomTitle || currentCustomDescription);
@@ -69,19 +71,26 @@ export default function MaterialCustomizeModal({
   };
 
   const handleReset = () => {
-    if (!confirm(`Kembalikan materi ini ke versi asli? Seluruh judul dan catatan kustom untuk ${organizationName} akan dihapus.`)) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await resetMaterialCustomization(materialId);
-      if (res.error) {
-        setErrorMessage(res.error);
-      } else {
-        onSuccess();
-        onClose();
+    openConfirm(
+      {
+        title: 'Kembalikan ke Versi Asli?',
+        description: `Kembalikan materi ini ke versi asli? Seluruh judul dan catatan kustom untuk ${organizationName} akan dihapus.`,
+        variant: 'danger',
+        confirmText: 'Ya, Kembalikan',
+        cancelText: 'Batal',
+      },
+      () => {
+        startTransition(async () => {
+          const res = await resetMaterialCustomization(materialId);
+          if (res.error) {
+            setErrorMessage(res.error);
+          } else {
+            onSuccess();
+            onClose();
+          }
+        });
       }
-    });
+    );
   };
 
   const isPurple = tierLevel === 'DESA';
@@ -235,6 +244,7 @@ export default function MaterialCustomizeModal({
           </div>
         </div>
       </form>
+      {ConfirmModalComponent()}
     </div>
   );
 }

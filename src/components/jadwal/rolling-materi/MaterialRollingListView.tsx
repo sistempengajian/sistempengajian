@@ -23,6 +23,8 @@ import {
 import type { RollingIntervalType, TierLevel } from '@prisma/client';
 import MaterialRollingFormModal from './MaterialRollingFormModal';
 import { deleteMaterialRolling } from '@/app/(protected)/jadwal/rolling-materi/actions';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface GenerationOption {
   id: string;
@@ -49,6 +51,8 @@ export default function MaterialRollingListView({
   const [rollingToEdit, setRollingToEdit] = useState<any | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Prefetch rute kembali ke kalender agar navigasi kembali instan
   useEffect(() => {
@@ -86,18 +90,24 @@ export default function MaterialRollingListView({
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus rolling materi "${name}"?`)) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await deleteMaterialRolling(id);
-      if (res.error) {
-        alert(res.error);
-      } else {
-        setRollings((prev) => prev.filter((r) => r.id !== id));
+    openConfirm(
+      {
+        title: 'Hapus Rolling Materi?',
+        description: `Apakah Anda yakin ingin menghapus rolling materi "${name}"?`,
+        variant: 'danger',
+        confirmText: 'Ya, Hapus',
+      },
+      async () => {
+        startTransition(async () => {
+          const res = await deleteMaterialRolling(id);
+          if (res.error) {
+            toast.error(res.error);
+          } else {
+            setRollings((prev) => prev.filter((r) => r.id !== id));
+          }
+        });
       }
-    });
+    );
   };
 
   const handleSuccess = () => {
@@ -379,6 +389,9 @@ export default function MaterialRollingListView({
         generations={generations}
         onSuccess={handleSuccess}
       />
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

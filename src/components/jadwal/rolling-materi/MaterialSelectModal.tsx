@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { TierLevel } from '@prisma/client';
 import { getAvailableMaterialsForRolling } from '@/app/(protected)/jadwal/rolling-materi/actions';
+import { useToast } from '@/components/ui/Toast';
 
 export interface SelectedMaterialInfo {
   id: string;
@@ -54,6 +55,7 @@ export default function MaterialSelectModal({
   const [selectedTierFilter, setSelectedTierFilter] = useState<'ALL' | TierLevel>('ALL');
   const [selectedGenFilter, setSelectedGenFilter] = useState<string>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const toast = useToast();
 
   // Muat data materi saat modal dibuka
   useEffect(() => {
@@ -125,7 +127,7 @@ export default function MaterialSelectModal({
       } else {
         if (selectedIds.length >= maxSelectCount) {
           // Ganti yang terakhir jika sudah penuh atau cegah
-          alert(`Maksimal ${maxSelectCount} materi dapat dipilih sekaligus.`);
+          toast.warning(`Maksimal ${maxSelectCount} materi dapat dipilih sekaligus.`);
           return;
         }
         setSelectedIds([...selectedIds, item.id]);

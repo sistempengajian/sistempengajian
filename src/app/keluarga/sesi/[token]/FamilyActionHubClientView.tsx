@@ -21,6 +21,8 @@ import {
   Check,
   QrCode,
   ChevronRight,
+  Lock,
+  Info,
 } from 'lucide-react';
 import { submitFamilyChildAbsence } from '@/app/keluarga/actions';
 
@@ -34,13 +36,20 @@ interface StudentItem {
     organization?: { id: string; name: string } | null;
   };
   relationshipType?: string | null;
+  isParticipant?: boolean;
+  otherScheduleInfo?: {
+    id: string;
+    title: string;
+    time: string;
+  } | null;
   statusBadge:
     | 'HADIR'
     | 'TERLAMBAT'
     | 'ABSENCE_PENDING'
     | 'ABSENCE_APPROVED'
     | 'ABSENCE_REJECTED'
-    | 'NOT_CHECKED_IN';
+    | 'NOT_CHECKED_IN'
+    | 'NOT_PARTICIPANT';
   attendanceRecord?: {
     status: string;
     checkInTime?: string | null;
@@ -220,8 +229,9 @@ export default function FamilyActionHubClientView({
 
         {/* Cards Per Child */}
         <div className="space-y-4">
-          {children.map((item, idx) => {
+          {children.map((item) => {
             const student = item.student;
+            const isNotParticipant = item.statusBadge === 'NOT_PARTICIPANT' || item.isParticipant === false;
             const isFormOpen = openAbsenceFormStudentId === student.id;
             const currentAbsenceType = absenceTypeMap[student.id] || 'SAKIT';
             const currentNotes = notesMap[student.id] || '';
@@ -229,12 +239,22 @@ export default function FamilyActionHubClientView({
             return (
               <div
                 key={student.id}
-                className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-slate-200/90 transition-all hover:border-slate-300"
+                className={`rounded-3xl p-5 sm:p-6 shadow-xs border transition-all ${
+                  isNotParticipant
+                    ? 'bg-slate-50/80 border-slate-200/90'
+                    : 'bg-white border-slate-200/90 hover:border-slate-300'
+                }`}
               >
                 {/* Child Header Info */}
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-black text-base shrink-0">
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shrink-0 border ${
+                        isNotParticipant
+                          ? 'bg-slate-100 border-slate-200 text-slate-500'
+                          : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                      }`}
+                    >
                       {student.avatarUrl ? (
                         <img
                           src={student.avatarUrl}
@@ -245,27 +265,46 @@ export default function FamilyActionHubClientView({
                         student.fullName.charAt(0).toUpperCase()
                       )}
                     </div>
-                    <div className='flex flex-col'>
-                      <div className='flex gap-2 items-center'>
-                        <h3 className="text-base font-bold text-slate-900 leading-snug">
-                        {student.fullName}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
-                          {student.generation?.name || 'Santri'}
-                        </span>
-                      </div>
+                    <div className="flex flex-col">
+                      <div className="flex gap-2 items-center">
+                        <h3
+                          className={`text-base font-bold leading-snug ${
+                            isNotParticipant ? 'text-slate-700' : 'text-slate-900'
+                          }`}
+                        >
+                          {student.fullName}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                              isNotParticipant
+                                ? 'bg-slate-200/70 text-slate-600'
+                                : 'bg-indigo-50 text-indigo-700'
+                            }`}
+                          >
+                            {student.generation?.name || 'Santri'}
+                          </span>
+                        </div>
                       </div>
                       {student.organization && (
-                          <span className="text-[11px] text-slate-500">
-                            {student.organization.name}
-                          </span>
-                        )}
+                        <span className="text-[11px] text-slate-500">
+                          {student.organization.name}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Status Badge */}
                   <div>
+                    {item.statusBadge === 'NOT_PARTICIPANT' && (
+                      <div className="flex flex-col items-start min-[400px]:items-end">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          <Info className="w-3.5 h-3.5 text-slate-500" />
+                          Bukan Peserta Sesi Ini
+                        </span>
+                      </div>
+                    )}
+
                     {item.statusBadge === 'HADIR' && (
                       <div className="flex flex-col items-start min-[400px]:items-end">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
@@ -340,8 +379,41 @@ export default function FamilyActionHubClientView({
                   </div>
                 </div>
 
+                {/* Info Rincian Jika Bukan Peserta Sesi Ini */}
+                {isNotParticipant && (
+                  <div className="mt-4">
+                    {item.otherScheduleInfo ? (
+                      <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900 space-y-1">
+                        <div className="flex items-center gap-2 font-bold text-amber-900">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          Terdaftar di Sesi Lain Hari Ini:
+                        </div>
+                        <div className="font-semibold text-slate-900 pl-5.5">
+                          {item.otherScheduleInfo.title}
+                        </div>
+                        <div className="text-[11px] text-amber-700 pl-5.5">
+                          Waktu: {item.otherScheduleInfo.time}
+                        </div>
+                        <div className="text-[10.5px] text-slate-500 pl-5.5 pt-0.5">
+                          *Pengajuan izin dan presensi ananda dapat diakses melalui link pesan pengingat khusus untuk sesi tersebut.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-xs text-slate-600 flex items-start gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-slate-700">Tidak Ada Jadwal Pengajian Hari Ini</span>
+                          <p className="text-[11px] text-slate-500">
+                            Ananda tidak memiliki agenda sesi pengajian yang terjadwal untuk hari ini.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Info Rincian Jika Sudah Mengajukan Izin */}
-                {item.absenceRequest && (
+                {!isNotParticipant && item.absenceRequest && (
                   <div className="mt-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60 text-xs text-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-indigo-600" />
@@ -354,53 +426,70 @@ export default function FamilyActionHubClientView({
                 )}
 
                 {/* Action Buttons */}
-                <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-xs">
-                    {item.statusBadge === 'HADIR' || item.statusBadge === 'TERLAMBAT' ? (
-                      <span className="text-emerald-700 font-semibold inline-flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        Ananda telah terverifikasi hadir di lokasi oleh Pengajar.
-                      </span>
-                    ) : item.statusBadge === 'ABSENCE_APPROVED' ? (
-                      <span className="text-blue-700 font-semibold inline-flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                        Permohonan izin ananda telah disetujui.
-                      </span>
-                    ) : item.statusBadge === 'ABSENCE_PENDING' ? (
-                      <span className="text-amber-700 font-semibold inline-flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                        Surat izin telah terkirim dan menunggu konfirmasi Wali Kelas.
-                      </span>
-                    ) : (
-                      <span className="text-slate-500">
-                        Presensi oleh pengajar di lokasi atau melalui presensi mandiri orang tua di atas.
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Tombol Toggle Form Izin (Hanya jika belum hadir di masjid) */}
-                  {item.statusBadge !== 'HADIR' && item.statusBadge !== 'TERLAMBAT' && (
+                {isNotParticipant ? (
+                  <div className="mt-4 pt-3.5 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-xs text-slate-400 italic flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      Izin terkunci karena ananda bukan peserta sesi ini.
+                    </span>
                     <button
                       type="button"
-                      disabled={isPending}
-                      onClick={() =>
-                        setOpenAbsenceFormStudentId(isFormOpen ? null : student.id)
-                      }
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 transition-colors shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                      disabled
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
                     >
-                      <HeartPulse className="w-4 h-4 text-rose-600" />
-                      {item.absenceRequest ? 'Ubah Pengajuan Izin' : 'Ajukan Izin / Sakit'}
-                      {isFormOpen ? (
-                        <ChevronUp className="w-3.5 h-3.5 text-rose-500" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-rose-500" />
-                      )}
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      Izin Terkunci
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs">
+                      {item.statusBadge === 'HADIR' || item.statusBadge === 'TERLAMBAT' ? (
+                        <span className="text-emerald-700 font-semibold inline-flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          Ananda telah terverifikasi hadir di lokasi oleh Pengajar.
+                        </span>
+                      ) : item.statusBadge === 'ABSENCE_APPROVED' ? (
+                        <span className="text-blue-700 font-semibold inline-flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                          Permohonan izin ananda telah disetujui.
+                        </span>
+                      ) : item.statusBadge === 'ABSENCE_PENDING' ? (
+                        <span className="text-amber-700 font-semibold inline-flex items-center gap-1.5">
+                          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                          Surat izin telah terkirim dan menunggu konfirmasi Wali Kelas.
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">
+                          Presensi oleh pengajar di lokasi atau melalui presensi mandiri orang tua di atas.
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Tombol Toggle Form Izin (Hanya jika belum hadir di masjid) */}
+                    {item.statusBadge !== 'HADIR' && item.statusBadge !== 'TERLAMBAT' && (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() =>
+                          setOpenAbsenceFormStudentId(isFormOpen ? null : student.id)
+                        }
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 transition-colors shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                      >
+                        <HeartPulse className="w-4 h-4 text-rose-600" />
+                        {item.absenceRequest ? 'Ubah Pengajuan Izin' : 'Ajukan Izin / Sakit'}
+                        {isFormOpen ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-rose-500" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-rose-500" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Form Accordion Pengajuan Izin */}
-                {isFormOpen && (
+                {!isNotParticipant && isFormOpen && (
                   <div className="p-4 rounded-2xl space-y-4 animate-in fade-in-50 duration-200">
                     <div className="text-xs font-bold text-slate-800">
                       Pilih Jenis & Tulis Alasan Izin untuk {student.fullName}:

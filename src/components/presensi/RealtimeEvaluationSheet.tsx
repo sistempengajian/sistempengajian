@@ -44,6 +44,7 @@ import {
   TargetCapaianInput,
 } from '@/app/(protected)/presensi/actions';
 import CircularProgressBar from '@/components/kurikulum/CircularProgressBar';
+import { useToast } from '@/components/ui/Toast';
 
 export interface StudentItem {
   id: string;
@@ -334,6 +335,8 @@ export default function RealtimeEvaluationSheet({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const toast = useToast();
 
   // Click outside untuk dropdown menu mode massal
   useEffect(() => {
@@ -1940,11 +1943,11 @@ export default function RealtimeEvaluationSheet({
   ) => {
     if (targetStatus === 'COMPLETED') {
       if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
-        alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
+        toast.warning('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
         return;
       }
       if (completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa && !canCompleteDaerah) {
-        alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
+        toast.warning('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
         return;
       }
     }
@@ -2016,11 +2019,11 @@ export default function RealtimeEvaluationSheet({
     completionTierLevel?: string
   ) => {
     if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
-      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
+      toast.warning('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
       return;
     }
     if (completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa && !canCompleteDaerah) {
-      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
+      toast.warning('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
       return;
     }
 
@@ -2104,7 +2107,7 @@ export default function RealtimeEvaluationSheet({
     // Mode Penilaian Massal: Simpan ke seluruh santri terpilih sekaligus
     if (isBulkMode) {
       if (bulkSelectedStudentIds.length === 0) {
-        alert('Silakan pilih minimal 1 santri untuk penilaian massal.');
+        toast.warning('Silakan pilih minimal 1 santri untuk penilaian massal.');
         return;
       }
 
@@ -2191,7 +2194,7 @@ export default function RealtimeEvaluationSheet({
         setTimeout(() => setSuccessMessage(null), 6000);
       } catch (err) {
         console.error('Failed to save bulk evaluation:', err);
-        alert('Gagal menyimpan evaluasi massal santri.');
+        toast.error('Gagal menyimpan evaluasi massal santri.');
       } finally {
         setIsSubmitting(false);
       }
@@ -2241,7 +2244,7 @@ export default function RealtimeEvaluationSheet({
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error('Failed to save evaluation:', err);
-      alert('Gagal menyimpan evaluasi santri.');
+      toast.error('Gagal menyimpan evaluasi santri.');
     } finally {
       setIsSubmitting(false);
     }
@@ -2258,7 +2261,7 @@ export default function RealtimeEvaluationSheet({
       setTimeout(() => setHandoverSuccessMessage(null), 4000);
     } catch (err) {
       console.error('Gagal menyimpan catatan serah-terima:', err);
-      alert('Gagal menyimpan catatan serah-terima.');
+      toast.error('Gagal menyimpan catatan serah-terima.');
     } finally {
       setIsSavingHandover(false);
     }

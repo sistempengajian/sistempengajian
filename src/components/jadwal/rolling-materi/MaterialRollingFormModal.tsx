@@ -23,6 +23,7 @@ import {
   updateMaterialRolling,
   MaterialRollingInput
 } from '@/app/(protected)/jadwal/rolling-materi/actions';
+import { useToast } from '@/components/ui/Toast';
 
 interface GenerationOption {
   id: string;
@@ -53,6 +54,7 @@ export default function MaterialRollingFormModal({
 }: MaterialRollingFormModalProps) {
   const isEditMode = Boolean(rollingToEdit);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   // Form State
   const [name, setName] = useState('');
@@ -164,7 +166,7 @@ export default function MaterialRollingFormModal({
   // Handler hapus antrean (menjaga batas minimal 2)
   const handleRemoveQueue = (queueIdx: number) => {
     if (queues.length <= 2) {
-      alert('Daftar antrean minimal harus memiliki 2 antrean rolling.');
+      toast.warning('Daftar antrean minimal harus memiliki 2 antrean rolling.');
       return;
     }
     const updated = queues
