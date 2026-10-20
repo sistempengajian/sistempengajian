@@ -12,6 +12,7 @@ import {
   Lock,
   ChevronDown,
   BookOpen,
+  Book,
   Filter,
   Check,
   Clock,
@@ -31,6 +32,10 @@ import {
   MessageSquareQuote,
   NotebookPen,
   User,
+  Calendar,
+  GraduationCap,
+  Circle,
+  RotateCcw,
 } from 'lucide-react';
 import {
   saveComprehensiveEvaluation,
@@ -81,7 +86,9 @@ export interface MaterialWithChecklists {
   versionLabel?: string;
   isCustomized?: boolean;
   isScheduled?: boolean;
+  isMonthlyTarget?: boolean;
   slotIndex?: number;
+  monthlyTargets?: Array<{ month: number; year: number; generationId?: string }>;
   checklistItems: ChecklistItemData[];
 }
 
@@ -98,10 +105,14 @@ interface RealtimeEvaluationSheetProps {
   scheduleId: string;
   scheduleTierLevel?: 'KELOMPOK' | 'DESA' | 'DAERAH' | string;
   organizationName?: string;
+  sessionMonth?: number;
+  sessionYear?: number;
+  initialScopeCounts?: Record<MaterialFilterScope, number>;
   students: StudentItem[];
   classes?: Array<{ id: string; name: string }>;
   materials?: MaterialWithChecklists[];
   initialProgress?: StudentProgressData[];
+  initialEvaluatedStudentIds?: string[];
   canCompleteDaerah?: boolean;
   canCompleteDesa?: boolean;
   totalStudentsCount?: number;
@@ -129,7 +140,68 @@ const QUICK_TAGS = [
 
 const SCORE_PILLS = [75, 80, 85, 90, 95, 100];
 
-export type MaterialFilterMode = 'SCHEDULED' | 'GENERATION' | 'ALL';
+export type MaterialFilterScope = 'SCHEDULED' | 'MONTHLY' | 'ADDITIONAL' | 'GENERATION' | 'ALL';
+export type MaterialFilterMode = MaterialFilterScope;
+export type StudentEvaluationStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+
+export const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+export const MONTH_CODES = [
+  { code: 'JAN', month: 1 },
+  { code: 'FEB', month: 2 },
+  { code: 'MAR', month: 3 },
+  { code: 'APR', month: 4 },
+  { code: 'MEI', month: 5 },
+  { code: 'JUN', month: 6 },
+  { code: 'JUL', month: 7 },
+  { code: 'AGS', month: 8 },
+  { code: 'SEP', month: 9 },
+  { code: 'OKT', month: 10 },
+  { code: 'NOV', month: 11 },
+  { code: 'DES', month: 12 },
+];
+
+export function getMaterialMonths(mat: MaterialWithChecklists): number[] {
+  const months = new Set<number>();
+  if (mat.monthlyTargets && mat.monthlyTargets.length > 0) {
+    mat.monthlyTargets.forEach((t) => {
+      if (t.month >= 1 && t.month <= 12) months.add(t.month);
+    });
+  }
+  const upper = mat.title.toUpperCase();
+  MONTH_CODES.forEach(({ code, month }) => {
+    if (upper.includes(code)) months.add(month);
+  });
+  return Array.from(months);
+}
+
+export function getMaterialStudentStatus(
+  mat: MaterialWithChecklists,
+  progressMap: Record<string, { isCompleted: boolean; score?: number | null; teacherFeedback?: string | null; isModifiedSession?: boolean }>
+): StudentEvaluationStatus {
+  const items = mat.checklistItems;
+  if (!items || items.length === 0) return 'NOT_STARTED';
+
+  let completedCount = 0;
+  let hasTouched = false;
+
+  items.forEach((it) => {
+    const p = progressMap[it.id];
+    if (p?.isCompleted) {
+      completedCount++;
+      hasTouched = true;
+    } else if ((p?.teacherFeedback && p.teacherFeedback.trim() !== '') || p?.isModifiedSession) {
+      hasTouched = true;
+    }
+  });
+
+  if (completedCount === items.length) return 'COMPLETED';
+  if (completedCount > 0 || hasTouched) return 'IN_PROGRESS';
+  return 'NOT_STARTED';
+}
 
 interface PresensiMaterialsCacheEntry {
   items: MaterialWithChecklists[];
@@ -138,6 +210,7 @@ interface PresensiMaterialsCacheEntry {
   hasMore: boolean;
   page: number;
   timestamp: number;
+  counts?: Record<MaterialFilterScope, number>;
 }
 
 // In-memory cache antar render/sesi di sisi client (TTL 5 menit)
@@ -146,25 +219,31 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function buildCacheKey(
   scheduleId: string,
-  mode: MaterialFilterMode,
+  mode: MaterialFilterScope | string,
   genId?: string | null,
+  studentId?: string | null,
   search?: string
 ): string {
   const cleanSearch = (search || '').trim().toLowerCase();
+  const base = `${scheduleId}_${mode}_${genId || 'ALL'}_${studentId || 'ALL_STU'}`;
   if (cleanSearch) {
-    return `${scheduleId}_SEARCH_${mode}_${genId || 'ALL'}_${cleanSearch}`;
+    return `${base}_SEARCH_${cleanSearch}`;
   }
-  return `${scheduleId}_${mode}_${genId || 'ALL'}`;
+  return base;
 }
 
 export default function RealtimeEvaluationSheet({
   scheduleId,
   scheduleTierLevel,
   organizationName,
+  sessionMonth,
+  sessionYear,
+  initialScopeCounts,
   students,
   classes = [],
   materials = [],
   initialProgress = [],
+  initialEvaluatedStudentIds = [],
   canCompleteDaerah = false,
   canCompleteDesa = false,
   totalStudentsCount,
@@ -188,6 +267,24 @@ export default function RealtimeEvaluationSheet({
   const [handoverSuccessMessage, setHandoverSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // State Santri yang Sudah Dinilai pada Sesi Ini
+  const [evaluatedStudentIds, setEvaluatedStudentIds] = useState<string[]>(
+    initialEvaluatedStudentIds || []
+  );
+
+  useEffect(() => {
+    if (initialEvaluatedStudentIds && initialEvaluatedStudentIds.length > 0) {
+      setEvaluatedStudentIds((prev) => Array.from(new Set([...prev, ...initialEvaluatedStudentIds])));
+    }
+  }, [initialEvaluatedStudentIds]);
+
+  // State Toggle Tampilan Catatan Guru & Handover
+  const [showTeacherNote, setShowTeacherNote] = useState<boolean>(false);
+  const [showHandoverNote, setShowHandoverNote] = useState<boolean>(false);
+
+  // State Toggle Simpan Nilai Semua Jenjang (Lintas Jenjang)
+  const [applyToAllGenerations, setApplyToAllGenerations] = useState<boolean>(false);
 
   // State Mode Penilaian Massal
   const [isBulkMode, setIsBulkMode] = useState<boolean>(false);
@@ -314,16 +411,34 @@ export default function RealtimeEvaluationSheet({
     [materials]
   );
 
-  const initialMode: MaterialFilterMode = hasScheduledMaterials ? 'SCHEDULED' : 'GENERATION';
-  const [materialFilterMode, setMaterialFilterMode] = useState<MaterialFilterMode>(initialMode);
+  const [materialFilterScope, setMaterialFilterScope] = useState<MaterialFilterScope>('SCHEDULED');
+  const materialFilterMode = materialFilterScope;
+  const setMaterialFilterMode = (mode: MaterialFilterScope) => setMaterialFilterScope(mode);
+  const [isFilterScopeDropdownOpen, setIsFilterScopeDropdownOpen] = useState<boolean>(false);
+  const filterScopeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // State Filter Lanjutan (Modal Besar: Jenjang, Bulan, Status)
+  const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState<boolean>(false);
+  const [advancedFilterActiveTab, setAdvancedFilterActiveTab] = useState<'JENJANG' | 'BULAN' | 'STATUS'>('JENJANG');
+
+  // Filter yang sedang aktif diterapkan
+  const [activeGenFilterIds, setActiveGenFilterIds] = useState<string[]>([]);
+  const [activeMonthFilters, setActiveMonthFilters] = useState<number[]>([]);
+  const [activeStatusFilters, setActiveStatusFilters] = useState<StudentEvaluationStatus[]>([]);
+
+  // Filter sementara (Draft) di dalam modal sebelum tombol "Terapkan" diklik
+  const [draftGenFilterIds, setDraftGenFilterIds] = useState<string[]>([]);
+  const [draftMonthFilters, setDraftMonthFilters] = useState<number[]>([]);
+  const [draftStatusFilters, setDraftStatusFilters] = useState<StudentEvaluationStatus[]>([]);
 
   const currentStudent = students.find((s) => s.id === selectedStudentId);
 
   // Inisialisasi cache key awal
   const initialCacheKey = useMemo(() => {
-    const targetGenId = !hasScheduledMaterials ? (students[0]?.generationId || null) : null;
-    return buildCacheKey(scheduleId, initialMode, targetGenId);
-  }, [scheduleId, initialMode, hasScheduledMaterials, students]);
+    const targetGenId = students[0]?.generationId || null;
+    const initialStuId = students[0]?.id || null;
+    return buildCacheKey(scheduleId, 'SCHEDULED', targetGenId, initialStuId);
+  }, [scheduleId, students]);
 
   const cachedForInitial = globalPresensiMaterialsCache[initialCacheKey];
   const isInitialCachedValid = Boolean(
@@ -370,14 +485,16 @@ export default function RealtimeEvaluationSheet({
           hasMore: initialHasMore ?? false,
           page: 1,
           timestamp: Date.now(),
+          counts: initialScopeCounts,
         },
   });
 
   // Buffer untuk data yang diambil secara diam-diam oleh background prefetcher
   const prefetchBufferRef = useRef<Record<string, PresensiMaterialsCacheEntry>>({});
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const prevSearchRef = useRef<string>('');
 
-  // Simpan data awal ke global cache
+  // Simpan data awal ke cache memori (optimasi instan render)
   useEffect(() => {
     if (!globalPresensiMaterialsCache[initialCacheKey]) {
       const entry: PresensiMaterialsCacheEntry = {
@@ -387,11 +504,12 @@ export default function RealtimeEvaluationSheet({
         hasMore: initialHasMore ?? false,
         page: 1,
         timestamp: Date.now(),
+        counts: initialScopeCounts,
       };
       globalPresensiMaterialsCache[initialCacheKey] = entry;
       cacheRef.current[initialCacheKey] = entry;
     }
-  }, [initialCacheKey, materials, initialProgress, initialTotalMaterials, initialHasMore]);
+  }, [initialCacheKey, materials, initialProgress, initialTotalMaterials, initialHasMore, initialScopeCounts]);
 
   const [expandedMaterialIds, setExpandedMaterialIds] = useState<string[]>([]);
   const [materialSearchQuery, setMaterialSearchQuery] = useState<string>('');
@@ -430,6 +548,22 @@ export default function RealtimeEvaluationSheet({
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [generations, loadedMaterials]);
 
+  // Grup Jenjang Santri Hadir untuk Akses Cepat pada Tooltip Mode Massal (hanya jenjang dengan santri aktif > 1)
+  const bulkGenerationQuickOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; studentIds: string[] }>();
+    for (const s of students) {
+      if (!s.generationId) continue;
+      const genName = s.generationName || availableGenerations.find((g) => g.id === s.generationId)?.name || 'Jenjang';
+      const entry = map.get(s.generationId) || { id: s.generationId, name: genName, studentIds: [] };
+      entry.studentIds.push(s.id);
+      map.set(s.generationId, entry);
+    }
+    // Hanya jenjang yang ada santri aktif dan lebih dari 1 (> 1)
+    return Array.from(map.values())
+      .filter((g) => g.studentIds.length > 1)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [students, availableGenerations]);
+
   // State Search & Debounce untuk Dropdown Santri Hadir
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState<string>('');
@@ -449,15 +583,7 @@ export default function RealtimeEvaluationSheet({
     return () => clearTimeout(handler);
   }, [studentSearch]);
 
-  // Otomatis fokus ke input pencarian saat dropdown dibuka
-  useEffect(() => {
-    if (isStudentDropdownOpen) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isStudentDropdownOpen]);
+
 
   // Event listener untuk menutup dropdown saat klik di luar area (click outside)
   useEffect(() => {
@@ -496,6 +622,59 @@ export default function RealtimeEvaluationSheet({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isGenFilterDropdownOpen]);
+
+  // Click outside untuk dropdown menu cakupan materi (Filter Popover)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterScopeDropdownRef.current &&
+        !filterScopeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsFilterScopeDropdownOpen(false);
+      }
+    };
+
+    if (isFilterScopeDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isFilterScopeDropdownOpen]);
+
+  // Lock scroll & ESC key untuk Modal Besar Filter Lanjutan
+  useEffect(() => {
+    if (isAdvancedFilterModalOpen) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setIsAdvancedFilterModalOpen(false);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isAdvancedFilterModalOpen]);
+
+  // Handlers untuk Modal Filter Lanjutan
+  const openAdvancedFilterModal = useCallback(() => {
+    setDraftGenFilterIds([...activeGenFilterIds]);
+    setDraftMonthFilters([...activeMonthFilters]);
+    setDraftStatusFilters([...activeStatusFilters]);
+    setIsAdvancedFilterModalOpen(true);
+  }, [activeGenFilterIds, activeMonthFilters, activeStatusFilters]);
+
+  const handleResetDraftFilters = useCallback(() => {
+    setDraftGenFilterIds([]);
+    setDraftMonthFilters([]);
+    setDraftStatusFilters([]);
+  }, []);
+
+  const totalActiveAdvancedFilters =
+    activeGenFilterIds.length + activeMonthFilters.length + activeStatusFilters.length;
+  const totalDraftAdvancedFilters =
+    draftGenFilterIds.length + draftMonthFilters.length + draftStatusFilters.length;
 
   // Filter daftar santri berdasarkan hasil debounce pencarian
   const filteredStudents = useMemo(() => {
@@ -551,7 +730,136 @@ export default function RealtimeEvaluationSheet({
     }
   }, [students, selectedStudentId]);
 
-  // Inisialisasi data progres target capaian saat santri terpilih berganti
+  const prevStudentGenIdRef = useRef<string | null>(students[0]?.generationId || null);
+  const prevSelectedStudentIdRef = useRef<string>(students[0]?.id || '');
+
+  // Sinkronisasi otomatis materi kurikulum ketika santri berganti (khususnya beda jenjang di jadwal gabungan)
+  useEffect(() => {
+    if (isBulkMode || !selectedStudentId) return;
+
+    const newGenId = currentStudent?.generationId || null;
+    const isDifferentGen = prevStudentGenIdRef.current !== newGenId;
+    const isDifferentStudent = prevSelectedStudentIdRef.current !== selectedStudentId;
+
+    if (!isDifferentStudent) return;
+
+    prevStudentGenIdRef.current = newGenId;
+    prevSelectedStudentIdRef.current = selectedStudentId;
+
+    // Jika filter lanjutan sedang aktif, ambil ulang materi dan progres khusus santri terpilih
+    if (activeGenFilterIds.length > 0 || activeMonthFilters.length > 0) {
+      let isCancelled = false;
+      setIsLoadingMode(true);
+      const fetchFilteredForStudent = async () => {
+        try {
+          const params = new URLSearchParams({
+            scheduleId,
+            scope: 'ALL',
+            page: '1',
+            limit: '100',
+            studentId: selectedStudentId,
+          });
+          if (activeGenFilterIds.length > 0) params.set('generationIds', activeGenFilterIds.join(','));
+          if (activeMonthFilters.length > 0) params.set('months', activeMonthFilters.join(','));
+
+          const res = await fetch(`/api/presensi/materials?${params.toString()}`);
+          const data = await res.json();
+          if (!isCancelled && data.success) {
+            setLoadedMaterials(data.items);
+            setTotalCount(data.total);
+            setHasMore(data.hasMore);
+            setPage(1);
+            mergeProgress(data.progress);
+            if (data.counts) setScopeCounts(data.counts);
+          }
+        } catch (err) {
+          console.error('Gagal memperbarui filter lanjutan untuk santri:', err);
+        } finally {
+          if (!isCancelled) setIsLoadingMode(false);
+        }
+      };
+      fetchFilteredForStudent();
+      return () => { isCancelled = true; };
+    }
+
+    // Cek cache dulu
+    const targetGenId = newGenId;
+    const cacheKey = buildCacheKey(scheduleId, materialFilterScope, targetGenId, selectedStudentId);
+    const cached = cacheRef.current[cacheKey] || globalPresensiMaterialsCache[cacheKey];
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      setLoadedMaterials(cached.items);
+      setTotalCount(cached.total);
+      setHasMore(cached.hasMore);
+      setPage(cached.page);
+      mergeProgress(cached.progress);
+      if (cached.counts) setScopeCounts(cached.counts);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingMode(true);
+
+    const fetchStudentMaterials = async () => {
+      try {
+        const params = new URLSearchParams({
+          scheduleId,
+          scope: materialFilterScope,
+          page: '1',
+          limit: materialFilterScope === 'ALL' ? '20' : '100',
+          studentId: selectedStudentId,
+        });
+        if (targetGenId) params.set('generationId', targetGenId);
+
+        const res = await fetch(`/api/presensi/materials?${params.toString()}`);
+        const data = await res.json();
+
+        if (!isCancelled && data.success) {
+          const entry: PresensiMaterialsCacheEntry = {
+            items: data.items,
+            progress: data.progress,
+            total: data.total,
+            hasMore: data.hasMore,
+            page: 1,
+            timestamp: Date.now(),
+            counts: data.counts,
+          };
+          cacheRef.current[cacheKey] = entry;
+          globalPresensiMaterialsCache[cacheKey] = entry;
+
+          setLoadedMaterials(data.items);
+          setTotalCount(data.total);
+          setHasMore(data.hasMore);
+          setPage(1);
+          mergeProgress(data.progress);
+          if (data.counts) setScopeCounts(data.counts);
+        }
+      } catch (err) {
+        console.error('Gagal memuat materi santri terpilih:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingMode(false);
+        }
+      }
+    };
+
+    fetchStudentMaterials();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    selectedStudentId,
+    currentStudent?.generationId,
+    materialFilterScope,
+    isBulkMode,
+    scheduleId,
+    activeGenFilterIds,
+    activeMonthFilters,
+    mergeProgress,
+  ]);
+
+  // Inisialisasi data progres target capaian saat santri terpilih berganti atau materi dimuat ulang
   useEffect(() => {
     if (!selectedStudentId) {
       setTargetProgressMap({});
@@ -595,7 +903,7 @@ export default function RealtimeEvaluationSheet({
 
     setTargetProgressMap(newMap);
     setSuccessMessage(null);
-  }, [selectedStudentId, isBulkMode]);
+  }, [selectedStudentId, loadedMaterials, isBulkMode]);
 
   // Ketika loadedMaterials bertambah atau allStudentProgress bertambah, sinkronkan item baru tanpa menimpa yang sedang diedit
   useEffect(() => {
@@ -636,155 +944,299 @@ export default function RealtimeEvaluationSheet({
     });
   }, [loadedMaterials, allStudentProgress, selectedStudentId]);
 
-  // Filter materi aktif:
-  // - Pada Mode Massal: gabungkan materi umum sesi di atas + materi bulanan per jenjang santri yang terdaftar
-  // - Pada Mode Mandiri: saring berdasarkan jenjang santri terpilih
+  const currentMonth = useMemo(() => sessionMonth || (new Date().getMonth() + 1), [sessionMonth]);
+
+  // State hitungan akurat untuk 5 cakupan materi: Semua, Jenjang, Bulanan, Jadwal, Tambahan
+  const [scopeCounts, setScopeCounts] = useState<Record<MaterialFilterScope, number>>(() => ({
+    ALL: initialScopeCounts?.ALL ?? 0,
+    GENERATION: initialScopeCounts?.GENERATION ?? 0,
+    MONTHLY: initialScopeCounts?.MONTHLY ?? 0,
+    SCHEDULED: initialScopeCounts?.SCHEDULED ?? 0,
+    ADDITIONAL: initialScopeCounts?.ADDITIONAL ?? 0,
+  }));
+
+  // Handler memilih salah satu dari 5 opsi cakupan materi dari popover/tooltip
+  const handleSelectScope = useCallback(
+    async (scope: MaterialFilterScope) => {
+      setMaterialFilterScope(scope);
+      setIsFilterScopeDropdownOpen(false);
+
+      const targetGenId = isBulkMode ? undefined : currentStudent?.generationId;
+      const stuId = isBulkMode ? undefined : selectedStudentId;
+      const cacheKey = buildCacheKey(scheduleId, scope, targetGenId, stuId);
+      const cached = cacheRef.current[cacheKey] || globalPresensiMaterialsCache[cacheKey];
+
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        setLoadedMaterials(cached.items);
+        setTotalCount(cached.total);
+        setHasMore(cached.hasMore);
+        setPage(cached.page);
+        mergeProgress(cached.progress);
+        if (cached.counts) setScopeCounts(cached.counts);
+        return;
+      }
+
+      setIsLoadingMode(true);
+      try {
+        const params = new URLSearchParams({
+          scheduleId,
+          scope,
+          page: '1',
+          limit: scope === 'ALL' ? '20' : '100',
+        });
+        if (targetGenId) params.set('generationId', targetGenId);
+        if (stuId) params.set('studentId', stuId);
+
+        const res = await fetch(`/api/presensi/materials?${params.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+          const entry: PresensiMaterialsCacheEntry = {
+            items: data.items,
+            progress: data.progress,
+            total: data.total,
+            hasMore: data.hasMore,
+            page: 1,
+            timestamp: Date.now(),
+            counts: data.counts,
+          };
+          cacheRef.current[cacheKey] = entry;
+          globalPresensiMaterialsCache[cacheKey] = entry;
+
+          setLoadedMaterials(data.items);
+          setTotalCount(data.total);
+          setHasMore(data.hasMore);
+          setPage(1);
+          mergeProgress(data.progress);
+          if (data.counts) setScopeCounts(data.counts);
+        }
+      } catch (err) {
+        console.error('Gagal memuat materi cakupan:', err);
+      } finally {
+        setIsLoadingMode(false);
+      }
+    },
+    [scheduleId, currentStudent?.generationId, selectedStudentId, isBulkMode, mergeProgress]
+  );
+
+  const handleApplyAdvancedFilters = useCallback(async () => {
+    setActiveGenFilterIds(draftGenFilterIds);
+    setActiveMonthFilters(draftMonthFilters);
+    setActiveStatusFilters(draftStatusFilters);
+    setIsAdvancedFilterModalOpen(false);
+
+    if (draftGenFilterIds.length > 0 || draftMonthFilters.length > 0) {
+      setIsLoadingMode(true);
+      try {
+        const params = new URLSearchParams({
+          scheduleId,
+          scope: 'ALL',
+          page: '1',
+          limit: '100',
+        });
+        if (draftGenFilterIds.length > 0) {
+          params.set('generationIds', draftGenFilterIds.join(','));
+        }
+        if (draftMonthFilters.length > 0) {
+          params.set('months', draftMonthFilters.join(','));
+        }
+        if (!isBulkMode && selectedStudentId) {
+          params.set('studentId', selectedStudentId);
+        }
+
+        const res = await fetch(`/api/presensi/materials?${params.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+          setLoadedMaterials(data.items);
+          setTotalCount(data.total);
+          setHasMore(data.hasMore);
+          setPage(1);
+          mergeProgress(data.progress);
+          if (data.counts) setScopeCounts(data.counts);
+        }
+      } catch (err) {
+        console.error('Gagal menerapkan filter lanjutan:', err);
+      } finally {
+        setIsLoadingMode(false);
+      }
+    } else {
+      // Jika kedua filter dibersihkan di modal, pulihkan materi sesuai cakupan aktif
+      handleSelectScope(materialFilterScope);
+    }
+  }, [
+    draftGenFilterIds,
+    draftMonthFilters,
+    draftStatusFilters,
+    scheduleId,
+    isBulkMode,
+    selectedStudentId,
+    mergeProgress,
+    handleSelectScope,
+    materialFilterScope,
+  ]);
+
+  const handleClearAllActiveFilters = useCallback(() => {
+    setActiveGenFilterIds([]);
+    setActiveMonthFilters([]);
+    setActiveStatusFilters([]);
+    handleSelectScope(materialFilterScope);
+  }, [handleSelectScope, materialFilterScope]);
+
+  // Filter materi aktif yang menggabungkan Cakupan + Filter Lanjutan (Jenjang, Bulan, Status) + Pencarian
   const filteredMaterials = useMemo(() => {
-    let baseList = loadedMaterials;
+    let list = loadedMaterials;
 
-    if (isBulkMode) {
-      // 1. Kumpulkan seluruh generationId santri-santri yang terpilih
-      const selectedGenIds = new Set<string>();
-      students.forEach((s) => {
-        if (bulkSelectedStudentIds.includes(s.id) && s.generationId) {
-          selectedGenIds.add(s.generationId);
+    // Cek apakah filter lanjutan kustom (Jenjang atau Bulan) sedang aktif
+    const isCustomGenOrMonthActive = activeGenFilterIds.length > 0 || activeMonthFilters.length > 0;
+
+    // 1. Cakupan (Scope Filter) - hanya memfilter lokal jika filter lanjutan jenjang/bulan TIDAK aktif
+    if (!isCustomGenOrMonthActive) {
+      if (isBulkMode) {
+        const selectedGenIds = new Set<string>();
+        students.forEach((s) => {
+          if (bulkSelectedStudentIds.includes(s.id) && s.generationId) {
+            selectedGenIds.add(s.generationId);
+          }
+        });
+
+        list = list.filter((m) => {
+          if (!m.targetGenerationId) return true;
+          return selectedGenIds.size === 0 || selectedGenIds.has(m.targetGenerationId);
+        });
+
+        if (materialFilterScope === 'MONTHLY') {
+          list = list.filter((m) => m.isMonthlyTarget || getMaterialMonths(m).includes(currentMonth));
+        } else if (materialFilterScope === 'ADDITIONAL') {
+          list = list.filter(
+            (m) =>
+              !m.targetGenerationId ||
+              (m.isScheduled && !m.isMonthlyTarget && !getMaterialMonths(m).includes(currentMonth))
+          );
         }
-      });
-
-      // 2. Filter materi: Materi Umum Sesi (!targetGenerationId) ATAU materi jenjang yang relevan dengan santri terpilih
-      baseList = loadedMaterials.filter((m) => {
-        if (!m.targetGenerationId) return true;
-        return selectedGenIds.size === 0 || selectedGenIds.has(m.targetGenerationId);
-      });
-
-      // 3. Urutkan: Materi Umum Sesi terlebih dahulu di paling atas, kemudian materi bulanan per jenjang
-      baseList = [...baseList].sort((a, b) => {
-        const aIsGeneral = !a.targetGenerationId;
-        const bIsGeneral = !b.targetGenerationId;
-        if (aIsGeneral && !bIsGeneral) return -1;
-        if (!aIsGeneral && bIsGeneral) return 1;
-
-        if (aIsGeneral && bIsGeneral) {
-          return (a.slotIndex ?? 0) - (b.slotIndex ?? 0);
-        }
-
-        // Kelompokkan per jenjang
-        const aGenName = a.targetGeneration?.name || '';
-        const bGenName = b.targetGeneration?.name || '';
-        if (aGenName !== bGenName) {
-          return aGenName.localeCompare(bGenName);
-        }
-
-        return (a.isMandatoryForTarget ? -1 : 1);
-      });
-    } else if (materialFilterMode === 'SCHEDULED' || materialFilterMode === 'GENERATION') {
-      const scheduled = loadedMaterials.filter((m) => m.isScheduled);
-      baseList = scheduled.length > 0 ? scheduled : loadedMaterials;
-
-      // Jika ada santri terpilih yang memiliki jenjang tertentu, saring materi agar memprioritaskan
-      // jenjang santri tersebut + materi umum sesi yang tidak terikat jenjang tertentu
-      if (currentStudent?.generationId) {
-        const studentSpecificMaterials = baseList.filter(
-          (m) => !m.targetGenerationId || m.targetGenerationId === currentStudent.generationId
-        );
-        if (studentSpecificMaterials.length > 0) {
-          baseList = studentSpecificMaterials;
+      } else {
+        // Mode Mandiri (Per Santri)
+        if (materialFilterScope === 'SCHEDULED') {
+          const scheduled = list.filter((m) => m.isScheduled);
+          const baseScheduled = scheduled.length > 0 ? scheduled : list;
+          if (currentStudent?.generationId) {
+            list = baseScheduled.filter(
+              (m) => !m.targetGenerationId || m.targetGenerationId === currentStudent.generationId
+            );
+          } else {
+            list = baseScheduled;
+          }
+        } else if (materialFilterScope === 'MONTHLY') {
+          if (currentStudent?.generationId) {
+            list = list.filter(
+              (m) =>
+                (!m.targetGenerationId || m.targetGenerationId === currentStudent.generationId) &&
+                (m.isMonthlyTarget || getMaterialMonths(m).includes(currentMonth))
+            );
+          } else {
+            list = list.filter((m) => m.isMonthlyTarget || getMaterialMonths(m).includes(currentMonth));
+          }
+        } else if (materialFilterScope === 'ADDITIONAL') {
+          list = list.filter(
+            (m) =>
+              !m.targetGenerationId ||
+              (m.isScheduled && !m.isMonthlyTarget && !getMaterialMonths(m).includes(currentMonth))
+          );
+        } else if (materialFilterScope === 'GENERATION') {
+          if (currentStudent?.generationId) {
+            list = list.filter(
+              (m) => !m.targetGenerationId || m.targetGenerationId === currentStudent.generationId
+            );
+          }
         }
       }
     }
 
+    // 2. Filter Lanjutan: Jenjang
+    if (activeGenFilterIds.length > 0) {
+      list = list.filter((m) => {
+        if (!m.targetGenerationId) return true;
+        return activeGenFilterIds.includes(m.targetGenerationId);
+      });
+    }
+
+    // 3. Filter Lanjutan: Bulan
+    if (activeMonthFilters.length > 0) {
+      list = list.filter((m) => {
+        const matMonths = getMaterialMonths(m);
+        if (matMonths.length === 0) {
+          if (m.isMonthlyTarget && activeMonthFilters.includes(currentMonth)) return true;
+          return false;
+        }
+        return matMonths.some((month) => activeMonthFilters.includes(month));
+      });
+    }
+
+    // 4. Filter Lanjutan: Status Penilaian
+    if (activeStatusFilters.length > 0) {
+      list = list.filter((m) => {
+        const status = getMaterialStudentStatus(m, targetProgressMap);
+        return activeStatusFilters.includes(status);
+      });
+    }
+
+    // 5. Pencarian Teks - Selalu aktif dan responsif di semua mode
     const query = materialSearchQuery.trim().toLowerCase();
-    if (materialFilterMode !== 'SCHEDULED' && query && !debouncedSearch) {
-      const localFiltered = baseList.filter(
+    if (query) {
+      list = list.filter(
         (m) =>
           m.title.toLowerCase().includes(query) ||
           (m.description && m.description.toLowerCase().includes(query)) ||
           (m.targetGeneration?.name && m.targetGeneration.name.toLowerCase().includes(query)) ||
           m.checklistItems.some((item) => item.itemTitle.toLowerCase().includes(query))
       );
-      if (localFiltered.length > 0) return localFiltered;
     }
 
-    return baseList;
+    // Urutkan materi: Materi umum sesi di atas, kemudian materi kurikulum jenjang
+    return [...list].sort((a, b) => {
+      const aIsGeneral = !a.targetGenerationId;
+      const bIsGeneral = !b.targetGenerationId;
+      if (aIsGeneral && !bIsGeneral) return -1;
+      if (!aIsGeneral && bIsGeneral) return 1;
+
+      if (aIsGeneral && bIsGeneral) {
+        return (a.slotIndex ?? 0) - (b.slotIndex ?? 0);
+      }
+
+      const aGenName = a.targetGeneration?.name || '';
+      const bGenName = b.targetGeneration?.name || '';
+      if (aGenName !== bGenName) {
+        return aGenName.localeCompare(bGenName);
+      }
+
+      return a.isMandatoryForTarget ? -1 : 1;
+    });
   }, [
     loadedMaterials,
-    materialFilterMode,
+    materialFilterScope,
+    activeGenFilterIds,
+    activeMonthFilters,
+    activeStatusFilters,
     materialSearchQuery,
-    debouncedSearch,
     currentStudent?.generationId,
     isBulkMode,
     bulkSelectedStudentIds,
     students,
+    currentMonth,
+    targetProgressMap,
   ]);
 
-  // Rotasi 3 mode materi: Sesuai Jadwal -> Sesuai Jenjang -> Semua Materi
+  // Rotasi mode cepat (kompatibilitas cadangan)
   const cycleFilterMode = async () => {
-    let nextMode: MaterialFilterMode;
-    if (materialFilterMode === 'SCHEDULED') {
-      nextMode = 'GENERATION';
-    } else if (materialFilterMode === 'GENERATION') {
-      nextMode = 'ALL';
+    let nextScope: MaterialFilterScope;
+    if (materialFilterScope === 'SCHEDULED') {
+      nextScope = 'MONTHLY';
+    } else if (materialFilterScope === 'MONTHLY') {
+      nextScope = 'GENERATION';
+    } else if (materialFilterScope === 'GENERATION') {
+      nextScope = 'ALL';
     } else {
-      nextMode = hasScheduledMaterials ? 'SCHEDULED' : 'GENERATION';
+      nextScope = 'SCHEDULED';
     }
-
-    setMaterialFilterMode(nextMode);
-    setMaterialSearchQuery('');
-    setDebouncedSearch('');
-    setSelectedGenerationFilter('ALL');
-    setIsGenFilterDropdownOpen(false);
-
-    const targetGenId =
-      nextMode === 'GENERATION' ? currentStudent?.generationId : undefined;
-    const cacheKey = buildCacheKey(scheduleId, nextMode, targetGenId);
-    const cached = cacheRef.current[cacheKey] || globalPresensiMaterialsCache[cacheKey];
-
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      setLoadedMaterials(cached.items);
-      setTotalCount(cached.total);
-      setHasMore(cached.hasMore);
-      setPage(cached.page);
-      mergeProgress(cached.progress);
-      return;
-    }
-
-    setIsLoadingMode(true);
-    try {
-      const params = new URLSearchParams({
-        scheduleId,
-        mode: nextMode,
-        page: '1',
-        limit: '5',
-      });
-      if (targetGenId) params.set('generationId', targetGenId);
-      if (selectedStudentId) params.set('studentId', selectedStudentId);
-
-      const res = await fetch(`/api/presensi/materials?${params.toString()}`);
-      const data = await res.json();
-
-      if (data.success) {
-        const entry: PresensiMaterialsCacheEntry = {
-          items: data.items,
-          progress: data.progress,
-          total: data.total,
-          hasMore: data.hasMore,
-          page: 1,
-          timestamp: Date.now(),
-        };
-        cacheRef.current[cacheKey] = entry;
-        globalPresensiMaterialsCache[cacheKey] = entry;
-
-        setLoadedMaterials(data.items);
-        setTotalCount(data.total);
-        setHasMore(data.hasMore);
-        setPage(1);
-        mergeProgress(data.progress);
-      }
-    } catch (err) {
-      console.error('Gagal mengganti mode filter:', err);
-    } finally {
-      setIsLoadingMode(false);
-    }
+    await handleSelectScope(nextScope);
   };
 
   // Filter jenjang khusus mode ALL
@@ -893,12 +1345,14 @@ export default function RealtimeEvaluationSheet({
       return;
     }
 
+    if (materialFilterScope !== 'ALL') return;
+
     try {
       const params = new URLSearchParams({
         scheduleId,
-        mode: materialFilterMode,
+        scope: 'ALL',
         page: String(nextPage),
-        limit: '5',
+        limit: '20',
       });
       if (targetGenId) params.set('generationId', targetGenId);
       if (debouncedSearch) params.set('search', debouncedSearch);
@@ -913,7 +1367,7 @@ export default function RealtimeEvaluationSheet({
           const newItems = (data.items as MaterialWithChecklists[]).filter((m) => !existingIds.has(m.id));
           const updated = [...prev, ...newItems];
 
-          const baseKey = buildCacheKey(scheduleId, materialFilterMode, targetGenId, debouncedSearch);
+          const baseKey = buildCacheKey(scheduleId, 'ALL', targetGenId, selectedStudentId, debouncedSearch);
           const entry: PresensiMaterialsCacheEntry = {
             items: updated,
             progress: [...allStudentProgress, ...data.progress],
@@ -942,7 +1396,7 @@ export default function RealtimeEvaluationSheet({
     isLoadingMore,
     hasMore,
     isLoadingMode,
-    materialFilterMode,
+    materialFilterScope,
     page,
     scheduleId,
     currentStudent?.generationId,
@@ -953,29 +1407,22 @@ export default function RealtimeEvaluationSheet({
     mergeProgress,
   ]);
 
-  // Prefetch diam-diam 5 materi berikutnya saat user scroll mendekati akhir list materi
-  // Data disimpan di background buffer (prefetchBufferRef) sehingga saat user menekan 'Lihat Lebih Banyak',
-  // materi baru langsung tampil seketika (0ms delay) tanpa mengganggu layout bagi yang ingin langsung simpan penilaian.
+  // Prefetch diam-diam materi berikutnya saat user scroll mendekati akhir list materi
   const prefetchNextBatch = useCallback(async () => {
-    if (isLoadingMore || !hasMore || isLoadingMode || materialFilterMode === 'SCHEDULED' || isSearching) return;
+    if (isLoadingMore || !hasMore || isLoadingMode || materialFilterScope !== 'ALL' || isSearching) return;
 
     const nextPage = page + 1;
-    const targetGenId =
-      materialFilterMode === 'GENERATION'
-        ? currentStudent?.generationId
-        : selectedGenerationFilter !== 'ALL'
-          ? selectedGenerationFilter
-          : undefined;
+    const targetGenId = selectedGenerationFilter !== 'ALL' ? selectedGenerationFilter : undefined;
 
-    const prefetchKey = `${buildCacheKey(scheduleId, materialFilterMode, targetGenId, debouncedSearch)}_P${nextPage}`;
+    const prefetchKey = `${buildCacheKey(scheduleId, 'ALL', targetGenId, selectedStudentId, debouncedSearch)}_P${nextPage}`;
     if (prefetchBufferRef.current[prefetchKey]) return;
 
     try {
       const params = new URLSearchParams({
         scheduleId,
-        mode: materialFilterMode,
+        scope: 'ALL',
         page: String(nextPage),
-        limit: '5',
+        limit: '20',
       });
       if (targetGenId) params.set('generationId', targetGenId);
       if (debouncedSearch) params.set('search', debouncedSearch);
@@ -1073,16 +1520,20 @@ export default function RealtimeEvaluationSheet({
 
       // Jika pencarian dibersihkan, pulihkan daftar materi default dari cache
       if (!debouncedSearch) {
-        const cached = cacheRef.current[baseCacheKey] || globalPresensiMaterialsCache[baseCacheKey];
-        if (cached) {
-          setLoadedMaterials(cached.items);
-          setTotalCount(cached.total);
-          setHasMore(cached.hasMore);
-          setPage(cached.page);
-          mergeProgress(cached.progress);
+        if (prevSearchRef.current) {
+          prevSearchRef.current = '';
+          const cached = cacheRef.current[baseCacheKey] || globalPresensiMaterialsCache[baseCacheKey];
+          if (cached) {
+            setLoadedMaterials(cached.items);
+            setTotalCount(cached.total);
+            setHasMore(cached.hasMore);
+            setPage(cached.page);
+            mergeProgress(cached.progress);
+          }
         }
         return;
       }
+      prevSearchRef.current = debouncedSearch;
 
       // Cek apakah hasil pencarian ini sudah ada di cache
       const searchCacheKey = buildCacheKey(scheduleId, materialFilterMode, targetGenId, debouncedSearch);
@@ -1100,9 +1551,9 @@ export default function RealtimeEvaluationSheet({
       try {
         const params = new URLSearchParams({
           scheduleId,
-          mode: materialFilterMode,
+          scope: materialFilterScope,
           page: '1',
-          limit: '5',
+          limit: '20',
           search: debouncedSearch,
         });
         if (targetGenId) params.set('generationId', targetGenId);
@@ -1119,6 +1570,7 @@ export default function RealtimeEvaluationSheet({
             hasMore: data.hasMore,
             page: 1,
             timestamp: Date.now(),
+            counts: data.counts,
           };
           cacheRef.current[searchCacheKey] = entry;
           globalPresensiMaterialsCache[searchCacheKey] = entry;
@@ -1145,7 +1597,7 @@ export default function RealtimeEvaluationSheet({
     };
   }, [
     debouncedSearch,
-    materialFilterMode,
+    materialFilterScope,
     currentStudent?.generationId,
     selectedGenerationFilter,
     scheduleId,
@@ -1156,17 +1608,17 @@ export default function RealtimeEvaluationSheet({
   // Silent Background Prefetching: Diam-diam mengambil materi yang belum dimuat saat idle
   useEffect(() => {
     const idleTimer = setTimeout(async () => {
-      // 1. Jika di mode SCHEDULED, diam-diam ambil mode GENERATION (5 materi pertama) ke cache
-      if (materialFilterMode === 'SCHEDULED' && currentStudent?.generationId) {
-        const genKey = buildCacheKey(scheduleId, 'GENERATION', currentStudent.generationId);
+      // 1. Jika di mode SCHEDULED, diam-diam ambil kurikulum penuh mode GENERATION ke cache
+      if (materialFilterScope === 'SCHEDULED' && currentStudent?.generationId) {
+        const genKey = buildCacheKey(scheduleId, 'GENERATION', currentStudent.generationId, selectedStudentId);
         if (!cacheRef.current[genKey] && !globalPresensiMaterialsCache[genKey]) {
           try {
             const params = new URLSearchParams({
               scheduleId,
-              mode: 'GENERATION',
+              scope: 'GENERATION',
               generationId: currentStudent.generationId,
               page: '1',
-              limit: '5',
+              limit: '100',
             });
             if (selectedStudentId) params.set('studentId', selectedStudentId);
             const res = await fetch(`/api/presensi/materials?${params.toString()}`);
@@ -1176,9 +1628,10 @@ export default function RealtimeEvaluationSheet({
                 items: data.items,
                 progress: data.progress,
                 total: data.total,
-                hasMore: data.hasMore,
+                hasMore: false,
                 page: 1,
                 timestamp: Date.now(),
+                counts: data.counts,
               };
               cacheRef.current[genKey] = entry;
               globalPresensiMaterialsCache[genKey] = entry;
@@ -1191,24 +1644,22 @@ export default function RealtimeEvaluationSheet({
         return;
       }
 
-      // 2. Jika di mode GENERATION atau ALL dan hasMore === true, prefetch batch halaman berikutnya
-      if (hasMore && !isLoadingMore && !isLoadingMode && !materialSearchQuery) {
+      // 2. Jika di mode ALL dan hasMore === true, prefetch batch halaman berikutnya
+      if (materialFilterScope === 'ALL' && hasMore && !isLoadingMore && !isLoadingMode && !materialSearchQuery) {
         const nextPage = page + 1;
         const targetGenId =
-          materialFilterMode === 'GENERATION'
-            ? currentStudent?.generationId
-            : selectedGenerationFilter !== 'ALL'
-              ? selectedGenerationFilter
-              : undefined;
+          selectedGenerationFilter !== 'ALL'
+            ? selectedGenerationFilter
+            : undefined;
 
-        const prefetchKey = `${buildCacheKey(scheduleId, materialFilterMode, targetGenId)}_P${nextPage}`;
+        const prefetchKey = `${buildCacheKey(scheduleId, 'ALL', targetGenId, selectedStudentId)}_P${nextPage}`;
         if (!prefetchBufferRef.current[prefetchKey]) {
           try {
             const params = new URLSearchParams({
               scheduleId,
-              mode: materialFilterMode,
+              scope: 'ALL',
               page: String(nextPage),
-              limit: '5',
+              limit: '20',
             });
             if (targetGenId) params.set('generationId', targetGenId);
             if (selectedStudentId) params.set('studentId', selectedStudentId);
@@ -1235,7 +1686,7 @@ export default function RealtimeEvaluationSheet({
 
     return () => clearTimeout(idleTimer);
   }, [
-    materialFilterMode,
+    materialFilterScope,
     hasMore,
     isLoadingMore,
     isLoadingMode,
@@ -1255,17 +1706,7 @@ export default function RealtimeEvaluationSheet({
     }
   }, [materialSearchQuery, filteredMaterials]);
 
-  // Otomatis buka materi pertama saat daftar materi dimuat atau berganti (Single-Active Accordion)
-  useEffect(() => {
-    if (filteredMaterials.length > 0) {
-      setExpandedMaterialIds((prev) => {
-        if (prev.length === 0 || !filteredMaterials.some((m) => prev.includes(m.id))) {
-          return [filteredMaterials[0].id];
-        }
-        return [prev[0]];
-      });
-    }
-  }, [filteredMaterials]);
+
 
   // Single-Active Accordion: membuka satu materi akan otomatis menutup materi lainnya
   const toggleMaterialAccordion = (materialId: string) => {
@@ -1298,18 +1739,20 @@ export default function RealtimeEvaluationSheet({
       const local = targetProgressMap[itemId];
 
       if (isBulkMode) {
-        if (local?.isModifiedSession) {
-          return local.status || (local.isCompleted ? 'COMPLETED' : 'IN_PROGRESS');
-        }
-
         const mat = loadedMaterials.find((m) => m.checklistItems.some((it) => it.id === itemId));
         const targetStudentObjs = students.filter((s) => bulkSelectedStudentIds.includes(s.id));
         const relevantStudents = targetStudentObjs.filter((s) => {
+          if (applyToAllGenerations) return true;
           if (!mat || !mat.targetGenerationId) return true;
           return s.generationId === mat.targetGenerationId;
         });
 
         if (relevantStudents.length === 0) return 'NOT_STARTED';
+
+        // Jika pengajar secara aktif memodifikasi status capaian untuk santri yang dinilai di sesi massal ini
+        if (local?.isModifiedSession && local.status) {
+          return local.status;
+        }
 
         let completedCount = 0;
         let inProgressCount = 0;
@@ -1317,7 +1760,10 @@ export default function RealtimeEvaluationSheet({
 
         for (const s of relevantStudents) {
           const prog = allStudentProgress.find((p) => p.studentId === s.id && p.checklistItemId === itemId);
-          if (prog?.isCompleted) {
+          const isPreviouslyCompleted = !!prog?.isCompleted;
+
+          if (isPreviouslyCompleted) {
+            // Santri yang sudah tuntas sebelumnya selalu berstatus COMPLETED (tidak terpengaruh aksi massal)
             completedCount++;
           } else if (prog?.teacherFeedback && prog.teacherFeedback.trim() !== '') {
             inProgressCount++;
@@ -1337,7 +1783,7 @@ export default function RealtimeEvaluationSheet({
       if (local?.teacherFeedback && local.teacherFeedback.trim() !== '') return 'IN_PROGRESS';
       return 'NOT_STARTED';
     },
-    [targetProgressMap, isBulkMode, loadedMaterials, students, bulkSelectedStudentIds, allStudentProgress]
+    [targetProgressMap, isBulkMode, loadedMaterials, students, bulkSelectedStudentIds, allStudentProgress, applyToAllGenerations]
   );
 
   // Helper untuk mendapatkan data rincian santri per item
@@ -1347,7 +1793,7 @@ export default function RealtimeEvaluationSheet({
         isBulkMode ? bulkSelectedStudentIds.includes(s.id) : s.id === selectedStudentId
       );
 
-      const isGeneral = !mat.targetGenerationId;
+      const isGeneral = !mat.targetGenerationId || applyToAllGenerations;
       const relevantStudents = targetStudentObjs.filter((s) => {
         if (isGeneral) return true;
         return s.generationId === mat.targetGenerationId;
@@ -1373,13 +1819,29 @@ export default function RealtimeEvaluationSheet({
           (p) => p.studentId === s.id && p.checklistItemId === itemId
         );
 
+        const isPreviouslyCompleted = !!existingProg?.isCompleted;
+
+        // ATURAN RANCANGAN UTAMA:
+        // Jika dalam suatu capaian ada santri sudah tuntas dan diberi nilai sebelumnya,
+        // maka perbarui nilai/status TIDAK BERLAKU untuk santri tersebut!
+        if (isPreviouslyCompleted) {
+          completed.push({
+            student: s,
+            score: existingProg.score ?? 85,
+            feedback: existingProg.teacherFeedback ?? null,
+            isJustModified: false,
+          });
+          continue;
+        }
+
+        // Santri yang belum dinilai dan masih dalam proses:
         if (localState?.isModifiedSession) {
           if (localState.status === 'COMPLETED') {
             completed.push({
               student: s,
-              score: existingProg?.isCompleted ? existingProg.score : localState.score,
+              score: localState.score ?? 85,
               feedback: localState.teacherFeedback || existingProg?.teacherFeedback || null,
-              isJustModified: !existingProg?.isCompleted,
+              isJustModified: true,
             });
             continue;
           } else if (localState.status === 'IN_PROGRESS') {
@@ -1395,14 +1857,8 @@ export default function RealtimeEvaluationSheet({
           }
         }
 
-        if (existingProg?.isCompleted) {
-          completed.push({
-            student: s,
-            score: existingProg.score,
-            feedback: existingProg.teacherFeedback,
-            isJustModified: false,
-          });
-        } else if (existingProg?.teacherFeedback && existingProg.teacherFeedback.trim() !== '') {
+        // Status awal jika belum dimodifikasi sesi ini:
+        if (existingProg?.teacherFeedback && existingProg.teacherFeedback.trim() !== '') {
           inProgress.push({
             student: s,
             feedback: existingProg.teacherFeedback,
@@ -1415,33 +1871,82 @@ export default function RealtimeEvaluationSheet({
 
       return { relevantStudents, completed, inProgress, notStarted };
     },
-    [students, isBulkMode, bulkSelectedStudentIds, selectedStudentId, targetProgressMap, allStudentProgress]
+    [students, isBulkMode, bulkSelectedStudentIds, selectedStudentId, targetProgressMap, allStudentProgress, applyToAllGenerations]
   );
 
-  // Handler siklus 3 status: Belum Tuntas -> Proses -> Tuntas -> Belum Tuntas
-  const handleCycleItemStatus = (
+  // Helper mengecek apakah suatu capaian pada mode massal memiliki status awal bervariasi (MIXED)
+  const isItemInitiallyMixed = useCallback(
+    (itemId: string): boolean => {
+      if (!isBulkMode) return false;
+      const mat = loadedMaterials.find((m) => m.checklistItems.some((it) => it.id === itemId));
+      const targetStudentObjs = students.filter((s) => bulkSelectedStudentIds.includes(s.id));
+      const relevantStudents = targetStudentObjs.filter((s) => {
+        if (applyToAllGenerations) return true;
+        if (!mat || !mat.targetGenerationId) return true;
+        return s.generationId === mat.targetGenerationId;
+      });
+
+      if (relevantStudents.length <= 1) return false;
+
+      let completedCount = 0;
+      let inProgressCount = 0;
+      let notStartedCount = 0;
+
+      for (const s of relevantStudents) {
+        const prog = allStudentProgress.find((p) => p.studentId === s.id && p.checklistItemId === itemId);
+        if (prog?.isCompleted) {
+          completedCount++;
+        } else if (prog?.teacherFeedback && prog.teacherFeedback.trim() !== '') {
+          inProgressCount++;
+        } else {
+          notStartedCount++;
+        }
+      }
+
+      const allCompleted = completedCount === relevantStudents.length;
+      const allInProgress = inProgressCount === relevantStudents.length;
+      const allNotStarted = notStartedCount === relevantStudents.length;
+
+      return !allCompleted && !allInProgress && !allNotStarted;
+    },
+    [isBulkMode, loadedMaterials, students, bulkSelectedStudentIds, allStudentProgress, applyToAllGenerations]
+  );
+
+  // Handler untuk membatalkan modifikasi massal dan mengembalikan capaian ke kondisi awal bervariasi (Perbarui)
+  const handleResetItemToMixed = (itemId: string) => {
+    showToast('Perubahan dibatalkan, kembali ke kondisi awal bervariasi', 'info');
+    setTargetProgressMap((prev) => {
+      const current = prev[itemId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          status: undefined,
+          isCompleted: false,
+          teacherFeedback: '',
+          isModifiedSession: false,
+        },
+      };
+    });
+  };
+
+  // Handler untuk mengeset status capaian secara langsung (misal dari banner opsi: Set Proses / Tuntaskan / Belum Dinilai)
+  const handleSetItemStatusDirect = (
     itemId: string,
+    targetStatus: 'IN_PROGRESS' | 'COMPLETED' | 'NOT_STARTED',
     mat: MaterialWithChecklists,
     completionTierLevel?: string
   ) => {
-    if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
-      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
-      return;
-    }
-    if (completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa && !canCompleteDaerah) {
-      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
-      return;
-    }
-
-    const currentStatus = getItemStatus(itemId);
-    let nextStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-
-    if (currentStatus === 'NOT_STARTED' || currentStatus === 'MIXED') {
-      nextStatus = 'IN_PROGRESS';
-    } else if (currentStatus === 'IN_PROGRESS') {
-      nextStatus = 'COMPLETED';
-    } else {
-      nextStatus = 'NOT_STARTED';
+    if (targetStatus === 'COMPLETED') {
+      if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
+        alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
+        return;
+      }
+      if (completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa && !canCompleteDaerah) {
+        alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
+        return;
+      }
     }
 
     const details = getItemStudentStatusDetails(mat, itemId);
@@ -1449,22 +1954,27 @@ export default function RealtimeEvaluationSheet({
       ? details.notStarted.length + details.inProgress.length
       : 1;
 
-    if (nextStatus === 'IN_PROGRESS') {
+    if (targetStatus === 'IN_PROGRESS') {
       showToast(
         isBulkMode
           ? `${affectedCount} Santri diperbarui ke status Dalam Proses`
           : 'Capaian diset ke status Dalam Proses',
         'info'
       );
-    } else if (nextStatus === 'COMPLETED') {
+    } else if (targetStatus === 'COMPLETED') {
       showToast(
         isBulkMode
-          ? `${affectedCount} Santri dituntaskan`
+          ? `${affectedCount} Santri dituntaskan & siap dinilai`
           : 'Capaian Tuntas dinilai',
         'success'
       );
     } else {
-      showToast('Capaian dikembalikan ke Belum Tuntas', 'info');
+      showToast(
+        isBulkMode
+          ? `${affectedCount} Santri diset ke status Belum Dinilai`
+          : 'Capaian dikembalikan ke Belum Dinilai',
+        'info'
+      );
     }
 
     setTargetProgressMap((prev) => {
@@ -1485,14 +1995,71 @@ export default function RealtimeEvaluationSheet({
         ...prev,
         [itemId]: {
           ...current,
-          status: nextStatus,
-          isCompleted: nextStatus === 'COMPLETED',
+          status: targetStatus,
+          isCompleted: targetStatus === 'COMPLETED',
           score: current.score || 85,
-          teacherFeedback: feedback || '',
+          teacherFeedback: targetStatus === 'NOT_STARTED' ? '' : (feedback || ''),
           isModifiedSession: true,
         },
       };
     });
+  };
+
+  // Handler siklus status capaian:
+  // - Mode massal saat kondisi awal bervariasi:
+  //   Perbarui (MIXED) -> Proses (IN_PROGRESS) -> Tuntas (COMPLETED) -> Belum Dinilai (NOT_STARTED) -> Perbarui (RESET)
+  // - Mode standar atau kondisi awal seragam:
+  //   Belum Dinilai (NOT_STARTED) -> Proses (IN_PROGRESS) -> Tuntas (COMPLETED) -> Belum Dinilai
+  const handleCycleItemStatus = (
+    itemId: string,
+    mat: MaterialWithChecklists,
+    completionTierLevel?: string
+  ) => {
+    if (completionTierLevel === 'DAERAH_ONLY' && !canCompleteDaerah) {
+      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah.');
+      return;
+    }
+    if (completionTierLevel === 'DESA_AND_ABOVE' && !canCompleteDesa && !canCompleteDaerah) {
+      alert('Sub-capaian ini terkunci. Hanya dapat disahkan oleh Tim Penguji Tingkat Desa atau Daerah.');
+      return;
+    }
+
+    const currentStatus = getItemStatus(itemId);
+    const initiallyMixed = isItemInitiallyMixed(itemId);
+
+    // KONDISI KHUSUS: Mode Massal dengan kondisi awal bervariasi
+    if (isBulkMode && initiallyMixed) {
+      if (currentStatus === 'MIXED') {
+        // Klik 1: Perbarui -> Proses
+        handleSetItemStatusDirect(itemId, 'IN_PROGRESS', mat, completionTierLevel);
+        return;
+      }
+      if (currentStatus === 'IN_PROGRESS') {
+        // Klik 2: Proses -> Tuntas
+        handleSetItemStatusDirect(itemId, 'COMPLETED', mat, completionTierLevel);
+        return;
+      }
+      if (currentStatus === 'COMPLETED') {
+        // Klik 3: Tuntas -> Belum Dinilai
+        handleSetItemStatusDirect(itemId, 'NOT_STARTED', mat, completionTierLevel);
+        return;
+      }
+      // Klik 4: Belum Dinilai -> Membatalkan & mengembalikan ke kondisi awal bervariasi (Perbarui)
+      handleResetItemToMixed(itemId);
+      return;
+    }
+
+    // SIKLUS STANDAR (Single mode atau kondisi awal seragam)
+    let nextStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+    if (currentStatus === 'NOT_STARTED' || currentStatus === 'MIXED') {
+      nextStatus = 'IN_PROGRESS';
+    } else if (currentStatus === 'IN_PROGRESS') {
+      nextStatus = 'COMPLETED';
+    } else {
+      nextStatus = 'NOT_STARTED';
+    }
+
+    handleSetItemStatusDirect(itemId, nextStatus, mat, completionTierLevel);
   };
 
   // Handler ubah skor capaian item checklist
@@ -1574,6 +2141,7 @@ export default function RealtimeEvaluationSheet({
           keaktifanScore,
           teacherPrivateNote: fullNote || undefined,
           targetCapaianUpdates,
+          applyToAllGenerations,
         });
 
         // Sinkronkan state progres lokal allStudentProgress untuk seluruh santri terpilih secara aman
@@ -1586,8 +2154,8 @@ export default function RealtimeEvaluationSheet({
               const mat = loadedMaterials.find((m) =>
                 m.checklistItems.some((it) => it.id === upd.checklistItemId)
               );
-              // Partisi jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri
-              if (mat?.targetGenerationId && mat.targetGenerationId !== studentObj?.generationId) {
+              // Partisi jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri (kecuali applyToAllGenerations aktif)
+              if (!applyToAllGenerations && mat?.targetGenerationId && mat.targetGenerationId !== studentObj?.generationId) {
                 continue;
               }
 
@@ -1613,6 +2181,7 @@ export default function RealtimeEvaluationSheet({
         }
 
         const pointsText = res.totalPointsDistributed > 0 ? ` (Total +${res.totalPointsDistributed} Poin Terdistribusi)` : '';
+        setEvaluatedStudentIds((prev) => Array.from(new Set([...prev, ...bulkSelectedStudentIds])));
         setSuccessMessage(
           `Penilaian massal berhasil disimpan untuk ${res.count} santri hadir!${pointsText}`
         );
@@ -1662,6 +2231,7 @@ export default function RealtimeEvaluationSheet({
       });
 
       const pointsText = res.pointsGained > 0 ? ` (+${res.pointsGained} Poin Reward)` : '';
+      setEvaluatedStudentIds((prev) => Array.from(new Set([...prev, selectedStudentId])));
       setSuccessMessage(
         `Jurnal & Penilaian Target Capaian untuk ${currentStudent?.fullName || 'Santri'} berhasil disimpan!${pointsText}`
       );
@@ -1791,6 +2361,7 @@ export default function RealtimeEvaluationSheet({
                     onClick={() => {
                       setIsBulkMode(false);
                       setBulkSelectedStudentIds([]);
+                      setApplyToAllGenerations(false);
                     }}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/80 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-95"
                     title="Keluar dari mode penilaian massal"
@@ -1853,6 +2424,39 @@ export default function RealtimeEvaluationSheet({
                   </span>
                 </div>
               </div>
+
+              {/* Toggle Simpan Nilai Semua Jenjang (Lintas Jenjang) */}
+              <div className="pt-2.5 border-t border-teal-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-teal-950">
+                      Simpan Nilai Semua Jenjang
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-teal-200/80 text-teal-900 border border-teal-300/80">
+                      Lintas Jenjang
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-teal-900/80 leading-relaxed">
+                    Aktifkan agar capaian materi dapat disimpan ke seluruh santri terpilih, meskipun materi berasal dari jenjang berbeda.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={applyToAllGenerations}
+                  onClick={() => setApplyToAllGenerations((prev) => !prev)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 self-start sm:self-auto ${
+                    applyToAllGenerations ? 'bg-teal-600' : 'bg-slate-300'
+                  }`}
+                  title={applyToAllGenerations ? 'Mode Lintas Jenjang Aktif' : 'Aktifkan Mode Lintas Jenjang'}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      applyToAllGenerations ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
@@ -1885,10 +2489,20 @@ export default function RealtimeEvaluationSheet({
                   aria-haspopup="listbox"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 font-bold text-xs flex items-center justify-center shrink-0 border border-teal-200/60">
-                      {currentStudent?.fullName
-                        ? currentStudent.fullName.charAt(0).toUpperCase()
-                        : <UserCheck className="w-4 h-4" />}
+                    <div
+                      className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 border transition-all ${
+                        currentStudent && evaluatedStudentIds.includes(currentStudent.id)
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
+                          : 'bg-teal-50 text-teal-700 border-teal-200/60'
+                      }`}
+                    >
+                      {currentStudent && evaluatedStudentIds.includes(currentStudent.id) ? (
+                        <Check className="w-4 h-4 stroke-[2.5] text-emerald-700" />
+                      ) : currentStudent?.fullName ? (
+                        currentStudent.fullName.charAt(0).toUpperCase()
+                      ) : (
+                        <UserCheck className="w-4 h-4" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">
@@ -1966,6 +2580,7 @@ export default function RealtimeEvaluationSheet({
                       ) : (
                         filteredStudents.map((s) => {
                           const isSelected = s.id === selectedStudentId;
+                          const isEvaluated = evaluatedStudentIds.includes(s.id);
                           return (
                             <button
                               key={s.id}
@@ -1974,7 +2589,7 @@ export default function RealtimeEvaluationSheet({
                                 setSelectedStudentId(s.id);
                                 setIsStudentDropdownOpen(false);
                               }}
-                              className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${isSelected
+                              className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer group ${isSelected
                                 ? 'bg-teal-50/80 text-teal-900 border-l-4 border-teal-600'
                                 : 'hover:bg-slate-50 text-slate-700'
                                 }`}
@@ -1983,17 +2598,32 @@ export default function RealtimeEvaluationSheet({
                             >
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div
-                                  className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${isSelected
-                                    ? 'bg-teal-600 text-white shadow-2xs'
-                                    : 'bg-slate-100 text-slate-600'
+                                  className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 transition-all ${
+                                    isEvaluated
+                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 shadow-2xs'
+                                      : isSelected
+                                      ? 'bg-teal-600 text-white shadow-2xs'
+                                      : 'bg-slate-100 text-slate-600 group-hover:border-slate-300'
                                     }`}
+                                  title={isEvaluated ? 'Santri sudah dinilai pada sesi ini' : undefined}
                                 >
-                                  {s.fullName.charAt(0).toUpperCase()}
+                                  {isEvaluated ? (
+                                    <Check className="w-4 h-4 stroke-[2.5]" />
+                                  ) : (
+                                    s.fullName.charAt(0).toUpperCase()
+                                  )}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <p className={`text-xs truncate ${isSelected ? 'font-bold text-teal-900' : 'font-semibold text-slate-800'}`}>
-                                    {s.fullName}
-                                  </p>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <p className={`text-xs truncate ${isSelected ? 'font-bold text-teal-900' : 'font-semibold text-slate-800'}`}>
+                                      {s.fullName}
+                                    </p>
+                                    {isEvaluated && (
+                                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 shrink-0">
+                                        Dinilai
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5">
                                     <span>{s.generationName || 'Santri'}</span>
                                     {s.className && (
@@ -2049,30 +2679,209 @@ export default function RealtimeEvaluationSheet({
               </div>
               <div className='flex flex-row gap-2 justify-between'>
                 <div className="flex items-center gap-2">
-                  {/* Toggle Filter 3 Mode: Sesuai Jadwal -> Sesuai Generasi -> Semua Materi */}
-                  <button
-                    type="button"
-                    onClick={cycleFilterMode}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
-                    title="Klik untuk mengganti filter materi"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    {materialFilterMode === 'SCHEDULED' && (
+                  {/* Menu Popover Cakupan Materi (5 Opsi) */}
+                  <div className="relative" ref={filterScopeDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsFilterScopeDropdownOpen((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
+                      title="Klik untuk memilih cakupan materi"
+                    >
+                      <Filter className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                       <span className="text-teal-800">
-                        Jadwal({totalCount})
+                        {materialFilterScope === 'ALL' && `Semua(${scopeCounts.ALL})`}
+                        {materialFilterScope === 'GENERATION' && `Jenjang(${scopeCounts.GENERATION})`}
+                        {materialFilterScope === 'MONTHLY' && `Bulanan(${scopeCounts.MONTHLY})`}
+                        {materialFilterScope === 'SCHEDULED' && `Jadwal(${scopeCounts.SCHEDULED})`}
+                        {materialFilterScope === 'ADDITIONAL' && `Tambahan(${scopeCounts.ADDITIONAL})`}
                       </span>
+                      <ChevronDown
+                        className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+                          isFilterScopeDropdownOpen ? 'rotate-180 text-teal-600' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {/* Popover / Tooltip Menu Cakupan Materi */}
+                    {isFilterScopeDropdownOpen && (
+                      <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 z-40 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
+                          <div>
+                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                              Cakupan Materi
+                            </span>
+                            <p className="text-[10px] text-slate-500">
+                              Pilih materi yang ingin ditampilkan di lembar kerja
+                            </p>
+                          </div>
+                        </div>
+                        <div className="pt-1 space-y-1">
+                          {/* 1. Semua */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScope('ALL')}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-start justify-between gap-2.5 cursor-pointer ${
+                              materialFilterScope === 'ALL'
+                                ? 'bg-teal-50 border border-teal-200 text-teal-950 shadow-2xs'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-bold ${materialFilterScope === 'ALL' ? 'text-teal-900' : 'text-slate-900'}`}>
+                                  Semua
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  materialFilterScope === 'ALL' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {scopeCounts.ALL}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                Semua materi semua jenjang
+                              </p>
+                            </div>
+                            {materialFilterScope === 'ALL' && (
+                              <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+
+                          {/* 2. Jenjang */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScope('GENERATION')}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-start justify-between gap-2.5 cursor-pointer ${
+                              materialFilterScope === 'GENERATION'
+                                ? 'bg-teal-50 border border-teal-200 text-teal-950 shadow-2xs'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-bold ${materialFilterScope === 'GENERATION' ? 'text-teal-900' : 'text-slate-900'}`}>
+                                  Jenjang
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  materialFilterScope === 'GENERATION' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {scopeCounts.GENERATION}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                Semua materi sesuai jenjang santri yang dipilih ({currentStudent?.generationName || 'Santri'})
+                              </p>
+                            </div>
+                            {materialFilterScope === 'GENERATION' && (
+                              <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+
+                          {/* 3. Bulanan */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScope('MONTHLY')}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-start justify-between gap-2.5 cursor-pointer ${
+                              materialFilterScope === 'MONTHLY'
+                                ? 'bg-teal-50 border border-teal-200 text-teal-950 shadow-2xs'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-bold ${materialFilterScope === 'MONTHLY' ? 'text-teal-900' : 'text-slate-900'}`}>
+                                  Bulanan
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  materialFilterScope === 'MONTHLY' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {scopeCounts.MONTHLY}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                Semua materi yang terdaftar dalam bulan ini sesuai jenjang santri yang dipilih
+                              </p>
+                            </div>
+                            {materialFilterScope === 'MONTHLY' && (
+                              <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+
+                          {/* 4. Jadwal */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScope('SCHEDULED')}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-start justify-between gap-2.5 cursor-pointer ${
+                              materialFilterScope === 'SCHEDULED'
+                                ? 'bg-teal-50 border border-teal-200 text-teal-950 shadow-2xs'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-bold ${materialFilterScope === 'SCHEDULED' ? 'text-teal-900' : 'text-slate-900'}`}>
+                                  Jadwal
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  materialFilterScope === 'SCHEDULED' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {scopeCounts.SCHEDULED}
+                                </span>
+                                <span className="text-[9px] font-bold text-teal-700 bg-teal-100 px-1 rounded">
+                                  Default
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                Semua materi yang terdaftar dalam bulan ini + materi tambahan/umum dalam sesi tersebut
+                              </p>
+                            </div>
+                            {materialFilterScope === 'SCHEDULED' && (
+                              <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+
+                          {/* 5. Tambahan */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectScope('ADDITIONAL')}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-start justify-between gap-2.5 cursor-pointer ${
+                              materialFilterScope === 'ADDITIONAL'
+                                ? 'bg-teal-50 border border-teal-200 text-teal-950 shadow-2xs'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-bold ${materialFilterScope === 'ADDITIONAL' ? 'text-teal-900' : 'text-slate-900'}`}>
+                                  Tambahan
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                  materialFilterScope === 'ADDITIONAL' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {scopeCounts.ADDITIONAL}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                                Semua materi tambahan/umum dalam sesi tersebut
+                              </p>
+                            </div>
+                            {materialFilterScope === 'ADDITIONAL' && (
+                              <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    {materialFilterMode === 'GENERATION' && (
-                      <span className="text-emerald-800">
-                        {currentStudent?.generationName || 'Santri'} ({totalCount})
-                      </span>
-                    )}
-                    {materialFilterMode === 'ALL' && (
-                      <span className="text-slate-700">
-                        Semua({totalCount})
-                      </span>
-                    )}
-                  </button>
+                  </div>
 
                   {/* Buka / Tutup Accordion */}
                   {filteredMaterials.length > 0 && (
@@ -2085,9 +2894,16 @@ export default function RealtimeEvaluationSheet({
                           setExpandedMaterialIds([filteredMaterials[0].id]);
                         }
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-2 min-[400px]:px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
+                      title={expandedMaterialIds.length > 0 ? 'Tutup Materi' : 'Buka Materi'}
+                      aria-label={expandedMaterialIds.length > 0 ? 'Tutup Materi' : 'Buka Materi'}
                     >
-                      <span>
+                      {expandedMaterialIds.length > 0 ? (
+                        <Book className="w-3.5 h-3.5 shrink-0" />
+                      ) : (
+                        <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                      <span className="hidden min-[400px]:inline">
                         {expandedMaterialIds.length > 0
                           ? 'Tutup Materi'
                           : 'Buka Materi'}
@@ -2204,6 +3020,49 @@ export default function RealtimeEvaluationSheet({
                           </button>
                         </div>
 
+                        {/* Akses Cepat Pilih Semua Santri Per Jenjang (Khusus Jenjang dengan Santri Aktif > 1) */}
+                        {bulkGenerationQuickOptions.length > 0 && (
+                          <div className="pt-1.5 space-y-1">
+                            <div className="px-2.5 py-1 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                              <span>Pilih Per Jenjang</span>
+                              <span className="text-[9px] font-medium text-slate-400 lowercase">&gt; 1 santri</span>
+                            </div>
+                            <div className="space-y-0.5 max-h-36 overflow-y-auto">
+                              {bulkGenerationQuickOptions.map((gen) => {
+                                const isSelected =
+                                  isBulkMode &&
+                                  gen.studentIds.length === bulkSelectedStudentIds.length &&
+                                  gen.studentIds.every((id) => bulkSelectedStudentIds.includes(id));
+
+                                return (
+                                  <button
+                                    key={gen.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setBulkSelectedStudentIds(gen.studentIds);
+                                      setIsBulkMode(true);
+                                      setIsBulkDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left p-2 rounded-xl transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-teal-50 border border-teal-200/80 text-teal-950 font-bold'
+                                        : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <GraduationCap className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                      <span className="text-xs truncate">{gen.name}</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50/80 px-1.5 py-0.2 rounded border border-teal-200 shrink-0">
+                                      {gen.studentIds.length} Santri
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Tombol Matikan Mode Massal jika sedang aktif */}
                         {isBulkMode && (
                           <div className="pt-1.5">
@@ -2212,6 +3071,7 @@ export default function RealtimeEvaluationSheet({
                               onClick={() => {
                                 setIsBulkMode(false);
                                 setBulkSelectedStudentIds([]);
+                                setApplyToAllGenerations(false);
                                 setIsBulkDropdownOpen(false);
                               }}
                               className="w-full text-center py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold transition-colors cursor-pointer"
@@ -2228,15 +3088,13 @@ export default function RealtimeEvaluationSheet({
               </div>
             </div>
 
-            {/* Input Pencarian Materi & Tombol Quick Filter Jenjang */}
-            {(materialFilterMode === 'GENERATION' || materialFilterMode === 'ALL') && (
+            {/* Input Pencarian Materi (Aktif di Semua Mode) & Tombol Filter Lanjutan */}
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 {/* Kolom Pencarian */}
                 <div className="relative flex-1">
-                  {/* Kontainer untuk mengatur posisi absolut di tengah vertikal */}
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                     {isLoadingMore || isSearching ? (
-                      // Ikon di dalam hanya fokus berputar
                       <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
                     ) : (
                       <Search className="w-3.5 h-3.5 text-slate-400" />
@@ -2247,11 +3105,15 @@ export default function RealtimeEvaluationSheet({
                     value={materialSearchQuery}
                     onChange={(e) => setMaterialSearchQuery(e.target.value)}
                     placeholder={
-                      materialFilterMode === 'GENERATION'
+                      materialFilterScope === 'SCHEDULED'
+                        ? 'Cari materi jadwal sesi...'
+                        : materialFilterScope === 'MONTHLY'
+                        ? 'Cari materi bulanan...'
+                        : materialFilterScope === 'ADDITIONAL'
+                        ? 'Cari materi tambahan...'
+                        : materialFilterScope === 'GENERATION'
                         ? `Cari materi ${currentStudent?.generationName || 'jenjang'}...`
-                        : selectedGenerationFilter !== 'ALL'
-                          ? `Cari materi ${availableGenerations.find((g) => g.id === selectedGenerationFilter)?.name || ''}...`
-                          : 'Cari dari semua materi kurikulum...'
+                        : 'Cari semua materi kurikulum...'
                     }
                     className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200/90 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-800 placeholder:text-slate-400 shadow-2xs"
                   />
@@ -2270,85 +3132,102 @@ export default function RealtimeEvaluationSheet({
                   )}
                 </div>
 
-                {/* Tombol Quick Filter Jenjang (Khusus Mode 'ALL' / Semua Jenjang) di Sebelah Kanan Search Bar */}
-                {materialFilterMode === 'ALL' && (
-                  <div className="relative shrink-0" ref={genFilterDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsGenFilterDropdownOpen(!isGenFilterDropdownOpen)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${selectedGenerationFilter !== 'ALL'
-                        ? 'bg-teal-50 border-teal-200 text-teal-800 font-bold'
-                        : 'bg-white border-slate-200/90 text-slate-700 hover:bg-slate-50'
-                        }`}
-                      title="Filter jenjang materi"
-                    >
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                      <span className="hidden sm:inline truncate max-w-[110px]">
-                        {selectedGenerationFilter === 'ALL'
-                          ? 'Semua Jenjang'
-                          : availableGenerations.find((g) => g.id === selectedGenerationFilter)?.name || 'Jenjang'}
-                      </span>
-                      <ChevronDown
-                        className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isGenFilterDropdownOpen ? 'rotate-180 text-teal-600' : ''
-                          }`}
-                      />
-                    </button>
+                {/* Tombol Filter Lanjutan (Modal Besar: Jenjang, Bulan, Status) */}
+                <button
+                  type="button"
+                  onClick={openAdvancedFilterModal}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
+                    totalActiveAdvancedFilters > 0
+                      ? 'bg-teal-50 border-teal-300 text-teal-800 font-bold'
+                      : 'bg-white border-slate-200/90 text-slate-700 hover:bg-slate-50'
+                  }`}
+                  title="Filter materi berdasarkan jenjang, bulan, dan status penilaian"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                  <span className="hidden sm:inline">Filter</span>
+                  {totalActiveAdvancedFilters > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-extrabold bg-teal-600 text-white">
+                      {totalActiveAdvancedFilters}
+                    </span>
+                  )}
+                </button>
+              </div>
 
-                    {/* Menu Absolute Kecil untuk Memilih Jenjang */}
-                    {isGenFilterDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
-                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-0.5 flex items-center justify-between">
-                          <span>Pilih Jenjang</span>
-                          {selectedGenerationFilter !== 'ALL' && (
-                            <button
-                              type="button"
-                              onClick={() => handleSelectGenerationFilter('ALL')}
-                              className="text-teal-600 hover:text-teal-800 normal-case font-semibold text-[10px]"
-                            >
-                              Reset
-                            </button>
-                          )}
-                        </div>
-
+              {/* Tag / Chip Filter Lanjutan Aktif */}
+              {totalActiveAdvancedFilters > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Filter:
+                  </span>
+                  {activeGenFilterIds.map((genId) => {
+                    const genName = availableGenerations.find((g) => g.id === genId)?.name || 'Jenjang';
+                    return (
+                      <span
+                        key={genId}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200"
+                      >
+                        <span>{genName}</span>
                         <button
                           type="button"
-                          onClick={() => handleSelectGenerationFilter('ALL')}
-                          className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors cursor-pointer ${selectedGenerationFilter === 'ALL'
-                            ? 'font-bold text-teal-800 bg-teal-50/70'
-                            : 'text-slate-700 hover:bg-slate-50'
-                            }`}
+                          onClick={() => setActiveGenFilterIds((prev) => prev.filter((id) => id !== genId))}
+                          className="hover:text-teal-950 cursor-pointer"
                         >
-                          <span>Semua Jenjang</span>
-                          {selectedGenerationFilter === 'ALL' && (
-                            <Check className="w-3.5 h-3.5 text-teal-600" />
-                          )}
+                          <X className="w-3 h-3" />
                         </button>
+                      </span>
+                    );
+                  })}
 
-                        {availableGenerations.map((gen) => {
-                          const isSelected = selectedGenerationFilter === gen.id;
-                          return (
-                            <button
-                              key={gen.id}
-                              type="button"
-                              onClick={() => handleSelectGenerationFilter(gen.id)}
-                              className={`w-full text-left px-3 py-1.5 flex items-center justify-between transition-colors cursor-pointer ${isSelected
-                                ? 'font-bold text-teal-800 bg-teal-50/70'
-                                : 'text-slate-700 hover:bg-slate-50'
-                                }`}
-                            >
-                              <span className="truncate">{gen.name}</span>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                  {activeMonthFilters.map((mNum) => (
+                    <span
+                      key={mNum}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
+                    >
+                      <span>{MONTH_NAMES[mNum - 1]}</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveMonthFilters((prev) => prev.filter((m) => m !== mNum))}
+                        className="hover:text-blue-950 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+
+                  {activeStatusFilters.map((st) => {
+                    const label =
+                      st === 'NOT_STARTED'
+                        ? 'Belum Dinilai'
+                        : st === 'IN_PROGRESS'
+                        ? 'Proses'
+                        : 'Tuntas';
+                    return (
+                      <span
+                        key={st}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                      >
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveStatusFilters((prev) => prev.filter((s) => s !== st))}
+                          className="hover:text-amber-950 cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={handleClearAllActiveFilters}
+                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer ml-1"
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+              )}
+            </div>
 
             {filteredMaterials.length === 0 ? (
               isLoadingMode ? (
@@ -2357,30 +3236,67 @@ export default function RealtimeEvaluationSheet({
                   <p className="text-xs text-slate-600 font-medium">Memuat materi kurikulum...</p>
                 </div>
               ) : (
-                <div className="p-5 rounded-2xl bg-slate-50/70 border border-dashed border-slate-200 text-center space-y-1.5">
-                  <p className="text-xs font-bold text-slate-700">
-                    {debouncedSearch
-                      ? `Tidak ada materi yang cocok dengan "${debouncedSearch}"`
-                      : selectedGenerationFilter !== 'ALL'
-                        ? `Belum ada materi untuk jenjang ${availableGenerations.find((g) => g.id === selectedGenerationFilter)?.name || ''}.`
-                        : 'Belum ada materi kurikulum aktif yang terdaftar.'}
-                  </p>
-                  {debouncedSearch || selectedGenerationFilter !== 'ALL' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMaterialSearchQuery('');
-                        setDebouncedSearch('');
-                        handleSelectGenerationFilter('ALL');
-                      }}
-                      className="text-xs font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
-                    >
-                      Reset Filter & Pencarian
-                    </button>
+                <div className="p-5 sm:p-6 rounded-2xl bg-slate-50/80 border border-dashed border-slate-200 text-center space-y-2">
+                  {materialFilterMode === 'SCHEDULED' && currentStudent?.generationName && !debouncedSearch ? (
+                    <div className="space-y-2 py-1">
+                      <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto border border-teal-200/60">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">
+                        Belum ada materi terjadwal khusus jenjang {currentStudent.generationName} pada sesi ini
+                      </p>
+                      <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+                        Jadwal ini merupakan jadwal gabungan. Anda dapat membuka target kurikulum jenjang {currentStudent.generationName} untuk mengisi capaian santri ini.
+                      </p>
+                      <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMaterialFilterMode('GENERATION');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          Buka Kurikulum {currentStudent.generationName}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMaterialFilterMode('ALL');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                        >
+                          Lihat Semua Materi
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <p className="text-[11px] text-slate-500">
-                      Coba ganti filter materi ke "Semua" untuk melihat materi jenjang lainnya.
-                    </p>
+                    <>
+                      <p className="text-xs font-bold text-slate-700">
+                        {materialSearchQuery
+                          ? `Tidak ada materi yang cocok dengan "${materialSearchQuery}"`
+                          : totalActiveAdvancedFilters > 0
+                          ? 'Tidak ada materi yang cocok dengan kombinasi filter yang dipilih.'
+                          : 'Belum ada materi kurikulum aktif yang terdaftar.'}
+                      </p>
+                      {materialSearchQuery || totalActiveAdvancedFilters > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMaterialSearchQuery('');
+                            setDebouncedSearch('');
+                            handleClearAllActiveFilters();
+                          }}
+                          className="text-xs font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                        >
+                          Reset Filter & Pencarian
+                        </button>
+                      ) : (
+                        <p className="text-[11px] text-slate-500">
+                          Coba ganti filter materi ke "Semua" untuk melihat materi jenjang lainnya.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )
@@ -2429,15 +3345,22 @@ export default function RealtimeEvaluationSheet({
                       }`}
                     >
                       {/* Material Accordion Header */}
-                      <button
-                        type="button"
+                      <div
                         onClick={() => toggleMaterialAccordion(mat.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleMaterialAccordion(mat.id);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
                         className={`w-full text-left p-3.5 sm:p-4 transition-colors flex items-start sm:items-center justify-between gap-3 cursor-pointer select-none ${
                           hasPlannedItems
                             ? 'bg-gradient-to-r from-indigo-50/70 via-slate-50 to-teal-50/30 hover:from-indigo-100/70 hover:to-teal-50/50'
                             : 'bg-gradient-to-r from-slate-50 to-teal-50/30 hover:from-slate-100/80 hover:to-teal-50/60'
                         } ${isExpanded ? 'border-b border-slate-100' : ''}`}
-                        aria-expanded={isExpanded}
                       >
                         <div className="min-w-0 flex-1 flex items-start sm:items-center gap-2.5 sm:gap-3">
 
@@ -2527,7 +3450,7 @@ export default function RealtimeEvaluationSheet({
                           </div>
 
                         </div>
-                      </button>
+                      </div>
 
                       {/* Checklist Sub-Capaian Items (Accordion Content - Bounded Scroll Container) */}
                       {isExpanded && (
@@ -2619,10 +3542,23 @@ export default function RealtimeEvaluationSheet({
                                             ) : (
                                               <>
                                                 <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                                <span>Belum Tuntas</span>
+                                                <span>{isBulkMode ? 'Belum Dinilai' : 'Belum Tuntas'}</span>
                                               </>
                                             )}
                                           </button>
+
+                                          {/* Tombol Pembatalan: Icon ↺ saja di kanan tombol switch status capaian */}
+                                          {isBulkMode && isItemInitiallyMixed(item.id) && targetProgressMap[item.id]?.isModifiedSession && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleResetItemToMixed(item.id)}
+                                              className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center shrink-0"
+                                              title="Kembalikan ke kondisi awal bervariasi (Perbarui)"
+                                              aria-label="Kembalikan ke kondisi awal bervariasi (Perbarui)"
+                                            >
+                                              <RotateCcw className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
 
                                           {/* Mode Massal: Ikon Profil Santri untuk Modal/Tooltip Status Tiap Santri */}
                                           {isBulkMode && (
@@ -2657,12 +3593,87 @@ export default function RealtimeEvaluationSheet({
                                   </div>
                                 </div>
 
+                                {/* Badge Informatif Status Mode Massal - Tepat di Bawah Deskripsi Capaian & Di Atas Form */}
+                                {isBulkMode && (() => {
+                                  const prevCompletedCount = studentDetails.completed.filter((c) => !c.isJustModified).length;
+                                  const justCompletedCount = studentDetails.completed.filter((c) => c.isJustModified).length;
+                                  const pendingCount = studentDetails.notStarted.length + studentDetails.inProgress.length;
+
+                                  if (itemStatus === 'MIXED') {
+                                    const completedCount = studentDetails.completed.length;
+                                    return (
+                                      <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-center gap-2 animate-fade-in mt-1">
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                        <span className="leading-snug">
+                                          Kondisi bervariasi: <strong>{completedCount} santri sudah tuntas (nilai tetap)</strong> • <strong>{pendingCount} santri belum tuntas</strong>
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (itemStatus === 'COMPLETED') {
+                                    const targetUpdatingCount = justCompletedCount > 0 ? justCompletedCount : studentDetails.completed.length;
+                                    return (
+                                      <div className="p-2 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[11px] text-teal-900 flex items-center gap-2 animate-fade-in mt-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-teal-600 shrink-0" />
+                                        <span className="leading-snug">
+                                          Berlaku untuk <strong>{targetUpdatingCount} santri (Tuntas)</strong>
+                                          {prevCompletedCount > 0 && (
+                                            <>
+                                              {' • '}
+                                              <strong>{prevCompletedCount} santri sudah tuntas sebelumnya tidak diubah</strong>
+                                            </>
+                                          )}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (itemStatus === 'IN_PROGRESS') {
+                                    const targetUpdatingCount = studentDetails.inProgress.length;
+                                    return (
+                                      <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-2 animate-fade-in mt-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
+                                        <span className="leading-snug">
+                                          Berlaku untuk <strong>{targetUpdatingCount} santri (Proses)</strong>
+                                          {prevCompletedCount > 0 && (
+                                            <>
+                                              {' • '}
+                                              <strong>{prevCompletedCount} santri sudah tuntas sebelumnya tidak diubah</strong>
+                                            </>
+                                          )}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (itemStatus === 'NOT_STARTED' && (prevCompletedCount > 0 || targetProgressMap[item.id]?.isModifiedSession)) {
+                                    const targetUpdatingCount = studentDetails.notStarted.length;
+                                    return (
+                                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-700 flex items-center gap-2 animate-fade-in mt-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+                                        <span className="leading-snug">
+                                          Berlaku untuk <strong>{targetUpdatingCount} santri (Belum Dinilai)</strong>
+                                          {prevCompletedCount > 0 && (
+                                            <>
+                                              {' • '}
+                                              <strong>{prevCompletedCount} santri sudah tuntas sebelumnya tidak diubah</strong>
+                                            </>
+                                          )}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return null;
+                                })()}
+
                                 {/* Penilaian Capaian & Catatan Khusus Sesuai Status */}
                                 {itemStatus === 'COMPLETED' && (
                                   <div className="p-3 rounded-xl bg-slate-50/90 border border-teal-200/60 space-y-2.5 animate-fade-in">
                                     {/* Baris 1: Penilaian Capaian (Skor Nilai) */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="text-[11px] font-bold text-slate-700">
                                           Penilaian Capaian:
                                         </span>
@@ -2674,10 +3685,10 @@ export default function RealtimeEvaluationSheet({
                                             type="button"
                                             onClick={() => handleScoreChange(item.id, s)}
                                             className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                                              state.score === s
-                                                ? 'bg-teal-600 text-white shadow-2xs font-bold ring-2 ring-teal-600/20'
-                                                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-                                            }`}
+                                                state.score === s
+                                                  ? 'bg-teal-600 text-white shadow-2xs font-bold ring-2 ring-teal-600/20'
+                                                  : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                              }`}
                                           >
                                             {s}
                                           </button>
@@ -2717,15 +3728,6 @@ export default function RealtimeEvaluationSheet({
                                         className="w-full px-3 py-2 rounded-lg bg-white border border-amber-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
                                       />
                                     </div>
-                                  </div>
-                                )}
-
-                                {itemStatus === 'MIXED' && isBulkMode && (
-                                  <div className="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-200/70 text-[11px] text-indigo-900 flex items-center gap-2">
-                                    <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                    <span>
-                                      Status santri berbeda. Klik tombol <strong>Perbarui</strong> di atas untuk menyeragamkan progres santri yang belum tuntas.
-                                    </span>
                                   </div>
                                 )}
                               </div>
@@ -2847,49 +3849,94 @@ export default function RealtimeEvaluationSheet({
             </div>
           </div>
 
-          {/* 6. Catatan Umum Guru */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Catatan Guru / Pembina (Opsional)
-            </label>
-            <textarea
-              rows={2}
-              value={teacherNote}
-              onChange={(e) => setTeacherNote(e.target.value)}
-              placeholder="Tuliskan catatan umum untuk buku penghubung dengan orang tua..."
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
-            />
-          </div>
-
-          {/* 6.b Catatan Serah-Terima Sesi Ini (Handover Ustadz Berikutnya) */}
-          <div className="p-3.5 rounded-2xl bg-teal-50/50 border border-teal-200/80 space-y-2">
+          {/* 6. Catatan Umum Guru dengan Toggle Switch */}
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <NotebookPen className="w-4 h-4 text-teal-700 shrink-0" />
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Catatan Serah-Terima Sesi Ini (Handover Pengajar Berikutnya)
-                </label>
-              </div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Tambahkan Catatan Untuk Orang Tua
+              </label>
               <button
                 type="button"
-                onClick={handleSaveHandoverNotes}
-                disabled={isSavingHandover}
-                className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer shadow-2xs"
+                role="switch"
+                aria-checked={showTeacherNote || !!teacherNote}
+                onClick={() => setShowTeacherNote((prev) => !prev)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 ${
+                  showTeacherNote || !!teacherNote ? 'bg-teal-600' : 'bg-slate-300'
+                }`}
+                title={showTeacherNote || !!teacherNote ? 'Sembunyikan Catatan' : 'Tulis Catatan'}
               >
-                {isSavingHandover ? 'Menyimpan...' : 'Simpan Handover'}
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    showTeacherNote || !!teacherNote ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
               </button>
             </div>
-            <textarea
-              rows={2}
-              value={teachingSummaryNotes}
-              onChange={(e) => setTeachingSummaryNotes(e.target.value)}
-              placeholder="Tuliskan materi/halaman terakhir yang diajarkan, catatan pemahaman santri, atau arahan untuk pengajar sesi berikutnya..."
-              className="w-full px-3 py-2 rounded-xl bg-white border border-teal-200/80 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
-            />
-            {handoverSuccessMessage && (
-              <p className="text-[11px] font-semibold text-emerald-700 animate-fade-in">
-                ✓ {handoverSuccessMessage}
-              </p>
+
+            {(showTeacherNote || !!teacherNote) && (
+              <textarea
+                rows={2}
+                value={teacherNote}
+                onChange={(e) => setTeacherNote(e.target.value)}
+                placeholder="Tuliskan catatan umum untuk buku penghubung dengan orang tua..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors animate-fade-in"
+              />
+            )}
+          </div>
+
+          {/* 6.b Catatan Serah-Terima Sesi Ini (Handover Ustadz Berikutnya) dengan Toggle Switch */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Tambahkan Catatan Untuk Pengajar Berikutnya
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                {(showHandoverNote || !!teachingSummaryNotes) && (
+                  <button
+                    type="button"
+                    onClick={handleSaveHandoverNotes}
+                    disabled={isSavingHandover}
+                    className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    {isSavingHandover ? 'Menyimpan...' : 'Simpan Handover'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showHandoverNote || !!teachingSummaryNotes}
+                  onClick={() => setShowHandoverNote((prev) => !prev)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 ${
+                    showHandoverNote || !!teachingSummaryNotes ? 'bg-teal-600' : 'bg-slate-300'
+                  }`}
+                  title={showHandoverNote || !!teachingSummaryNotes ? 'Sembunyikan Catatan Handover' : 'Tulis Catatan Handover'}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      showHandoverNote || !!teachingSummaryNotes ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {(showHandoverNote || !!teachingSummaryNotes) && (
+              <div className="space-y-2 animate-fade-in pt-1">
+                <textarea
+                  rows={2}
+                  value={teachingSummaryNotes}
+                  onChange={(e) => setTeachingSummaryNotes(e.target.value)}
+                  placeholder="Tuliskan materi/halaman terakhir yang diajarkan, catatan pemahaman santri, atau arahan untuk pengajar sesi berikutnya..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-teal-200/80 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
+                />
+                {handoverSuccessMessage && (
+                  <p className="text-[11px] font-semibold text-emerald-700 animate-fade-in">
+                    ✓ {handoverSuccessMessage}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -3158,6 +4205,455 @@ export default function RealtimeEvaluationSheet({
         document.body
       )}
 
+      {/* Modal Besar Filter Lanjutan (Jenjang, Bulan, Status) */}
+      {mounted && isAdvancedFilterModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAdvancedFilterModalOpen(false);
+          }}
+        >
+          <div className="bg-white w-full sm:max-w-xl md:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[88vh] sm:max-h-[82vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150 overflow-hidden">
+            {/* Drag handle for mobile */}
+            <div className="flex-shrink-0 pt-3 pb-1 flex justify-center sm:hidden">
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
+
+            {/* Header Modal */}
+            <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-100/80 text-teal-700 flex items-center justify-center font-bold text-sm border border-teal-200/60">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                    Filter Materi Pembelajaran
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Saring materi berdasarkan jenjang, bulan, dan status penilaian
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdvancedFilterModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Navigation Tabs di Bagian Atas */}
+            <div className="flex-shrink-0 px-4 pt-2 border-b border-slate-200 bg-slate-50/80 flex items-center gap-2 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setAdvancedFilterActiveTab('JENJANG')}
+                className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                  advancedFilterActiveTab === 'JENJANG'
+                    ? 'border-teal-600 text-teal-900 bg-white rounded-t-xl shadow-2xs'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60 rounded-t-xl'
+                }`}
+              >
+                <GraduationCap className="w-4 h-4 text-teal-600" />
+                <span>Jenjang ({draftGenFilterIds.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdvancedFilterActiveTab('BULAN')}
+                className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                  advancedFilterActiveTab === 'BULAN'
+                    ? 'border-teal-600 text-teal-900 bg-white rounded-t-xl shadow-2xs'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60 rounded-t-xl'
+                }`}
+              >
+                <Calendar className="w-4 h-4 text-teal-600" />
+                <span>Bulan ({draftMonthFilters.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdvancedFilterActiveTab('STATUS')}
+                className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                  advancedFilterActiveTab === 'STATUS'
+                    ? 'border-teal-600 text-teal-900 bg-white rounded-t-xl shadow-2xs'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60 rounded-t-xl'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                <span>Status ({draftStatusFilters.length})</span>
+              </button>
+            </div>
+
+            {/* Modal Tab Content Area */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              {/* Tab 1: JENJANG */}
+              {advancedFilterActiveTab === 'JENJANG' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-slate-800">
+                      Pilih Jenjang / Generasi Santri:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraftGenFilterIds(availableGenerations.map((g) => g.id))}
+                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setDraftGenFilterIds([])}
+                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {availableGenerations.map((gen) => {
+                      const isChecked = draftGenFilterIds.includes(gen.id);
+                      const isCurrentStudentGen = currentStudent?.generationId === gen.id;
+                      return (
+                        <div
+                          key={gen.id}
+                          onClick={() => {
+                            setDraftGenFilterIds((prev) =>
+                              prev.includes(gen.id)
+                                ? prev.filter((id) => id !== gen.id)
+                                : [...prev, gen.id]
+                            );
+                          }}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isChecked
+                              ? 'bg-teal-50/80 border-teal-300 ring-1 ring-teal-500/20 text-teal-950 shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold">{gen.name}</span>
+                              {isCurrentStudentGen && (
+                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-teal-100 text-teal-800 border border-teal-200">
+                                  Jenjang Santri
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
+                              isChecked
+                                ? 'bg-teal-600 border-teal-600 text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: BULAN */}
+              {advancedFilterActiveTab === 'BULAN' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
+                    <span className="text-xs font-bold text-slate-800">
+                      Pilih Target Bulan Pembelajaran:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraftMonthFilters([currentMonth])}
+                        className="text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-md border border-teal-200 transition-colors cursor-pointer"
+                      >
+                        Bulan Ini ({MONTH_NAMES[currentMonth - 1]})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDraftMonthFilters([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                      >
+                        Semua
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setDraftMonthFilters([])}
+                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {MONTH_NAMES.map((name, index) => {
+                      const monthNum = index + 1;
+                      const isChecked = draftMonthFilters.includes(monthNum);
+                      const isNow = monthNum === currentMonth;
+
+                      return (
+                        <div
+                          key={monthNum}
+                          onClick={() => {
+                            setDraftMonthFilters((prev) =>
+                              prev.includes(monthNum)
+                                ? prev.filter((m) => m !== monthNum)
+                                : [...prev, monthNum]
+                            );
+                          }}
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                            isChecked
+                              ? 'bg-teal-50/90 border-teal-300 ring-1 ring-teal-500/20 text-teal-950 font-bold shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs">{name}</span>
+                            <div
+                              className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                                isChecked
+                                  ? 'bg-teal-600 border-teal-600 text-white'
+                                  : 'border-slate-300 bg-white'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                          {isNow && (
+                            <div className="mt-1">
+                              <span className="text-[9px] font-bold text-teal-700 bg-teal-100/70 px-1.5 py-0.2 rounded">
+                                Bulan Ini
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: STATUS */}
+              {advancedFilterActiveTab === 'STATUS' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold text-slate-800">
+                      Pilih Status Penilaian Santri:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraftStatusFilters(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'])}
+                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setDraftStatusFilters([])}
+                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {/* Status 1: Belum Dinilai */}
+                    {(() => {
+                      const isChecked = draftStatusFilters.includes('NOT_STARTED');
+                      return (
+                        <div
+                          onClick={() => {
+                            setDraftStatusFilters((prev) =>
+                              prev.includes('NOT_STARTED')
+                                ? prev.filter((s) => s !== 'NOT_STARTED')
+                                : [...prev, 'NOT_STARTED']
+                            );
+                          }}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isChecked
+                              ? 'bg-slate-100/80 border-slate-400 text-slate-900 shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 mt-0.5">
+                              <Circle className="w-4 h-4 text-slate-500" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-900">Belum Dinilai</span>
+                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-slate-200 text-slate-700">
+                                  Belum Dimulai
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Materi belum ada catatan penilaian santri atau checklist belum tersentuh
+                              </p>
+                            </div>
+                          </div>
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
+                              isChecked
+                                ? 'bg-slate-800 border-slate-800 text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Status 2: Proses */}
+                    {(() => {
+                      const isChecked = draftStatusFilters.includes('IN_PROGRESS');
+                      return (
+                        <div
+                          onClick={() => {
+                            setDraftStatusFilters((prev) =>
+                              prev.includes('IN_PROGRESS')
+                                ? prev.filter((s) => s !== 'IN_PROGRESS')
+                                : [...prev, 'IN_PROGRESS']
+                            );
+                          }}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isChecked
+                              ? 'bg-blue-50 border-blue-300 text-blue-950 shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-900">Proses</span>
+                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                  Berjalan
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Materi sebagian tuntas atau ada catatan guru tapi belum tuntas 100%
+                              </p>
+                            </div>
+                          </div>
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
+                              isChecked
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Status 3: Tuntas */}
+                    {(() => {
+                      const isChecked = draftStatusFilters.includes('COMPLETED');
+                      return (
+                        <div
+                          onClick={() => {
+                            setDraftStatusFilters((prev) =>
+                              prev.includes('COMPLETED')
+                                ? prev.filter((s) => s !== 'COMPLETED')
+                                : [...prev, 'COMPLETED']
+                            );
+                          }}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isChecked
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-2xs'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-900">Tuntas</span>
+                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  Selesai 100%
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Seluruh checklist capaian materi telah berhasil dituntaskan oleh santri
+                              </p>
+                            </div>
+                          </div>
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
+                              isChecked
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Modal: Batal & Terapkan('jumlah opsi filter') */}
+            <div className="flex-shrink-0 px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleResetDraftFilters}
+                disabled={totalDraftAdvancedFilters === 0}
+                className={`inline-flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                  totalDraftAdvancedFilters > 0
+                    ? 'text-rose-600 hover:text-rose-700'
+                    : 'text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Pilihan</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedFilterModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyAdvancedFilters}
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>
+                    {totalDraftAdvancedFilters > 0
+                      ? `Terapkan (${totalDraftAdvancedFilters})`
+                      : 'Terapkan'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Modal / Dialog Sasaran Santri Materi (Portal di luar card) */}
       {mounted && activeAudienceMat && createPortal(
         <div
@@ -3378,7 +4874,7 @@ export default function RealtimeEvaluationSheet({
                               </span>
                             ) : (
                               <span className="text-[9px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
-                                Sudah Tuntas
+                                Sudah Tuntas (Nilai Tetap)
                               </span>
                             )}
                             <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white px-1.5 py-0.2 rounded border border-emerald-200">

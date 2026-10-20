@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { recordManualAttendance, markAllPresent, verifyAbsenceConfirmation } from '@/app/(protected)/presensi/actions';
 import { AttendanceStatus, AttendanceMethod, AbsenceConfirmationStatus } from '@prisma/client';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 export interface AbsenceConfirmationItem {
   id: string;
@@ -99,6 +101,9 @@ export default function ManualAttendanceSheet({
     setMounted(true);
   }, []);
 
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
+
   // Sinkronkan state internal saat props santri dari parent diperbarui secara realtime
   useEffect(() => {
     setStudents(initialStudents);
@@ -152,7 +157,7 @@ export default function ManualAttendanceSheet({
       }
     } catch (err) {
       console.error('Gagal memverifikasi izin:', err);
-      alert('Gagal memproses verifikasi izin: ' + (err instanceof Error ? err.message : 'Terjadi kesalahan'));
+      toast.error('Gagal memproses verifikasi izin: ' + (err instanceof Error ? err.message : 'Terjadi kesalahan'));
     } finally {
       setReviewDecisionPending(false);
     }
@@ -249,25 +254,29 @@ export default function ManualAttendanceSheet({
       .map((s) => s.id);
 
     if (unpresentIds.length === 0) {
-      alert('Semua santri sudah memiliki status presensi.');
+      toast.warning('Semua santri sudah memiliki status presensi.');
       return;
     }
 
-    if (!confirm(`Tandai ${unpresentIds.length} santri yang tersisa sebagai HADIR?`)) {
-      return;
-    }
+    openConfirm(
+      {
+        title: 'Tandai Semua Hadir?',
+        description: `Tandai ${unpresentIds.length} santri yang tersisa sebagai HADIR?`,
+        variant: 'info',
+        confirmText: 'Ya, Tandai Hadir',
+      },
+      async () => {
+        setIsMarkingAll(true);
 
-    setIsMarkingAll(true);
-
-    // Optimistic UI update
-    const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    setStudents((prev) =>
-      prev.map((s) =>
-        unpresentIds.includes(s.id)
-          ? { ...s, currentStatus: AttendanceStatus.HADIR, method: AttendanceMethod.MANUAL_TEACHER, checkInTime: nowStr }
-          : s
-      )
-    );
+        // Optimistic UI update
+        const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        setStudents((prev) =>
+          prev.map((s) =>
+            unpresentIds.includes(s.id)
+              ? { ...s, currentStatus: AttendanceStatus.HADIR, method: AttendanceMethod.MANUAL_TEACHER, checkInTime: nowStr }
+              : s
+          )
+        );
 
     unpresentIds.forEach((id) => onStudentStatusChange?.(id, AttendanceStatus.HADIR));
 
@@ -279,6 +288,8 @@ export default function ManualAttendanceSheet({
     } finally {
       setIsMarkingAll(false);
     }
+      }
+    );
   };
 
   // Statistik Ringkas Kehadiran
@@ -944,6 +955,9 @@ export default function ManualAttendanceSheet({
         </div>,
         document.body
       )}
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

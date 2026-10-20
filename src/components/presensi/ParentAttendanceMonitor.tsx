@@ -46,6 +46,8 @@ import {
   getParentAbsenceHistory,
   submitParentQrScan,
 } from '@/app/(protected)/presensi/actions';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 export interface ChildScheduleInfo {
   scheduleId: string;
@@ -155,6 +157,9 @@ export default function ParentAttendanceMonitor({
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [viewingAttachmentUrl, setViewingAttachmentUrl] = useState<string | null>(null);
   const [mounted, setMounted] = useState<boolean>(false);
+
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Scanner Kamera Orang Tua State
   const [scanningChild, setScanningChild] = useState<ChildAttendanceSummary | null>(null);
@@ -310,7 +315,7 @@ export default function ParentAttendanceMonitor({
 
   const handleEditExistingAbsence = (item: AbsenceHistoryItem) => {
     if (item.status !== 'PENDING') {
-      alert('Surat izin yang telah diverifikasi atau disetujui ustadz pengampu tidak dapat diedit lagi.');
+      toast.warning('Surat izin yang telah diverifikasi atau disetujui ustadz pengampu tidak dapat diedit lagi.');
       return;
     }
     setEditingHistoryItem(item);
@@ -332,10 +337,15 @@ export default function ParentAttendanceMonitor({
     fetchSchedulesForChild(item.studentId, item.scheduleId, true);
   };
 
-  const handleCancelAbsenceRequest = async (confirmationId: string) => {
-    if (!confirm('Apakah Anda yakin ingin membatalkan dan menghapus surat permohonan izin ini?')) {
-      return;
-    }
+  const handleCancelAbsenceRequest = (confirmationId: string) => {
+    openConfirm(
+      {
+        title: 'Batalkan Surat Izin?',
+        description: 'Apakah Anda yakin ingin membatalkan dan menghapus surat permohonan izin ini?',
+        variant: 'danger',
+        confirmText: 'Ya, Batalkan',
+      },
+      async () => {
 
     startTransition(async () => {
       try {
@@ -376,13 +386,15 @@ export default function ParentAttendanceMonitor({
             handleCloseAbsenceModal();
           }
 
-          alert('Surat permohonan izin berhasil dibatalkan.');
+          toast.success('Surat permohonan izin berhasil dibatalkan.');
         }
       } catch (err: unknown) {
         const error = err as Error;
-        alert(error.message || 'Gagal membatalkan surat izin.');
+        toast.error(error.message || 'Gagal membatalkan surat izin.');
       }
     });
+      }
+    );
   };
 
   const handleCloseAbsenceModal = () => {
@@ -408,12 +420,12 @@ export default function ParentAttendanceMonitor({
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Hanya file gambar (JPG, PNG, WEBP) yang didukung untuk lampiran surat.');
+      toast.warning('Hanya file gambar (JPG, PNG, WEBP) yang didukung untuk lampiran surat.');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran gambar maksimal adalah 5MB.');
+      toast.warning('Ukuran gambar maksimal adalah 5MB.');
       return;
     }
 
@@ -430,7 +442,7 @@ export default function ParentAttendanceMonitor({
   const handleSubmitAbsence = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedChildId || !selectedScheduleId) {
-      alert('Silakan pilih ananda dan sesi jadwal pengajian.');
+      toast.warning('Silakan pilih ananda dan sesi jadwal pengajian.');
       return;
     }
 
@@ -730,7 +742,7 @@ export default function ParentAttendanceMonitor({
 
   const handleOpenParentScanModal = (child: ChildAttendanceSummary) => {
     if (!child.todaySchedule) {
-      alert('Tidak ada jadwal pengajian aktif untuk ananda hari ini.');
+      toast.info('Tidak ada jadwal pengajian aktif untuk ananda hari ini.');
       return;
     }
     setScanningChild(child);
@@ -870,7 +882,7 @@ export default function ParentAttendanceMonitor({
       link.click();
     } catch (err) {
       console.error('Download card error:', err);
-      alert('Gagal mengunduh kartu QR santri.');
+      toast.error('Gagal mengunduh kartu QR santri.');
     } finally {
       setIsGeneratingCardImage(false);
     }
@@ -880,7 +892,7 @@ export default function ParentAttendanceMonitor({
     if (!selectedChildForCard || !childQrDataUrl) return;
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (!printWindow) {
-      alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak kartu santri.');
+      toast.warning('Popup diblokir oleh browser. Izinkan popup untuk mencetak kartu santri.');
       return;
     }
     const child = selectedChildForCard;
@@ -2519,6 +2531,9 @@ export default function ParentAttendanceMonitor({
           document.body
         )
       }
+
+      {ConfirmModalComponent()}
     </div >
   );
 }
+

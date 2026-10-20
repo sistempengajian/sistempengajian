@@ -22,6 +22,8 @@ import {
   reopenAttendanceSession,
 } from '@/app/(protected)/presensi/actions';
 import { TOTP_STEP_SECONDS } from '@/lib/totp';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 export interface InitialQrPayload {
   qrContent: string;
@@ -227,36 +229,53 @@ export default function DynamicQrDisplay({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const handleCloseSession = async () => {
-    if (!confirm('Apakah Anda yakin ingin menutup sesi presensi ini? Santri tidak akan dapat memindai QR lagi.')) {
-      return;
-    }
-    try {
-      setIsClosing(true);
-      await closeAttendanceSession(sessionId);
-      if (onSessionClosed) onSessionClosed();
-    } catch (err) {
-      console.error('Failed to close session:', err);
-      alert('Gagal menutup sesi presensi.');
-    } finally {
-      setIsClosing(false);
-    }
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
+
+  const handleCloseSession = () => {
+    openConfirm(
+      {
+        title: 'Tutup Sesi Presensi?',
+        description: 'Santri tidak akan dapat memindai QR lagi setelah sesi ditutup.',
+        variant: 'warning',
+        confirmText: 'Ya, Tutup Sesi',
+      },
+      async () => {
+        try {
+          setIsClosing(true);
+          await closeAttendanceSession(sessionId);
+          if (onSessionClosed) onSessionClosed();
+        } catch (err) {
+          console.error('Failed to close session:', err);
+          toast.error('Gagal menutup sesi presensi.');
+        } finally {
+          setIsClosing(false);
+        }
+      }
+    );
   };
 
-  const handleReopenSession = async () => {
-    if (!confirm('Buka kembali sesi presensi untuk jadwal ini? Kode QR aktif akan kembali dihasilkan.')) {
-      return;
-    }
-    try {
-      setIsReopening(true);
-      await reopenAttendanceSession(sessionId);
-      if (onSessionReopened) onSessionReopened();
-    } catch (err) {
-      console.error('Failed to reopen session:', err);
-      alert('Gagal membuka kembali sesi presensi.');
-    } finally {
-      setIsReopening(false);
-    }
+  const handleReopenSession = () => {
+    openConfirm(
+      {
+        title: 'Buka Kembali Sesi Presensi?',
+        description: 'Kode QR aktif akan kembali dihasilkan untuk jadwal ini.',
+        variant: 'info',
+        confirmText: 'Ya, Buka Kembali',
+      },
+      async () => {
+        try {
+          setIsReopening(true);
+          await reopenAttendanceSession(sessionId);
+          if (onSessionReopened) onSessionReopened();
+        } catch (err) {
+          console.error('Failed to reopen session:', err);
+          toast.error('Gagal membuka kembali sesi presensi.');
+        } finally {
+          setIsReopening(false);
+        }
+      }
+    );
   };
 
   const progressPercent = ((TOTP_STEP_SECONDS - remainingSeconds) / TOTP_STEP_SECONDS) * 100;
@@ -471,6 +490,9 @@ export default function DynamicQrDisplay({
           <span>{isClosing ? 'Menutup...' : 'Tutup Sesi'}</span>
         </button>
       </div>
+
+      {ConfirmModalComponent()}
     </div>
   );
 }
+

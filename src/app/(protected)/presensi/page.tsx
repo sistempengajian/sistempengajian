@@ -500,13 +500,29 @@ export default async function PresensiPage({
       }
     }
 
-    // Kumpulkan generasi target yang relevan dengan jadwal ini
+    // Ambil daftar santri aktif terfilter sesuai target jadwal
+    const classStudents = await prisma.user.findMany({
+      where: studentWhere,
+      select: {
+        id: true,
+        fullName: true,
+        organizationId: true,
+        generationId: true,
+        generation: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+
+    // Kumpulkan generasi target yang relevan dengan jadwal ini (termasuk seluruh jenjang santri di kelas)
     const relevantGenerationIds = new Set<string>();
     if (activeSchedule.targetGenerations && activeSchedule.targetGenerations.length > 0) {
       activeSchedule.targetGenerations.forEach((g) => relevantGenerationIds.add(g.generationId));
     }
     targetClassesList.forEach((c) => {
       if (c.generationId) relevantGenerationIds.add(c.generationId);
+    });
+    classStudents.forEach((s) => {
+      if (s.generationId) relevantGenerationIds.add(s.generationId);
     });
 
     // Organisasi yang relevan dengan jadwal pengajian ini (Kelompok & Desa induk)
@@ -588,20 +604,36 @@ export default async function PresensiPage({
 
     const { startOfToday, endOfToday } = getWibTodayRange();
 
-    // Ambil daftar santri, sesi pengajian hari ini, seluruh jenjang, & materi kurikulum secara paralel
-    const [classStudents, todaySchedules, allGenerations, totalMaterialsCount, rawMaterials] =
+    const initialStudentGenId =
+      classStudents[0]?.generationId || Array.from(relevantGenerationIds)[0] || null;
+
+    const initialTargetMonthlyIds = initialStudentGenId
+      ? monthlyTargets
+          .filter((t) => t.generationId === initialStudentGenId)
+          .map((t) => t.materialId)
+      : monthlyTargets.map((t) => t.materialId);
+
+    const initialScheduledGenIds = activeSchedule.scheduleMaterials
+      .filter(
+        (sm) =>
+          !sm.material?.targetGenerationId ||
+          (initialStudentGenId && sm.material.targetGenerationId === initialStudentGenId)
+      )
+      .map((sm) => sm.materialId);
+
+    const initialCombinedSchedIds = Array.from(
+      new Set([...initialScheduledGenIds, ...initialTargetMonthlyIds])
+    );
+
+    const initialAddIds = activeSchedule.scheduleMaterials
+      .filter(
+        (sm) => !sm.material?.targetGenerationId || !monthlyTargetIdSet.has(sm.materialId)
+      )
+      .map((sm) => sm.materialId);
+
+    // Ambil sesi pengajian hari ini, seluruh jenjang, & materi kurikulum secara paralel
+    const [todaySchedules, allGenerations, totalMaterialsCount, generationMaterialsCount, rawMaterials] =
       await Promise.all([
-        prisma.user.findMany({
-          where: studentWhere,
-          select: {
-            id: true,
-            fullName: true,
-            organizationId: true,
-            generationId: true,
-            generation: { select: { id: true, name: true, code: true } },
-          },
-          orderBy: { fullName: 'asc' },
-        }),
         prisma.schedule.findMany({
           where: {
             status: { in: ['ACTIVE', 'SCHEDULED'] },
@@ -619,12 +651,31 @@ export default async function PresensiPage({
           select: { id: true, name: true, code: true },
           orderBy: { code: 'asc' },
         }),
-        hasActiveCurriculum
-          ? Promise.resolve(activeMaterialIds.length)
-          : prisma.material.count({ where: materialWhere }),
+        prisma.material.count({
+          where: {
+            isActive: true,
+            OR: [
+              { organizationId: null },
+              { creatorTierLevel: 'DAERAH' },
+              ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
+            ],
+          },
+        }),
+        initialStudentGenId
+          ? prisma.material.count({
+              where: {
+                isActive: true,
+                targetGenerationId: initialStudentGenId,
+                OR: [
+                  { organizationId: null },
+                  { creatorTierLevel: 'DAERAH' },
+                  ...(relevantOrgIds.length > 0 ? [{ organizationId: { in: relevantOrgIds } }] : []),
+                ],
+              },
+            })
+          : Promise.resolve(0),
         prisma.material.findMany({
           where: materialWhere,
-          take: hasActiveCurriculum ? undefined : 5,
           include: {
             targetGeneration: {
               select: { id: true, name: true, code: true },
@@ -647,10 +698,21 @@ export default async function PresensiPage({
                     }
                   : undefined,
             },
+            monthlyTargets: {
+              select: { month: true, year: true, generationId: true },
+            },
           },
           orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
         }),
       ]);
+
+    const initialScopeCounts = {
+      ALL: totalMaterialsCount,
+      GENERATION: generationMaterialsCount,
+      MONTHLY: initialTargetMonthlyIds.length,
+      SCHEDULED: initialCombinedSchedIds.length,
+      ADDITIONAL: initialAddIds.length,
+    };
 
     // Smart default absence: Hanya tambahkan santri yang belum memiliki attendanceRecord (Zero extra queries jika sudah lengkap)
     if (session) {
@@ -711,6 +773,15 @@ export default async function PresensiPage({
           })
         : [];
 
+    // Ambil daftar santri yang sudah pernah dinilai/disubmit pada sesi jadwal ini
+    const existingSessionEvals = await prisma.studentEvaluation.findMany({
+      where: { scheduleId: activeSchedule.id },
+      select: { studentId: true },
+    });
+    const initialEvaluatedStudentIds = Array.from(
+      new Set(existingSessionEvals.map((e) => e.studentId))
+    );
+
     // Lakukan penyesuaian materi dan butir capaian berdasarkan tingkat pengajian jadwal (Kelompok, Desa, atau Daerah)
     const baseResolvedMaterials = resolveMaterialsForSchedule(rawMaterials, {
       scheduleTierLevel: activeSchedule.tierLevel,
@@ -735,6 +806,7 @@ export default async function PresensiPage({
           isScheduled,
           isMonthlyTarget,
           slotIndex: isScheduled ? slotIndex : undefined,
+          monthlyTargets: (m as any).monthlyTargets || [],
         };
       })
       .sort((a, b) => {
@@ -952,6 +1024,7 @@ export default async function PresensiPage({
             teacherFeedback: p.teacherFeedback,
             evaluatedAt: p.evaluatedAt.toISOString(),
           }))}
+          initialEvaluatedStudentIds={initialEvaluatedStudentIds}
           canCompleteDaerah={canCompleteDaerah}
           canCompleteDesa={canCompleteDesa}
           availableSchedules={availableSchedulesProp}
@@ -973,6 +1046,9 @@ export default async function PresensiPage({
               : null
           }
           initialTab={initialCockpitTab}
+          sessionMonth={sessionMonth}
+          sessionYear={sessionYear}
+          initialScopeCounts={initialScopeCounts}
         />
       </div>
     );

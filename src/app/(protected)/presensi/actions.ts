@@ -1399,6 +1399,7 @@ export async function saveBulkComprehensiveEvaluation({
   keaktifanScore,
   teacherPrivateNote,
   targetCapaianUpdates,
+  applyToAllGenerations = false,
 }: {
   scheduleId: string;
   studentIds: string[];
@@ -1406,6 +1407,7 @@ export async function saveBulkComprehensiveEvaluation({
   keaktifanScore: number;
   teacherPrivateNote?: string;
   targetCapaianUpdates?: TargetCapaianInput[];
+  applyToAllGenerations?: boolean;
 }) {
   const supabase = await createClient();
   const {
@@ -1527,8 +1529,8 @@ export async function saveBulkComprehensiveEvaluation({
       const itemMeta = itemMetaMap.get(update.checklistItemId);
       const targetGenId = itemMeta?.targetGenerationId;
 
-      // Partisi Jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri
-      if (targetGenId && targetGenId !== studentGenId) {
+      // Partisi Jenjang: Lewati jika materi khusus jenjang yang berbeda dengan jenjang santri (kecuali applyToAllGenerations aktif)
+      if (!applyToAllGenerations && targetGenId && targetGenId !== studentGenId) {
         continue;
       }
 
@@ -1597,8 +1599,8 @@ export async function saveBulkComprehensiveEvaluation({
               const itemMeta = itemMetaMap.get(update.checklistItemId);
               const targetGenId = itemMeta?.targetGenerationId;
 
-              // 1. Partisi Jenjang: Lewati jika materi bukan untuk jenjang santri ini
-              if (targetGenId && targetGenId !== studentGenId) {
+              // 1. Partisi Jenjang: Lewati jika materi bukan untuk jenjang santri ini (kecuali applyToAllGenerations aktif)
+              if (!applyToAllGenerations && targetGenId && targetGenId !== studentGenId) {
                 continue;
               }
 

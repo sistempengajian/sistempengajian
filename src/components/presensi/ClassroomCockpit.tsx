@@ -61,6 +61,7 @@ interface ClassroomCockpitProps {
   teachersList?: ScheduleTeacherInfo[];
   materials?: MaterialWithChecklists[];
   initialProgress?: StudentProgressData[];
+  initialEvaluatedStudentIds?: string[];
   canCompleteDaerah?: boolean;
   canCompleteDesa?: boolean;
   availableSchedules?: AvailableScheduleItem[];
@@ -78,6 +79,9 @@ interface ClassroomCockpitProps {
     date: string;
     notes: string;
   } | null;
+  sessionMonth?: number;
+  sessionYear?: number;
+  initialScopeCounts?: Record<string, number>;
 }
 
 type CockpitTab = 'DYNAMIC_QR' | 'MANUAL_SHEET' | 'BATCH_SCAN' | 'EVALUATION';
@@ -98,6 +102,7 @@ export default function ClassroomCockpit({
   teachersList = [],
   materials = [],
   initialProgress = [],
+  initialEvaluatedStudentIds = [],
   canCompleteDaerah = false,
   canCompleteDesa = false,
   availableSchedules = [],
@@ -111,6 +116,9 @@ export default function ClassroomCockpit({
   currentTeachingSummaryNotes,
   plannedChecklistItemIds = [],
   previousSessionNotes,
+  sessionMonth,
+  sessionYear,
+  initialScopeCounts,
 }: ClassroomCockpitProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState<boolean>(false);
@@ -614,6 +622,7 @@ export default function ClassroomCockpit({
             classes={classes}
             materials={materials}
             initialProgress={initialProgress}
+            initialEvaluatedStudentIds={initialEvaluatedStudentIds}
             canCompleteDaerah={canCompleteDaerah}
             canCompleteDesa={canCompleteDesa}
             totalStudentsCount={totalCount}
@@ -623,6 +632,9 @@ export default function ClassroomCockpit({
             currentTeachingSummaryNotes={currentTeachingSummaryNotes}
             plannedChecklistItemIds={plannedChecklistItemIds}
             previousSessionNotes={previousSessionNotes}
+            sessionMonth={sessionMonth}
+            sessionYear={sessionYear}
+            initialScopeCounts={initialScopeCounts as any}
             onGoToAttendance={() => handleTabChange('MANUAL_SHEET')}
           />
         )

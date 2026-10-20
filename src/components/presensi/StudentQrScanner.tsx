@@ -18,6 +18,7 @@ import {
   Share2
 } from 'lucide-react';
 import { submitStudentQrScan } from '@/app/(protected)/presensi/actions';
+import { useToast } from '@/components/ui/Toast';
 
 interface StudentQrScannerProps {
   studentId: string;
@@ -48,6 +49,7 @@ export default function StudentQrScanner({
   checkInTime: initialCheckIn = null,
   initialTab = 'SCAN_SESSION',
 }: StudentQrScannerProps) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<SantriTab>(initialTab);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -341,7 +343,7 @@ export default function StudentQrScanner({
       link.click();
     } catch (err) {
       console.error('Download card error:', err);
-      alert('Gagal mengunduh kartu QR santri.');
+      toast.error('Gagal mengunduh kartu QR santri.');
     } finally {
       setIsGeneratingCard(false);
     }
