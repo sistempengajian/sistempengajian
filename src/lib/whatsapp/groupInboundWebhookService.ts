@@ -2,7 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
 import { whatsAppClient } from './WhatsAppClient';
-import { getUpcomingWeekRangeWIB } from './groupScheduleNotificationService';
+import {
+  getUpcomingWeekRangeWIB,
+  getGroupOrganizationScope,
+  formatWeeklySessionItem,
+} from './groupScheduleNotificationService';
 import { isWhatsAppGroupJid, getBaseAppUrl } from './utils';
 
 export interface GroupInboundPayload {
@@ -261,33 +265,51 @@ export async function processGroupInboundWhatsAppMessage(
     groupId.endsWith('@g.us') ? groupId : `${groupId}@g.us`,
   ];
 
-  const generation = await prisma.generation.findFirst({
+  const allGenerationsInGroup = await prisma.generation.findMany({
     where: { whatsappGroupId: { in: groupVariants } },
+    include: {
+      _count: {
+        select: {
+          users: {
+            where: {
+              roles: { some: { role: 'SANTRI' } },
+              status: 'ACTIVE',
+            },
+          },
+        },
+      },
+    },
+    orderBy: { minAge: 'asc' },
   });
 
-  const registeredClass = !generation
-    ? await prisma.class.findFirst({
-        where: { whatsappGroupId: { in: groupVariants } },
-        include: { generation: true, organization: true },
-      })
-    : null;
+  const activeGenerationsInGroup = allGenerationsInGroup.filter((g) => g._count.users > 0);
+  const relevantGenerations = activeGenerationsInGroup.length > 0 ? activeGenerationsInGroup : allGenerationsInGroup;
+  const generation = relevantGenerations[0] || null;
+  const generationIds = relevantGenerations.map((g) => g.id);
 
-  if (!generation && !registeredClass) {
+  const registeredClass =
+    relevantGenerations.length === 0
+      ? await prisma.class.findFirst({
+          where: { whatsappGroupId: { in: groupVariants } },
+          include: { generation: true, organization: true },
+        })
+      : null;
+
+  if (relevantGenerations.length === 0 && !registeredClass) {
     // Abaikan grup yang tidak terdaftar di sistem pengajian (Anti-Spam)
     return { handled: false, action: 'IGNORED_UNREGISTERED' };
   }
 
-  const groupTargetName = generation?.name || registeredClass?.name || 'Pengajian';
+  const isCombinedGroup = relevantGenerations.length > 1;
+  const groupTargetName = isCombinedGroup
+    ? relevantGenerations.map((g) => g.name).join(', ')
+    : generation?.name || registeredClass?.name || 'Pengajian';
   const generationId = generation?.id || registeredClass?.generationId || null;
   const classId = registeredClass?.id || null;
 
-  let orgName = registeredClass?.organization?.name || '';
-  if (!orgName) {
-    const defaultOrg = await prisma.organization.findFirst({
-      select: { name: true },
-    });
-    orgName = defaultOrg?.name || 'Sistem Pengajian';
-  }
+  // Deteksi cakupan wilayah valid untuk grup ini (mencegah jadwal wilayah lain masuk)
+  const { validOrgIds, organizationName } = await getGroupOrganizationScope(generationIds);
+  const orgName = registeredClass?.organization?.name || organizationName;
   const orgSignature = `— *Sistem Pengajian ${orgName}*`;
 
   // 2. Proteksi Anti-Spam: Bot HANYA merespon jika ditag / dimention (@no_bot, @bot, dll)
@@ -470,29 +492,25 @@ export async function processGroupInboundWhatsAppMessage(
     };
   }
 
-  // Helper pencarian jadwal
+  // Helper pencarian jadwal dengan isolasi wilayah & multi-jenjang
   const findSchedulesInRange = async (start: Date, end: Date) => {
     return prisma.schedule.findMany({
       where: {
         status: { in: ['SCHEDULED', 'ACTIVE'] },
         startTime: { gte: start, lte: end },
+        organizationId: { in: Array.from(validOrgIds) },
         OR: [
-          ...(generationId
+          ...(generationIds.length > 0
             ? [
-                { targetGenerations: { some: { generationId } } },
-                { class: { generationId } },
-                { targetClasses: { some: { class: { generationId } } } },
+                { targetGenerations: { some: { generationId: { in: generationIds } } } },
+                { class: { generationId: { in: generationIds } } },
+                { targetClasses: { some: { class: { generationId: { in: generationIds } } } } },
               ]
             : []),
           ...(classId
             ? [{ classId }, { targetClasses: { some: { classId } } }]
             : []),
-          // Pengajian Wilayah Terbuka Umum
-          {
-            targetClasses: { none: {} },
-            targetGenerations: { none: {} },
-            classId: null,
-          },
+          { targetScope: 'WILAYAH_UMUM' },
         ],
       },
       include: {
@@ -505,9 +523,44 @@ export async function processGroupInboundWhatsAppMessage(
           include: { material: true },
           orderBy: { slotIndex: 'asc' },
         },
+        targetGenerations: {
+          include: { generation: true },
+        },
+        class: {
+          include: { generation: true },
+        },
+        targetClasses: {
+          include: { class: { include: { generation: true } } },
+        },
       },
       orderBy: { startTime: 'asc' },
     });
+  };
+
+  const formatScheduleListForInbound = (scheduleList: any[]) => {
+    const dedup = Array.from(new Map(scheduleList.map((s) => [s.id, s])).values());
+    return dedup
+      .map((s, idx) => {
+        const sessionGenNames = new Set<string>();
+        if (s.targetGenerations && s.targetGenerations.length > 0) {
+          s.targetGenerations.forEach((tg: any) => {
+            if (tg.generation?.name) sessionGenNames.add(tg.generation.name);
+          });
+        }
+        if (s.class?.generation?.name) {
+          sessionGenNames.add(s.class.generation.name);
+        }
+        if (s.targetClasses && s.targetClasses.length > 0) {
+          s.targetClasses.forEach((tc: any) => {
+            if (tc.class?.generation?.name) sessionGenNames.add(tc.class.generation.name);
+          });
+        }
+        if (sessionGenNames.size === 0 && s.targetScope === 'WILAYAH_UMUM') {
+          relevantGenerations.forEach((g) => sessionGenNames.add(g.name));
+        }
+        return formatWeeklySessionItem(s, idx + 1, Array.from(sessionGenNames));
+      })
+      .join('\n\n');
   };
 
   // =========================================================================
@@ -544,28 +597,10 @@ export async function processGroupInboundWhatsAppMessage(
 
     let replyMessage = '';
     if (schedules.length > 0) {
-      const itemsText = schedules
-        .map((s, idx) => {
-          const time = `${formatIndonesianTimeWIB(s.startTime)} - ${formatIndonesianTimeWIB(s.endTime)} WIB`;
-          const venue = s.venuePlaceName || 'Masjid';
-          const teachers =
-            s.teachers.map((t) => t.teacher.fullName).join(', ') || 'Dewan Pengajar';
-          const materials =
-            s.scheduleMaterials.map((m) => m.material.title).join(', ') || 'Materi Reguler';
-
-          return (
-            `*${idx + 1}. ${s.title}*\n` +
-            `• *Waktu:* \`\`\`${time}\`\`\`\n` +
-            `• *Tempat:* _${venue}_\n` +
-            `• *Pengajar:* ${teachers}\n` +
-            `• *Materi:* _${materials}_`
-          );
-        })
-        .join('\n\n');
+      const itemsText = formatScheduleListForInbound(schedules);
 
       replyMessage =
         `*JADWAL PENGAJIAN HARI INI*\n` +
-        `*• Jenjang:* _${groupTargetName}_\n` +
         `*${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Semoga Allah SWT memberikan kemudahan dan kelancaran untuk hadir tepat waktu. 🌟\n` +
@@ -600,30 +635,14 @@ export async function processGroupInboundWhatsAppMessage(
 
     let replyMessage = '';
     if (schedules.length > 0) {
-      const itemsText = schedules
-        .map((s, idx) => {
-          const dayName = formatIndonesianDateWIB(s.startTime);
-          const time = `${formatIndonesianTimeWIB(s.startTime)} - ${formatIndonesianTimeWIB(s.endTime)} WIB`;
-          const venue = s.venuePlaceName || 'Masjid';
-          const teachers =
-            s.teachers.map((t) => t.teacher.fullName).join(', ') || 'Dewan Pengajar';
-
-          return (
-            `*${idx + 1}. ${dayName}*\n` +
-            `• *Sesi:* *${s.title}*\n` +
-            `• *Waktu:* \`\`\`${time}\`\`\`\n` +
-            `• *Tempat:* _${venue}_\n` +
-            `• *Pengajar:* ${teachers}`
-          );
-        })
-        .join('\n\n');
+      const itemsText = formatScheduleListForInbound(schedules);
+      const uniqueCount = new Set(schedules.map((s) => s.id)).size;
 
       replyMessage =
         `*AGENDA PENGAJIAN PEKAN INI*\n` +
-        `*• Jenjang:* _${groupTargetName}_\n` +
-        `*• Periode:* _${periodLabel}_\n\n` +
+        `*Periode:* _${periodLabel}_\n\n` +
         `${itemsText}\n\n` +
-        `Total ada *${schedules.length} sesi pengajian* terjadwal untuk sepekan ini.\n` +
+        `Total ada *${uniqueCount} sesi pengajian* terjadwal untuk sepekan ini.\n` +
         `Alhamdulillah Jazakumullahu Khairan.\n` +
         `${orgSignature}`;
     } else {
@@ -658,25 +677,10 @@ export async function processGroupInboundWhatsAppMessage(
 
     let replyMessage = '';
     if (schedules.length > 0) {
-      const itemsText = schedules
-        .map((s, idx) => {
-          const time = `${formatIndonesianTimeWIB(s.startTime)} - ${formatIndonesianTimeWIB(s.endTime)} WIB`;
-          const venue = s.venuePlaceName || 'Masjid';
-          const teachers =
-            s.teachers.map((t) => t.teacher.fullName).join(', ') || 'Dewan Pengajar';
-
-          return (
-            `*${idx + 1}. ${s.title}*\n` +
-            `• *Waktu:* \`\`\`${time}\`\`\`\n` +
-            `• *Tempat:* _${venue}_\n` +
-            `• *Pengajar:* ${teachers}`
-          );
-        })
-        .join('\n\n');
+      const itemsText = formatScheduleListForInbound(schedules);
 
       replyMessage =
         `*JADWAL PENGAJIAN BESOK*\n` +
-        `*Jenjang:* _${groupTargetName}_\n` +
         `*${dateLabel}*\n\n` +
         `${itemsText}\n\n` +
         `Persiapkan diri dan perlengkapan mengaji dari sekarang ya! 🌟\n` +

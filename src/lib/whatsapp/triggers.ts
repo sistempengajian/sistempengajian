@@ -140,10 +140,7 @@ export async function sendScheduleBadalNotification(params: {
   const baseUrl = getBaseAppUrl();
   const detailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
   const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
-  const targetClassOrGen = params.className
-    ? `${params.generationName} (${params.className})`
-    : params.generationName;
-  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar ${targetClassOrGen}.*`;
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
   const isBadalText = params.isBadal
     ? `\n*• Status Penugasan* _Guru Badal (Pengganti)_\n`
     : '';
@@ -311,7 +308,49 @@ export async function sendScheduleReminderH1ToStudent(params: {
       nama_ustadz: sapaanUstadz,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
       url_jadwal: scheduleDetailUrl,
-      url_presensi: directPresensiUrl,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 5.1. Pemicu Tautan Aksi Santri / Wali Santri H-1 (Pesan Terpisah: Pengajuan Izin / Sakit)
+ */
+export async function sendStudentActionLinkH1(params: {
+  recipientPhone: string;
+  recipientName?: string | null;
+  recipientUserId?: string | null;
+  scheduleTitle?: string;
+  dayDate: string;
+  scheduleId: string;
+  studentUserId?: string;
+  isParent?: boolean;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const effectiveStudentId = params.studentUserId || params.recipientUserId || params.scheduleId;
+  const submitterUserId = params.recipientUserId || effectiveStudentId;
+  const submitterRole = params.isParent ? 'PARENT' : 'STUDENT';
+
+  const absenceToken = generateStudentAbsenceRequestToken(
+    params.scheduleId,
+    effectiveStudentId,
+    submitterUserId,
+    submitterRole
+  );
+  const ajukanIzinUrl = `${baseUrl}/izin/ajukan/${absenceToken}`;
+
+  return whatsAppClient.sendMessage({
+    to: params.recipientPhone,
+    recipientName: params.recipientName || 'Santri/Wali',
+    recipientUserId: params.recipientUserId || undefined,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'STUDENT_ACTION_LINK_H1',
+    message: '',
+    templateVariables: {
+      judul_sesi: params.scheduleTitle && params.scheduleTitle.trim() ? params.scheduleTitle.trim() : 'Pengajian Rutin',
+      hari_tanggal: params.dayDate,
       url_ajukan_izin: ajukanIzinUrl,
     },
     magicToken: params.magicToken,
@@ -332,8 +371,8 @@ export async function sendScheduleReminderH1ToTeacher(params: {
   endTime: string;
   venueName: string;
   organizationName: string;
-  generationName: string;
-  className?: string;
+  generationName: string | string[];
+  className?: string | string[];
   materialTitle: string;
   isBadal?: boolean;
   notes?: string | null;
@@ -345,23 +384,9 @@ export async function sendScheduleReminderH1ToTeacher(params: {
   const baseUrl = getBaseAppUrl();
   const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
 
-  // Bentuk token akses langsung absensi dan token halaman khusus pengajuan badal
-  const teacherIdForToken = params.teacherUserId || params.scheduleId;
-  const directPresensiToken = generateDirectPresensiToken(params.scheduleId, teacherIdForToken);
-  const directPresensiUrl = `${baseUrl}/auth/direct?target=presensi&scheduleId=${params.scheduleId}&token=${directPresensiToken}`;
-
-  const badalReqToken = generateSubstituteRequestToken(params.scheduleId, teacherIdForToken);
-  const requestBadalUrl = `${baseUrl}/badal/ajukan/${badalReqToken}`;
-
-  const teacherPlanToken = generateTeacherLessonPlanToken(params.scheduleId, teacherIdForToken);
-  const lessonPlanUrl = `${baseUrl}/pengajar/sesi/${teacherPlanToken}`;
-
   const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
   const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
-  const targetClassOrGen = params.className
-    ? `${params.generationName} (${params.className})`
-    : params.generationName;
-  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar ${targetClassOrGen}.*`;
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
   const isBadalText = params.isBadal
     ? `\n*• Status Penugasan* _Guru Badal (Pengganti)_\n`
     : '';
@@ -387,9 +412,152 @@ export async function sendScheduleReminderH1ToTeacher(params: {
       is_badal_text: isBadalText,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
       url_jadwal: scheduleDetailUrl,
-      url_absensi: directPresensiUrl,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 6.1. Pemicu Tautan Aksi Pengajar H-1 (Pesan Terpisah: Materi & Pengajuan Badal)
+ */
+export async function sendTeacherActionLinksH1(params: {
+  teacherPhone: string;
+  teacherName: string;
+  teacherGender?: string | null;
+  scheduleTitle?: string;
+  dayDate: string;
+  scheduleId: string;
+  teacherUserId?: string;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const teacherIdForToken = params.teacherUserId || params.scheduleId;
+  const badalReqToken = generateSubstituteRequestToken(params.scheduleId, teacherIdForToken);
+  const requestBadalUrl = `${baseUrl}/badal/ajukan/${badalReqToken}`;
+
+  const teacherPlanToken = generateTeacherLessonPlanToken(params.scheduleId, teacherIdForToken);
+  const lessonPlanUrl = `${baseUrl}/pengajar/sesi/${teacherPlanToken}`;
+
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'TEACHER_ACTION_LINKS_H1',
+    message: '',
+    templateVariables: {
+      sapaan_ustadz: sapaanUstadzHeader,
+      title_ustadz: titleUstadz,
+      judul_sesi: params.scheduleTitle && params.scheduleTitle.trim() ? params.scheduleTitle.trim() : 'Pengajian Rutin',
+      hari_tanggal: params.dayDate,
       url_rencana_materi: lessonPlanUrl,
       url_ajukan_badal: requestBadalUrl,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 6.2. Pemicu Pengingat Countdown 2 Jam untuk Pengajar (Pesan 1)
+ */
+export async function sendScheduleReminderCountdownTeacher(params: {
+  teacherPhone: string;
+  teacherName: string;
+  teacherGender?: string | null;
+  scheduleTitle?: string;
+  dayDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  organizationName: string;
+  generationName: string | string[];
+  className?: string | string[];
+  materialTitle: string;
+  isBadal?: boolean;
+  notes?: string | null;
+  teacherBroadcastNote?: string | null;
+  scheduleId: string;
+  magicToken?: string;
+  teacherUserId?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
+
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
+  const isBadalText = params.isBadal
+    ? `\n*• Status Penugasan* _Guru Badal (Pengganti)_\n`
+    : '';
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'SCHEDULE_REMINDER_COUNTDOWN_TEACHER',
+    message: '',
+    templateVariables: {
+      sapaan_ustadz: sapaanUstadzHeader,
+      title_ustadz: titleUstadz,
+      judul_sesi: params.scheduleTitle && params.scheduleTitle.trim() ? params.scheduleTitle.trim() : 'Pengajian Rutin',
+      hari_tanggal: params.dayDate,
+      waktu_mulai: params.startTime,
+      waktu_selesai: params.endTime,
+      nama_tempat: params.venueName,
+      nama_kelompok: params.organizationName || '',
+      kelas_block: formatScheduleClassBlock(params.className || params.generationName),
+      materi_block: formatScheduleMaterialsBlock(params.materialTitle),
+      is_badal_text: isBadalText,
+      catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
+      url_jadwal: scheduleDetailUrl,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 6.3. Pemicu Tautan Akses Presensi Pengajar (-2 Jam Sesi, Pesan Terpisah)
+ */
+export async function sendTeacherPresensiLink2h(params: {
+  teacherPhone: string;
+  teacherName: string;
+  teacherGender?: string | null;
+  scheduleTitle?: string;
+  dayDate: string;
+  scheduleId: string;
+  teacherUserId?: string;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const teacherIdForToken = params.teacherUserId || params.scheduleId;
+  const directPresensiToken = generateDirectPresensiToken(params.scheduleId, teacherIdForToken);
+  const directPresensiUrl = `${baseUrl}/auth/direct?target=presensi&scheduleId=${params.scheduleId}&token=${directPresensiToken}`;
+
+  const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
+  const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
+
+  return whatsAppClient.sendMessage({
+    to: params.teacherPhone,
+    recipientName: params.teacherName,
+    recipientUserId: params.teacherUserId,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'TEACHER_PRESENSI_LINK_2H',
+    message: '',
+    templateVariables: {
+      sapaan_ustadz: sapaanUstadzHeader,
+      title_ustadz: titleUstadz,
+      judul_sesi: params.scheduleTitle && params.scheduleTitle.trim() ? params.scheduleTitle.trim() : 'Pengajian Rutin',
+      hari_tanggal: params.dayDate,
+      url_absensi: directPresensiUrl,
     },
     magicToken: params.magicToken,
     referenceId: params.scheduleId,
@@ -607,6 +775,54 @@ export async function sendScheduleReminderCountdown(params: {
       nama_ustadz: sapaanUstadz,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
       url_jadwal: scheduleDetailUrl,
+    },
+    magicToken: params.magicToken,
+    referenceId: params.scheduleId,
+  });
+}
+
+/**
+ * 7.1. Pemicu Tautan Aksi Santri / Wali Santri -2 Jam (Pesan Terpisah: Presensi & Izin/Sakit)
+ */
+export async function sendStudentActionLinks2h(params: {
+  recipientPhone: string;
+  recipientName?: string | null;
+  recipientUserId?: string | null;
+  scheduleTitle?: string;
+  dayDate: string;
+  scheduleId: string;
+  studentUserId?: string;
+  isParent?: boolean;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const effectiveStudentId = params.studentUserId || params.recipientUserId || params.scheduleId;
+  const submitterUserId = params.recipientUserId || effectiveStudentId;
+  const submitterRole = params.isParent ? 'PARENT' : 'STUDENT';
+
+  // 1. Direct Presensi Santri
+  const presensiToken = generateStudentDirectPresensiToken(params.scheduleId, effectiveStudentId);
+  const directPresensiUrl = `${baseUrl}/auth/direct?target=presensi_santri&scheduleId=${params.scheduleId}&token=${presensiToken}`;
+
+  // 2. Pengajuan Izin Santri Mandiri
+  const absenceToken = generateStudentAbsenceRequestToken(
+    params.scheduleId,
+    effectiveStudentId,
+    submitterUserId,
+    submitterRole
+  );
+  const ajukanIzinUrl = `${baseUrl}/izin/ajukan/${absenceToken}`;
+
+  return whatsAppClient.sendMessage({
+    to: params.recipientPhone,
+    recipientName: params.recipientName || 'Santri/Wali',
+    recipientUserId: params.recipientUserId || undefined,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'STUDENT_ACTION_LINKS_2H',
+    message: '',
+    templateVariables: {
+      judul_sesi: params.scheduleTitle && params.scheduleTitle.trim() ? params.scheduleTitle.trim() : 'Pengajian Rutin',
+      hari_tanggal: params.dayDate,
       url_presensi: directPresensiUrl,
       url_ajukan_izin: ajukanIzinUrl,
     },
@@ -971,6 +1187,37 @@ export async function sendFamilyScheduleReminderH1(params: {
       nama_kelompok: params.organizationName,
       daftar_santri_ringkas: studentListText,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
+    },
+    magicToken: params.magicToken,
+    referenceId: params.primaryScheduleId,
+  });
+}
+
+/**
+ * 12.1. Pemicu Tautan Aksi Keluarga H-1 (Pesan Terpisah: Konfirmasi Izin / Sakit Ananda)
+ */
+export async function sendFamilyActionLinkH1(params: {
+  parentPhone: string;
+  parentName?: string | null;
+  parentUserId?: string | null;
+  dayDate: string;
+  primaryScheduleId: string;
+  familyActionUrl?: string;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const actionUrl =
+    params.familyActionUrl || `${baseUrl}/jadwal/${params.primaryScheduleId}`;
+
+  return whatsAppClient.sendMessage({
+    to: params.parentPhone,
+    recipientName: params.parentName || 'Wali Santri',
+    recipientUserId: params.parentUserId || undefined,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'FAMILY_ACTION_LINK_H1',
+    message: '',
+    templateVariables: {
+      hari_tanggal: params.dayDate,
       url_aksi_keluarga: actionUrl,
     },
     magicToken: params.magicToken,
@@ -1016,9 +1263,6 @@ export async function sendFamilyScheduleReminderCountdown(params: {
     })
     .join('\n\n');
 
-  const actionUrl =
-    params.familyActionUrl || `${baseUrl}/jadwal/${params.primaryScheduleId}`;
-
   return whatsAppClient.sendMessage({
     to: params.parentPhone,
     recipientName: params.parentName,
@@ -1032,6 +1276,37 @@ export async function sendFamilyScheduleReminderCountdown(params: {
       nama_kelompok: params.organizationName || 'Kelompok',
       daftar_santri_ringkas: studentListText,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
+    },
+    magicToken: params.magicToken,
+    referenceId: params.primaryScheduleId,
+  });
+}
+
+/**
+ * 13.1. Pemicu Tautan Aksi Keluarga -2 Jam (Pesan Terpisah: Presensi & Izin/Sakit Ananda)
+ */
+export async function sendFamilyActionLinks2h(params: {
+  parentPhone: string;
+  parentName?: string | null;
+  parentUserId?: string | null;
+  dayDate?: string;
+  primaryScheduleId: string;
+  familyActionUrl?: string;
+  magicToken?: string;
+}): Promise<SendMessageResult> {
+  const baseUrl = getBaseAppUrl();
+  const actionUrl =
+    params.familyActionUrl || `${baseUrl}/jadwal/${params.primaryScheduleId}`;
+
+  return whatsAppClient.sendMessage({
+    to: params.parentPhone,
+    recipientName: params.parentName || 'Wali Santri',
+    recipientUserId: params.parentUserId || undefined,
+    messageType: 'SCHEDULE_REMINDER',
+    templateCode: 'FAMILY_ACTION_LINKS_2H',
+    message: '',
+    templateVariables: {
+      hari_tanggal: params.dayDate || 'Hari Ini',
       url_aksi_keluarga: actionUrl,
     },
     magicToken: params.magicToken,
@@ -1051,8 +1326,8 @@ export async function sendUnifiedTeacherParentReminder(params: {
   endTime: string;
   venueName: string;
   organizationName: string;
-  generationName: string;
-  className?: string;
+  generationName: string | string[];
+  className?: string | string[];
   materialTitle: string;
   isBadal?: boolean;
   notes?: string | null;
@@ -1072,22 +1347,11 @@ export async function sendUnifiedTeacherParentReminder(params: {
   }>;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const teacherIdForToken = params.teacherUserId || params.scheduleId;
-  const directPresensiToken = generateDirectPresensiToken(params.scheduleId, teacherIdForToken);
-  const directPresensiUrl = `${baseUrl}/auth/direct?target=presensi&scheduleId=${params.scheduleId}&token=${directPresensiToken}`;
-
-  const badalReqToken = generateSubstituteRequestToken(params.scheduleId, teacherIdForToken);
-  const requestBadalUrl = `${baseUrl}/badal/ajukan/${badalReqToken}`;
-
-  const teacherPlanToken = generateTeacherLessonPlanToken(params.scheduleId, teacherIdForToken);
-  const lessonPlanUrl = `${baseUrl}/pengajar/sesi/${teacherPlanToken}`;
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
 
   const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
   const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
-  const targetClassOrGen = params.className
-    ? `${params.generationName} (${params.className})`
-    : params.generationName;
-  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar ${targetClassOrGen}.*`;
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
   const isBadalText = params.isBadal
     ? `\n*• Status Penugasan* _Guru Badal (Pengganti)_\n`
     : '';
@@ -1120,9 +1384,7 @@ export async function sendUnifiedTeacherParentReminder(params: {
       materi_block: formatScheduleMaterialsBlock(params.materialTitle),
       is_badal_text: isBadalText,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
-      url_absensi: directPresensiUrl,
-      url_rencana_materi: lessonPlanUrl,
-      url_ajukan_badal: requestBadalUrl,
+      url_jadwal: scheduleDetailUrl,
       daftar_santri_ringkas: studentListText,
     },
     magicToken: params.magicToken,
@@ -1143,8 +1405,8 @@ export async function sendTeacherWithDispensationReminder(params: {
   endTime: string;
   venueName: string;
   organizationName: string;
-  generationName: string;
-  className?: string;
+  generationName: string | string[];
+  className?: string | string[];
   materialTitle: string;
   isBadal?: boolean;
   notes?: string | null;
@@ -1155,19 +1417,11 @@ export async function sendTeacherWithDispensationReminder(params: {
   studentScheduleTitle: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
-  const teacherIdForToken = params.teacherUserId || params.scheduleId;
-  const directPresensiToken = generateDirectPresensiToken(params.scheduleId, teacherIdForToken);
-  const directPresensiUrl = `${baseUrl}/auth/direct?target=presensi&scheduleId=${params.scheduleId}&token=${directPresensiToken}`;
-
-  const badalReqToken = generateSubstituteRequestToken(params.scheduleId, teacherIdForToken);
-  const requestBadalUrl = `${baseUrl}/badal/ajukan/${badalReqToken}`;
+  const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
 
   const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
   const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
-  const targetClassOrGen = params.className
-    ? `${params.generationName} (${params.className})`
-    : params.generationName;
-  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar ${targetClassOrGen}.*`;
+  const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar.*`;
   const isBadalText = params.isBadal
     ? `\n*• Status Penugasan* _Guru Badal (Pengganti)_\n`
     : '';
@@ -1192,8 +1446,7 @@ export async function sendTeacherWithDispensationReminder(params: {
       materi_block: formatScheduleMaterialsBlock(params.materialTitle),
       is_badal_text: isBadalText,
       catatan_tambahan: formatScheduleNotesBlock(params.notes, params.teacherBroadcastNote),
-      url_absensi: directPresensiUrl,
-      url_ajukan_badal: requestBadalUrl,
+      url_jadwal: scheduleDetailUrl,
       sesi_santri_bentrok: params.studentScheduleTitle,
     },
     magicToken: params.magicToken,
@@ -1207,15 +1460,17 @@ export async function sendTeacherWithDispensationReminder(params: {
 export async function sendGroupScheduleReminderH1(params: {
   groupId: string;
   groupName?: string | null;
-  generationName: string;
+  recipientGreeting?: string;
+  generationName?: string;
   scheduleTitle: string;
   scheduleDate: string;
   startTime: string;
   endTime: string;
   venueName: string;
   organizationName: string;
-  teachersName: string;
+  teachersName?: string;
   materialsBlock?: string;
+  detailBlock?: string;
   teacherNote?: string | null;
   scheduleId: string;
 }): Promise<SendMessageResult> {
@@ -1226,15 +1481,20 @@ export async function sendGroupScheduleReminderH1(params: {
     ? `\n\n*Catatan Pengajar:*\n_${params.teacherNote.trim()}_`
     : '';
 
+  const sapaanPenerima =
+    params.recipientGreeting ||
+    (params.generationName ? `Jenjang *${params.generationName}*` : '');
+
   return whatsAppClient.sendMessage({
     to: params.groupId,
-    recipientName: params.groupName || `Grup ${params.generationName}`,
+    recipientName: params.groupName || `Grup ${params.generationName || 'Pengajian'}`,
     messageType: 'SCHEDULE_REMINDER',
     templateCode: 'GROUP_SCHEDULE_REMINDER_H1',
     message: '',
     referenceId: params.scheduleId,
     templateVariables: {
-      nama_jenjang: params.generationName,
+      sapaan_penerima: sapaanPenerima,
+      nama_jenjang: params.generationName || '',
       judul_sesi: params.scheduleTitle,
       hari_tanggal: params.scheduleDate,
       waktu_mulai: params.startTime,
@@ -1243,6 +1503,7 @@ export async function sendGroupScheduleReminderH1(params: {
       nama_kelompok: params.organizationName,
       nama_ustadz: params.teachersName || 'Pengajar Terjadwal',
       materi_block: params.materialsBlock || '',
+      detail_blok: params.detailBlock ? `\n${params.detailBlock}` : '',
       catatan_tambahan: catatanTambahan,
       url_jadwal: urlJadwal,
     },
@@ -1255,7 +1516,8 @@ export async function sendGroupScheduleReminderH1(params: {
 export async function sendGroupWeeklyScheduleDigest(params: {
   groupId: string;
   groupName?: string | null;
-  generationName: string;
+  recipientGreeting?: string;
+  generationName?: string;
   weekPeriodText: string;
   organizationName: string;
   weeklySessionsListText: string;
@@ -1264,15 +1526,20 @@ export async function sendGroupWeeklyScheduleDigest(params: {
   const baseUrl = getBaseAppUrl();
   const urlJadwal = `${baseUrl}/jadwal`;
 
+  const sapaanPenerima =
+    params.recipientGreeting ||
+    (params.generationName ? `Jenjang *${params.generationName}*` : '');
+
   return whatsAppClient.sendMessage({
     to: params.groupId,
-    recipientName: params.groupName || `Grup ${params.generationName}`,
+    recipientName: params.groupName || `Grup ${params.generationName || 'Pengajian'}`,
     messageType: 'SCHEDULE_REMINDER',
     templateCode: 'GROUP_WEEKLY_SCHEDULE_DIGEST',
     message: '',
     referenceId: params.referenceId || `weekly_${Date.now()}`,
     templateVariables: {
-      nama_jenjang: params.generationName,
+      sapaan_penerima: sapaanPenerima,
+      nama_jenjang: params.generationName || '',
       periode_minggu: params.weekPeriodText,
       nama_kelompok: params.organizationName,
       daftar_sesi_pekanan: params.weeklySessionsListText,

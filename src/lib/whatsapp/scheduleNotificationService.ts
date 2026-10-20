@@ -1,13 +1,21 @@
 import prisma from '@/lib/prisma';
 import {
   sendScheduleReminderH1ToStudent,
+  sendStudentActionLinkH1,
   sendScheduleReminderH1ToTeacher,
+  sendScheduleReminderCountdownTeacher,
+  sendTeacherActionLinksH1,
+  sendTeacherPresensiLink2h,
   sendScheduleReminderCountdown,
+  sendStudentActionLinks2h,
   sendScheduleChangeEmergencyAlert,
   sendFamilyScheduleReminderH1,
+  sendFamilyActionLinkH1,
   sendFamilyScheduleReminderCountdown,
+  sendFamilyActionLinks2h,
   sendUnifiedTeacherParentReminder,
 } from './triggers';
+import { isScheduleCombined } from './groupScheduleNotificationService';
 import {
   generateStudentAbsenceRequestToken,
   generateFamilyActionHubToken,
@@ -24,22 +32,24 @@ export function isScheduleToday(date: Date): boolean {
 }
 
 export function formatIndonesianDate(date: Date): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  const formatted = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     timeZone: 'Asia/Jakarta',
   }).format(date);
+  return formatted.replace(/^Minggu,/i, 'Ahad,');
 }
 
 export function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  const formatted = new Intl.DateTimeFormat('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
     timeZone: 'Asia/Jakarta',
   }).format(date);
+  return formatted.replace('.', ':');
 }
 
 /**
@@ -645,12 +655,94 @@ export async function broadcastScheduleReminder(scheduleId: string) {
     schedule.title ||
     'Materi Pengajian Rutin';
 
-  const genNames = [
-    ...(schedule.class?.generation ? [schedule.class.generation.name] : []),
-    ...schedule.targetGenerations.map((tg) => tg.generation.name),
-    ...schedule.targetClasses.map((tc) => tc.class.generation?.name).filter(Boolean),
-  ];
-  const uniqueGenNames = Array.from(new Set(genNames)).join(', ') || 'Seluruh Santri';
+  // Tentukan Jenjang / Kelas Target dengan Penyaringan Jenjang Tanpa Santri
+  const candidateGenMap = new Map<string, { id: string; name: string }>();
+  if (schedule.class?.generation) {
+    candidateGenMap.set(schedule.class.generation.id, {
+      id: schedule.class.generation.id,
+      name: schedule.class.generation.name,
+    });
+  }
+  schedule.targetGenerations?.forEach((tg) => {
+    if (tg.generation) {
+      candidateGenMap.set(tg.generation.id, {
+        id: tg.generation.id,
+        name: tg.generation.name,
+      });
+    }
+  });
+  schedule.targetClasses?.forEach((tc) => {
+    if (tc.class?.generation) {
+      candidateGenMap.set(tc.class.generation.id, {
+        id: tc.class.generation.id,
+        name: tc.class.generation.name,
+      });
+    }
+  });
+
+  const validGenerations: Array<{ id: string; name: string }> = [];
+  const validGenIdSet = new Set<string>();
+  for (const gen of candidateGenMap.values()) {
+    const santriCount = await prisma.user.count({
+      where: {
+        generationId: gen.id,
+        roles: { some: { role: 'SANTRI' } },
+        status: 'ACTIVE',
+        ...(schedule.organizationId ? { organizationId: schedule.organizationId } : {}),
+      },
+    });
+    if (santriCount > 0) {
+      validGenerations.push(gen);
+      validGenIdSet.add(gen.id);
+    }
+  }
+
+  if (validGenerations.length === 0 && candidateGenMap.size > 0) {
+    for (const gen of candidateGenMap.values()) {
+      validGenerations.push(gen);
+      validGenIdSet.add(gen.id);
+    }
+  }
+
+  const validGenNames = validGenerations.map((g) => g.name);
+
+  const candidateClassNames: string[] = [];
+  if (schedule.class?.name) {
+    if (!schedule.class.generationId || validGenIdSet.has(schedule.class.generationId)) {
+      candidateClassNames.push(schedule.class.name);
+    }
+  }
+  schedule.targetClasses?.forEach((tc) => {
+    if (tc.class?.name) {
+      if (!tc.class.generationId || validGenIdSet.has(tc.class.generationId)) {
+        candidateClassNames.push(tc.class.name);
+      }
+    }
+  });
+  const validClassNames = Array.from(new Set(candidateClassNames));
+
+  let displayClassOrGenList: string[] = [];
+  if (validGenNames.length > 1) {
+    displayClassOrGenList = validGenNames;
+  } else if (validClassNames.length > 1) {
+    displayClassOrGenList = validClassNames;
+  } else if (validGenNames.length === 1) {
+    displayClassOrGenList = validGenNames;
+  } else if (validClassNames.length === 1) {
+    displayClassOrGenList = validClassNames;
+  } else {
+    displayClassOrGenList = ['Umum'];
+  }
+
+  const uniqueGenNames = validGenNames.join(', ') || 'Seluruh Santri';
+
+  const isCombined =
+    isScheduleCombined(schedule) ||
+    validGenerations.length > 1 ||
+    validClassNames.length > 1;
+
+  const cleanTitle = schedule.title.replace(/^\[GABUNGAN\]\s*/i, '').trim();
+  const displayScheduleTitle = isCombined ? `[GABUNGAN] ${cleanTitle}` : cleanTitle;
 
   const scheduledTeacherIds = new Set(schedule.teachers.map((st) => st.teacher.id));
   const rawTargetStudents = await getTargetStudentsForSchedule(schedule);
@@ -875,18 +967,43 @@ export async function broadcastScheduleReminder(scheduleId: string) {
         endTime: endTimeStr,
         venueName,
         organizationName: orgName,
-        generationName: uniqueGenNames,
-        className: schedule.class?.name,
+        generationName: validGenNames,
+        className: displayClassOrGenList,
         materialTitle: materialTitles,
         isBadal: st?.isSubstitute,
         notes: schedule.notes,
         teacherBroadcastNote: schedule.teacherBroadcastNote,
         scheduleId: schedule.id,
-        scheduleTitle: schedule.title,
-        magicToken,
+        scheduleTitle: displayScheduleTitle,
+        magicToken: `${magicToken}_MAIN`,
         teacherUserId: bucket.userId,
         students: bucket.studentsAsParent,
       });
+
+      if (isCountdown) {
+        await sendTeacherPresensiLink2h({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          scheduleTitle: displayScheduleTitle,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_PRESENSI`,
+        });
+      } else {
+        await sendTeacherActionLinksH1({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          scheduleTitle: displayScheduleTitle,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_ACTION`,
+        });
+      }
+
       if (res.success) sentCount++;
       continue;
     }
@@ -894,26 +1011,73 @@ export async function broadcastScheduleReminder(scheduleId: string) {
     // Skenario 2: Ustadz Reguler
     if (bucket.isTeacher) {
       const st = bucket.teacherSt;
-      const res = await sendScheduleReminderH1ToTeacher({
-        teacherPhone: bucket.phone,
-        teacherName: bucket.name,
-        teacherGender: bucket.gender,
-        dayDate: dayDateStr,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        venueName,
-        organizationName: orgName,
-        generationName: uniqueGenNames,
-        className: schedule.class?.name,
-        materialTitle: materialTitles,
-        isBadal: st?.isSubstitute,
-        notes: schedule.notes,
-        teacherBroadcastNote: schedule.teacherBroadcastNote,
-        scheduleId: schedule.id,
-        scheduleTitle: schedule.title,
-        teacherUserId: bucket.userId,
-        magicToken,
-      });
+      let res;
+      if (isCountdown) {
+        res = await sendScheduleReminderCountdownTeacher({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          organizationName: orgName,
+          generationName: validGenNames,
+          className: displayClassOrGenList,
+          materialTitle: materialTitles,
+          isBadal: st?.isSubstitute,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          scheduleId: schedule.id,
+          scheduleTitle: displayScheduleTitle,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_MAIN`,
+        });
+
+        await sendTeacherPresensiLink2h({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          scheduleTitle: displayScheduleTitle,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_PRESENSI`,
+        });
+      } else {
+        res = await sendScheduleReminderH1ToTeacher({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          dayDate: dayDateStr,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          venueName,
+          organizationName: orgName,
+          generationName: validGenNames,
+          className: displayClassOrGenList,
+          materialTitle: materialTitles,
+          isBadal: st?.isSubstitute,
+          notes: schedule.notes,
+          teacherBroadcastNote: schedule.teacherBroadcastNote,
+          scheduleId: schedule.id,
+          scheduleTitle: displayScheduleTitle,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_MAIN`,
+        });
+
+        await sendTeacherActionLinksH1({
+          teacherPhone: bucket.phone,
+          teacherName: bucket.name,
+          teacherGender: bucket.gender,
+          scheduleTitle: displayScheduleTitle,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          teacherUserId: bucket.userId,
+          magicToken: `${magicToken}_ACTION`,
+        });
+      }
+
       if (res.success) sentCount++;
       continue;
     }
@@ -943,11 +1107,24 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           primaryScheduleId: schedule.id,
           familyActionUrl,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           parentUserId: bucket.userId,
         });
+
+        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin Keluarga
+        await sendFamilyActionLinks2h({
+          parentPhone: bucket.phone,
+          parentName: bucket.name,
+          dayDate: dayDateStr,
+          primaryScheduleId: schedule.id,
+          familyActionUrl,
+          magicToken: `${magicToken}_ACTION`,
+          parentUserId: bucket.userId,
+        });
+
         if (res.success) sentCount++;
       } else {
+        // Pesan 1 (H-1): Ringkasan Jadwal Pengajian Keluarga
         const res = await sendFamilyScheduleReminderH1({
           parentPhone: bucket.phone,
           parentName: bucket.name,
@@ -960,9 +1137,21 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           primaryScheduleId: schedule.id,
           familyActionUrl,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           parentUserId: bucket.userId,
         });
+
+        // Pesan 2 (H-1 Terpisah): Tautan Konfirmasi Izin Keluarga
+        await sendFamilyActionLinkH1({
+          parentPhone: bucket.phone,
+          parentName: bucket.name,
+          dayDate: dayDateStr,
+          primaryScheduleId: schedule.id,
+          familyActionUrl,
+          magicToken: `${magicToken}_ACTION`,
+          parentUserId: bucket.userId,
+        });
+
         if (res.success) sentCount++;
       }
       continue;
@@ -972,6 +1161,7 @@ export async function broadcastScheduleReminder(scheduleId: string) {
     if (bucket.studentsAsParent.length === 1) {
       const single = bucket.studentsAsParent[0];
       if (isCountdown) {
+        // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
         const res = await sendScheduleReminderCountdown({
           recipientPhone: bucket.phone,
           recipientName: `Bpk/Ibu ${bucket.name}`,
@@ -992,12 +1182,27 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           notes: schedule.notes,
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           scheduleId: schedule.id,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           recipientUserId: bucket.userId,
           studentUserId: single.studentId,
         });
+
+        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
+        await sendStudentActionLinks2h({
+          recipientPhone: bucket.phone,
+          recipientName: `Bpk/Ibu ${bucket.name}`,
+          recipientUserId: bucket.userId,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          studentUserId: single.studentId,
+          isParent: true,
+          magicToken: `${magicToken}_ACTION`,
+        });
+
         if (res.success) sentCount++;
       } else {
+        // Pesan 1 (H-1): Detail Jadwal Santri
         const res = await sendScheduleReminderH1ToStudent({
           recipientPhone: bucket.phone,
           recipientName: `Bpk/Ibu ${bucket.name}`,
@@ -1018,10 +1223,24 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           notes: schedule.notes,
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           scheduleId: schedule.id,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           recipientUserId: bucket.userId,
           studentUserId: single.studentId,
         });
+
+        // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
+        await sendStudentActionLinkH1({
+          recipientPhone: bucket.phone,
+          recipientName: `Bpk/Ibu ${bucket.name}`,
+          recipientUserId: bucket.userId,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          studentUserId: single.studentId,
+          isParent: true,
+          magicToken: `${magicToken}_ACTION`,
+        });
+
         if (res.success) sentCount++;
       }
       continue;
@@ -1031,6 +1250,7 @@ export async function broadcastScheduleReminder(scheduleId: string) {
     if (bucket.isDirectStudent && bucket.directStudentInfo) {
       const direct = bucket.directStudentInfo;
       if (isCountdown) {
+        // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
         const res = await sendScheduleReminderCountdown({
           recipientPhone: bucket.phone,
           recipientName: direct.studentName,
@@ -1050,12 +1270,27 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           notes: schedule.notes,
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           scheduleId: schedule.id,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           recipientUserId: bucket.userId,
           studentUserId: direct.studentId,
         });
+
+        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
+        await sendStudentActionLinks2h({
+          recipientPhone: bucket.phone,
+          recipientName: direct.studentName,
+          recipientUserId: bucket.userId,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          studentUserId: direct.studentId,
+          isParent: false,
+          magicToken: `${magicToken}_ACTION`,
+        });
+
         if (res.success) sentCount++;
       } else {
+        // Pesan 1 (H-1): Detail Jadwal Santri
         const res = await sendScheduleReminderH1ToStudent({
           recipientPhone: bucket.phone,
           recipientName: direct.studentName,
@@ -1075,10 +1310,24 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           notes: schedule.notes,
           teacherBroadcastNote: schedule.teacherBroadcastNote,
           scheduleId: schedule.id,
-          magicToken,
+          magicToken: `${magicToken}_MAIN`,
           recipientUserId: bucket.userId,
           studentUserId: direct.studentId,
         });
+
+        // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
+        await sendStudentActionLinkH1({
+          recipientPhone: bucket.phone,
+          recipientName: direct.studentName,
+          recipientUserId: bucket.userId,
+          scheduleTitle: schedule.title,
+          dayDate: dayDateStr,
+          scheduleId: schedule.id,
+          studentUserId: direct.studentId,
+          isParent: false,
+          magicToken: `${magicToken}_ACTION`,
+        });
+
         if (res.success) sentCount++;
       }
     }

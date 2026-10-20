@@ -131,8 +131,6 @@ Alhamdulillah Jazakumullahu Khairan.`,
       'nama_ustadz',
       'catatan_tambahan',
       'url_jadwal',
-      'url_presensi',
-      'url_ajukan_izin',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}
@@ -146,17 +144,30 @@ Mengingatkan agenda pengajian
 *• Materi*{{materi_block}}
 *• Pengajar* _{{nama_ustadz}}_{{catatan_tambahan}}
 
-*Buka Detail Jadwal & Materi:*
+*Buka Detail Jadwal:*
 {{url_jadwal}}
-
-*Buka Langsung Presensi Santri:*
-{{url_presensi}}
-
-*Halaman Khusus Pengajuan Izin / Sakit:*
-{{url_ajukan_izin}}
 
 Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  STUDENT_ACTION_LINK_H1: {
+    code: 'STUDENT_ACTION_LINK_H1',
+    name: 'Tautan Aksi Santri/Wali H-1 (Pengajuan Izin / Sakit)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'judul_sesi',
+      'hari_tanggal',
+      'url_ajukan_izin',
+    ],
+    templateBody: `Berikut tautan khusus pengajuan izin atau sakit untuk sesi
+*{{judul_sesi}}*
+*{{hari_tanggal}}*
+
+*Berhalangan Hadir ?.. Ajukan Izin / Sakit:*
+{{url_ajukan_izin}}
+
+Tautan di atas dapat langsung diakses tanpa perlu login. Mohon konfirmasi sebelum sesi dimulai agar ustadz/ustadzah dapat memonitor kehadiran dengan tertib. Terima kasih.`,
   },
 
   SCHEDULE_REMINDER_FAMILY_DIGEST: {
@@ -169,7 +180,6 @@ Alhamdulillah Jazakumullahu Khairan.
       'nama_kelompok',
       'daftar_santri_ringkas',
       'catatan_tambahan',
-      'url_aksi_keluarga',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_ortu}}
@@ -180,11 +190,25 @@ Mengingatkan agenda pengajian ananda esok hari
 
 {{daftar_santri_ringkas}}{{catatan_tambahan}}
 
-*Detail Jadwal & Konfirmasi Izin:*
-{{url_aksi_keluarga}}
-
 Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  FAMILY_ACTION_LINK_H1: {
+    code: 'FAMILY_ACTION_LINK_H1',
+    name: 'Tautan Aksi Keluarga H-1 (Konfirmasi Izin / Sakit Ananda)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'hari_tanggal',
+      'url_aksi_keluarga',
+    ],
+    templateBody: `Berikut tautan khusus konfirmasi izin atau sakit ananda keluarga untuk sesi esok hari:
+*{{hari_tanggal}}*
+
+*Halaman Khusus Konfirmasi Izin / Sakit Ananda:*
+{{url_aksi_keluarga}}
+
+Tautan di atas dapat diakses langsung tanpa login untuk konfirmasi kehadiran atau izin seluruh ananda. Terima kasih.`,
   },
 
   SCHEDULE_REMINDER_FAMILY_COUNTDOWN: {
@@ -197,7 +221,6 @@ Alhamdulillah Jazakumullahu Khairan.
       'nama_kelompok',
       'daftar_santri_ringkas',
       'catatan_tambahan',
-      'url_aksi_keluarga',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_ortu}}
@@ -210,11 +233,25 @@ Pengajian ananda akan dimulai dalam 2 jam ke depan
 
 Mohon ananda dipersiapkan hadir tepat waktu.
 
-*Detail Jadwal & Pantau Presensi:*
-{{url_aksi_keluarga}}
-
 Alhamdulillah Jazakumullahu Khairan.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  FAMILY_ACTION_LINKS_2H: {
+    code: 'FAMILY_ACTION_LINKS_2H',
+    name: 'Tautan Aksi Keluarga (-2 Jam Sesi Presensi & Izin)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'hari_tanggal',
+      'url_aksi_keluarga',
+    ],
+    templateBody: `Berikut tautan presensi & konfirmasi izin ananda keluarga (2 Jam Menuju Sesi):
+*{{hari_tanggal}}*
+
+*Pantau Presensi & Ajukan Izin Ananda:*
+{{url_aksi_keluarga}}
+
+Tautan di atas dapat langsung diakses tanpa perlu login. Terima kasih.`,
   },
 
   GROUP_SCHEDULE_REMINDER_H1: {
@@ -222,6 +259,7 @@ Alhamdulillah Jazakumullahu Khairan.
     name: 'Pengingat Jadwal H-1 Grup WhatsApp Jenjang',
     category: 'SCHEDULE_REMINDER',
     variables: [
+      'sapaan_penerima',
       'nama_jenjang',
       'judul_sesi',
       'hari_tanggal',
@@ -231,19 +269,19 @@ Alhamdulillah Jazakumullahu Khairan.
       'nama_kelompok',
       'nama_ustadz',
       'materi_block',
+      'detail_blok',
       'catatan_tambahan',
       'url_jadwal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Bapak/Ibu Orang Tua & Santri Jenjang *{{nama_jenjang}}* 📢
+Bapak/Ibu Orang Tua & Santri {{sapaan_penerima}} 📢
 
 Mengingatkan agenda pengajian besok hari:
-*{{judul_sesi}}*
+*--- {{judul_sesi}}*
 *{{hari_tanggal}}*
 
-*• Waktu* \`\`\`{{waktu_mulai}} - {{waktu_selesai}} WIB\`\`\`
-*• Tempat* _{{nama_tempat}} ({{nama_kelompok}})_
-*• Pengajar* _{{nama_ustadz}}_{{materi_block}}{{catatan_tambahan}}
+ *• Waktu :* \`\`\`{{waktu_mulai}} - {{waktu_selesai}} WIB\`\`\`
+ *• Tempat :* _{{nama_tempat}}_{{detail_blok}}{{catatan_tambahan}}
 
 *Informasi Detail Jadwal & Materi:*
 {{url_jadwal}}
@@ -259,6 +297,7 @@ Alhamdulillah Jazakumullahu Khairan.
     name: 'Informasi Jadwal 1 Minggu ke Depan Grup Jenjang',
     category: 'SCHEDULE_REMINDER',
     variables: [
+      'sapaan_penerima',
       'nama_jenjang',
       'periode_minggu',
       'nama_kelompok',
@@ -266,7 +305,7 @@ Alhamdulillah Jazakumullahu Khairan.
       'url_jadwal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
-Bapak/Ibu Orang Tua & Santri Jenjang *{{nama_jenjang}}* 🗓️✨
+Bapak/Ibu Orang Tua & Santri {{sapaan_penerima}} 🗓️✨
 
 Berikut adalah *Informasi Jadwal Pengajian 1 Minggu ke Depan*:
 *Periode:* {{periode_minggu}}
@@ -300,9 +339,6 @@ Alhamdulillah Jazakumullahu Khairan.
       'is_badal_text',
       'catatan_tambahan',
       'url_jadwal',
-      'url_absensi',
-      'url_rencana_materi',
-      'url_ajukan_badal',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_ustadz}}
@@ -319,17 +355,93 @@ Mengingatkan amanah jadwal mengajar
 *Buka Detail Jadwal:*
 {{url_jadwal}}
 
-*Buka Ruang Presensi Kelas:*
-{{url_absensi}}
+Alhamdulillah Jazakumullahu Khairan atas keikhlasan & dedikasi {{title_ustadz}}.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
 
-*Akses Rencana Materi & Capaian Sesi:*
+  TEACHER_ACTION_LINKS_H1: {
+    code: 'TEACHER_ACTION_LINKS_H1',
+    name: 'Tautan Aksi Pengajar H-1 (Persiapan Materi & Ajukan Badal)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_ustadz',
+      'title_ustadz',
+      'judul_sesi',
+      'hari_tanggal',
+      'url_rencana_materi',
+      'url_ajukan_badal',
+    ],
+    templateBody: `Berikut tautan penting persiapan mengajar sesi 
+    *{{judul_sesi}}* 
+    *{{hari_tanggal}}*
+
+*Pilih Materi Yang Akan Diajarkan:*
 {{url_rencana_materi}}
 
-*Berhalangan Mengajar (Ajukan Badal):*
+*Berhalangan Mengajar ?.. Ajukan Pengganti:* 
 {{url_ajukan_badal}}
+
+Tautan di atas dapat diakses langsung tanpa perlu login. Semoga Allah memberikan kemudahan & kelancaran dalam beramal shalih. 🤲`,
+  },
+
+  SCHEDULE_REMINDER_COUNTDOWN_TEACHER: {
+    code: 'SCHEDULE_REMINDER_COUNTDOWN_TEACHER',
+    name: 'Pengingat Jadwal Countdown 2 Jam (Pengajar / Ustadz/Ustadzah)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_ustadz',
+      'title_ustadz',
+      'judul_sesi',
+      'hari_tanggal',
+      'waktu_mulai',
+      'waktu_selesai',
+      'nama_tempat',
+      'nama_kelompok',
+      'kelas_block',
+      'materi_block',
+      'is_badal_text',
+      'catatan_tambahan',
+      'url_jadwal',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+{{sapaan_ustadz}}
+
+*Pengingat Mengajar (2 Jam Menuju Sesi)*
+Mengingatkan kembali persiapan keberangkatan mengajar:
+*{{judul_sesi}}*
+*{{hari_tanggal}}*
+
+*• Waktu* \`\`\`{{waktu_mulai}} - {{waktu_selesai}} WIB\`\`\`
+*• Tempat* _{{nama_tempat}} ({{nama_kelompok}})_
+*• Kelas*{{kelas_block}}
+*• Materi*{{materi_block}}{{is_badal_text}}{{catatan_tambahan}}
+
+*Buka Detail Jadwal:*
+{{url_jadwal}}
 
 Alhamdulillah Jazakumullahu Khairan atas keikhlasan & dedikasi {{title_ustadz}}.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  TEACHER_PRESENSI_LINK_2H: {
+    code: 'TEACHER_PRESENSI_LINK_2H',
+    name: 'Tautan Presensi Pengajar (-2 Jam Sesi)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_ustadz',
+      'title_ustadz',
+      'judul_sesi',
+      'hari_tanggal',
+      'url_absensi',
+    ],
+    templateBody: `Akses instan presensi kelas untuk sesi 
+*{{judul_sesi}}* 
+*{{hari_tanggal}}*
+
+*Isi Presensi Pengajian:*
+{{url_absensi}}
+
+Tautan ini dapat langsung digunakan untuk mencatat kehadiran santri saat sesi berlangsung tanpa perlu login. Terima kasih.`,
   },
 
   SCHEDULE_REMINDER_UNIFIED_TEACHER_PARENT: {
@@ -349,9 +461,7 @@ Alhamdulillah Jazakumullahu Khairan atas keikhlasan & dedikasi {{title_ustadz}}.
       'materi_block',
       'is_badal_text',
       'catatan_tambahan',
-      'url_absensi',
-      'url_rencana_materi',
-      'url_ajukan_badal',
+      'url_jadwal',
       'daftar_santri_ringkas',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
@@ -366,17 +476,11 @@ Mengingatkan amanah jadwal mengajar
 *• Kelas*{{kelas_block}}
 *• Materi*{{materi_block}}{{is_badal_text}}{{catatan_tambahan}}
 
-*Buka Ruang Presensi Kelas:*
-{{url_absensi}}
-
-*Akses Rencana Materi & Capaian Sesi:*
-{{url_rencana_materi}}
-
-*Berhalangan Mengajar (Ajukan Badal):*
-{{url_ajukan_badal}}
-
 *Ananda Binaan Anda Pada Sesi Ini:*
 {{daftar_santri_ringkas}}
+
+*Buka Detail Jadwal:*
+{{url_jadwal}}
 
 Alhamdulillah Jazakumullahu Khairan atas perjuangan & dedikasi {{title_ustadz}}.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
@@ -399,8 +503,7 @@ Alhamdulillah Jazakumullahu Khairan atas perjuangan & dedikasi {{title_ustadz}}.
       'materi_block',
       'is_badal_text',
       'catatan_tambahan',
-      'url_absensi',
-      'url_ajukan_badal',
+      'url_jadwal',
       'sesi_santri_bentrok',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
@@ -415,14 +518,11 @@ Mengingatkan amanah jadwal mengajar
 *• Kelas*{{kelas_block}}
 *• Materi*{{materi_block}}{{is_badal_text}}{{catatan_tambahan}}
 
-*Buka Ruang Presensi Kelas:*
-{{url_absensi}}
-
-*Berhalangan Mengajar (Ajukan Badal):*
-{{url_ajukan_badal}}
-
 *Dispensasi Sesi Santri:*
 Jadwal mengajar Anda bersamaan dengan sesi santri *{{sesi_santri_bentrok}}*. Kehadiran Anda di sesi tersebut otomatis tercatat: *HADIR (Tugas Mengajar)*.
+
+*Buka Detail Jadwal:*
+{{url_jadwal}}
 
 Alhamdulillah Jazakumullahu Khairan atas khidmah & perjuangan {{title_ustadz}}.
 — *Pengurus Pengajian {{nama_kelompok}}*`,
@@ -617,13 +717,12 @@ Alhamdulillah Jazakumullahu Khairan.
       'nama_ustadz',
       'catatan_tambahan',
       'url_jadwal',
-      'url_presensi',
-      'url_ajukan_izin',
     ],
     templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
 {{sapaan_penerima}}
 
-Mengingatkan agenda pengajian
+*Pengingat Pengajian (2 Jam Menuju Sesi)*
+Mengingatkan kembali persiapan keberangkatan pengajian:
 *{{judul_sesi}}*
 *{{hari_tanggal}}*
 
@@ -632,17 +731,34 @@ Mengingatkan agenda pengajian
 *• Materi*{{materi_block}}
 *• Pengajar* _{{nama_ustadz}}_{{catatan_tambahan}}
 
-*Buka Detail Jadwal & Materi:*
+*Buka Detail Jadwal:*
 {{url_jadwal}}
+
+Alhamdulillah Jazakumullahu Khairan.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  STUDENT_ACTION_LINKS_2H: {
+    code: 'STUDENT_ACTION_LINKS_2H',
+    name: 'Tautan Aksi Santri/Wali (-2 Jam Presensi & Izin)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'judul_sesi',
+      'hari_tanggal',
+      'url_presensi',
+      'url_ajukan_izin',
+    ],
+    templateBody: `Berikut tautan presensi mandiri dan pengajuan izin untuk sesi
+*{{judul_sesi}}*
+*{{hari_tanggal}}*
 
 *Buka Langsung Presensi Santri:*
 {{url_presensi}}
 
-*Halaman Khusus Pengajuan Izin / Sakit:*
+*Berhalangan Hadir ?.. Ajukan Izin / Sakit:*
 {{url_ajukan_izin}}
 
-Alhamdulillah Jazakumullahu Khairan.
-— *Pengurus Pengajian {{nama_kelompok}}*`,
+Tautan di atas dapat langsung diakses tanpa perlu login saat sesi berlangsung. Terima kasih atas kerja sama dan kedisiplinannya.`,
   },
 
   SCHEDULE_CHANGE_EMERGENCY: {

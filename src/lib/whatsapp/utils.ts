@@ -237,8 +237,8 @@ export function formatScheduleClassBlock(classes: string | string[] | null | und
     return ` _${list[0]}_`;
   }
 
-  const formattedItems = list.map((item) => `\`- ${item}\``).join('\n');
-  return `\n${formattedItems}`;
+  const formattedItems = list.map((item) => `_${item}_`).join(' *-* ');
+  return `\n   ${formattedItems}`;
 }
 
 /**
