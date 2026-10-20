@@ -33,6 +33,23 @@
     --ring: 158 64% 40%;
 
     --radius: 1rem;
+
+    /* ── Semantic Color Tokens (Design System) ─────────────────── */
+    --color-success: #059669;
+    --color-success-bg: #ECFDF5;
+    --color-success-border: #A7F3D0;
+
+    --color-error: #E11D48;
+    --color-error-bg: #FFF1F2;
+    --color-error-border: #FECDD3;
+
+    --color-warning: #D97706;
+    --color-warning-bg: #FFFBEB;
+    --color-warning-border: #FDE68A;
+
+    --color-info: #4F46E5;
+    --color-info-bg: #EEF2FF;
+    --color-info-border: #C7D2FE;
   }
 }
 
