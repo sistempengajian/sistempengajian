@@ -384,6 +384,50 @@ Alhamdulillah Jazakumullahu Khairan atas keikhlasan & dedikasi {{title_ustadz}}.
 Tautan di atas dapat diakses langsung tanpa perlu login. Semoga Allah memberikan kemudahan & kelancaran dalam beramal shalih. 🤲`,
   },
 
+  TEACHER_MULTI_SCHEDULE_DIGEST_H1: {
+    code: 'TEACHER_MULTI_SCHEDULE_DIGEST_H1',
+    name: 'Rangkuman Agenda Mengajar H-1 (Multi-Sesi Pengajar)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'sapaan_ustadz',
+      'title_ustadz',
+      'hari_tanggal',
+      'jumlah_sesi',
+      'daftar_sesi_ringkas',
+      'url_jadwal',
+      'nama_kelompok',
+    ],
+    templateBody: `Assalamu'alaikum Warahmatullahi Wabarakatuh,
+{{sapaan_ustadz}}
+
+Mengingatkan amanah agenda mengajar esok hari (*{{jumlah_sesi}} Sesi*):
+*{{hari_tanggal}}*
+
+{{daftar_sesi_ringkas}}
+
+*Buka Portal Jadwal Mengajar:*
+{{url_jadwal}}
+
+Alhamdulillah Jazakumullahu Khairan atas keikhlasan, waktu, & dedikasi {{title_ustadz}}.
+— *Pengurus Pengajian {{nama_kelompok}}*`,
+  },
+
+  TEACHER_MULTI_SCHEDULE_ACTIONS_H1: {
+    code: 'TEACHER_MULTI_SCHEDULE_ACTIONS_H1',
+    name: 'Tautan Aksi Mengajar & Badal H-1 (Multi-Sesi Pengajar)',
+    category: 'SCHEDULE_REMINDER',
+    variables: [
+      'hari_tanggal',
+      'daftar_tautan_aksi',
+    ],
+    templateBody: `Berikut tautan persiapan materi & pengajuan badal sesi esok hari:
+*{{hari_tanggal}}*
+
+{{daftar_tautan_aksi}}
+
+Tautan di atas dapat diakses langsung tanpa perlu login. Semoga Allah SWT memberikan kemudahan & kelancaran dalam beramal shalih. 🤲`,
+  },
+
   SCHEDULE_REMINDER_COUNTDOWN_TEACHER: {
     code: 'SCHEDULE_REMINDER_COUNTDOWN_TEACHER',
     name: 'Pengingat Jadwal Countdown 2 Jam (Pengajar / Ustadz/Ustadzah)',
