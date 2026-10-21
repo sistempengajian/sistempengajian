@@ -291,7 +291,12 @@ async function handleScheduleReminders(request: NextRequest) {
     });
     const sentTokensSet = new Set<string>();
     for (const l of existingLogs) {
-      if (l.magicToken) sentTokensSet.add(l.magicToken);
+      if (l.magicToken) {
+        sentTokensSet.add(l.magicToken);
+        // Daftarkan juga base token tanpa suffix (_MAIN, _PRESENSI, _ACTION)
+        const baseToken = l.magicToken.replace(/_(MAIN|PRESENSI|ACTION)$/, '');
+        sentTokensSet.add(baseToken);
+      }
       if (l.templateCode === 'GROUP_SCHEDULE_REMINDER_H1' && l.referenceId) {
         sentTokensSet.add(`GROUP_H1_REMINDER_${l.referenceId}`);
       }
@@ -926,7 +931,12 @@ async function handleScheduleReminders(request: NextRequest) {
       for (const [normPhone, bucket] of recipientPhoneMap.entries()) {
         const dedupKey = `SCHED_${schedule.id}_${normPhone}_${reminderType}`;
 
-        if (sentTokensSet.has(dedupKey)) {
+        if (
+          sentTokensSet.has(dedupKey) ||
+          sentTokensSet.has(`${dedupKey}_MAIN`) ||
+          sentTokensSet.has(`${dedupKey}_PRESENSI`) ||
+          sentTokensSet.has(`${dedupKey}_ACTION`)
+        ) {
           skippedCount++;
           continue;
         }
@@ -1038,6 +1048,8 @@ async function handleScheduleReminders(request: NextRequest) {
             // Tandai dedup key seluruh sesi mengajar di hari tersebut agar sesi berikutnya tidak memicu pesan H-1 lagi
             for (const otherSched of teacherTomorrowSchedules) {
               sentTokensSet.add(`SCHED_${otherSched.id}_${normPhone}_H1`);
+              sentTokensSet.add(`SCHED_${otherSched.id}_${normPhone}_H1_MAIN`);
+              sentTokensSet.add(`SCHED_${otherSched.id}_${normPhone}_H1_ACTION`);
             }
           }
         }
@@ -1059,6 +1071,9 @@ async function handleScheduleReminders(request: NextRequest) {
         }
 
         sentTokensSet.add(dedupKey);
+        sentTokensSet.add(`${dedupKey}_MAIN`);
+        sentTokensSet.add(`${dedupKey}_PRESENSI`);
+        sentTokensSet.add(`${dedupKey}_ACTION`);
 
         dispatchQueue.push({
           type: bucket.isTeacher

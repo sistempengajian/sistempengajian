@@ -102,6 +102,33 @@ export class WhatsAppClient {
       console.log(`[WhatsAppClient] Pesan dialihkan dari ${targetDestination} ke Nomor Testing: ${overridePhone}`);
     }
 
+    // 2.5. Idempotency Guard via magicToken (Mencegah pesan kembar terkirim ganda)
+    if (options.magicToken) {
+      try {
+        const existingSent = await prisma.whatsAppMessageLog.findFirst({
+          where: {
+            magicToken: options.magicToken,
+            status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+            createdAt: { gte: new Date(Date.now() - 36 * 60 * 60 * 1000) },
+          },
+          select: { id: true, status: true, gatewayMessageId: true },
+        });
+
+        if (existingSent) {
+          console.log(
+            `[WhatsAppClient] 🛑 Idempotency hit: pesan dengan magicToken '${options.magicToken}' sudah dalam status ${existingSent.status}. Pengiriman gateway dilewati.`
+          );
+          return {
+            success: true,
+            status: existingSent.status,
+            gatewayMessageId: existingSent.gatewayMessageId || existingSent.id,
+          };
+        }
+      } catch (checkErr) {
+        console.warn('[WhatsAppClient] Peringatan saat verifikasi idempotency magicToken:', checkErr);
+      }
+    }
+
     // 3. Buat log awal di database dengan status QUEUED / SENDING
     let logId: string | null = null;
     try {
