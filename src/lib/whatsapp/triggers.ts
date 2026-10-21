@@ -1207,6 +1207,9 @@ export async function sendTeacherJournalReminder30m(params: {
   scheduleId: string;
   teacherUserId?: string;
   magicToken?: string;
+  scheduleTime?: string;
+  startTime?: string;
+  endTime?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const teacherIdForToken = params.teacherUserId || params.scheduleId;
@@ -1216,6 +1219,9 @@ export async function sendTeacherJournalReminder30m(params: {
   const sapaanUstadz = formatTeacherSalutation(params.teacherName, params.teacherGender);
   const sapaanUstadzHeader = `*${sapaanUstadz}* *- Pengajar Sesi.*`;
   const titleUstadz = params.teacherGender === 'FEMALE' ? 'Ustadzah' : 'Ustadz';
+  const waktuSesi =
+    params.scheduleTime ||
+    (params.startTime && params.endTime ? `${params.startTime} - ${params.endTime} WIB` : 'Sesi Ini');
 
   return whatsAppClient.sendMessage({
     to: params.teacherPhone,
@@ -1229,7 +1235,7 @@ export async function sendTeacherJournalReminder30m(params: {
       title_ustadz: titleUstadz,
       judul_sesi: params.scheduleTitle,
       hari_tanggal: 'Hari Ini',
-      waktu_lengkap: '16:00 - 17:30 WIB',
+      waktu_lengkap: waktuSesi,
       judul_materi: params.materialTitle,
       jumlah_hadir: params.presentCount,
       nama_tempat: params.venueName,

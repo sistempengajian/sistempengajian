@@ -290,15 +290,18 @@ async function handleScheduleReminders(request: NextRequest) {
       select: { magicToken: true, templateCode: true, referenceId: true },
     });
     const sentTokensSet = new Set<string>();
+    const exactSentTokensSet = new Set<string>();
     for (const l of existingLogs) {
       if (l.magicToken) {
         sentTokensSet.add(l.magicToken);
-        // Daftarkan juga base token tanpa suffix (_MAIN, _PRESENSI, _ACTION)
+        exactSentTokensSet.add(l.magicToken);
+        // Daftarkan juga base token tanpa suffix (_MAIN, _PRESENSI, _ACTION) untuk kompatibilitas
         const baseToken = l.magicToken.replace(/_(MAIN|PRESENSI|ACTION)$/, '');
         sentTokensSet.add(baseToken);
       }
       if (l.templateCode === 'GROUP_SCHEDULE_REMINDER_H1' && l.referenceId) {
         sentTokensSet.add(`GROUP_H1_REMINDER_${l.referenceId}`);
+        exactSentTokensSet.add(`GROUP_H1_REMINDER_${l.referenceId}`);
       }
     }
 
@@ -322,21 +325,14 @@ async function handleScheduleReminders(request: NextRequest) {
       const scheduleTimeMs = schedule.startTime.getTime();
       const diffHours = (scheduleTimeMs - now.getTime()) / (1000 * 60 * 60);
 
-      const isH1Reminder = diffHours >= 18.0 && diffHours <= 20.0;
+      // Selaraskan batas isH1Reminder dengan rentang pemindaian DB (18.0 s/d 22.0 jam)
+      const isH1Reminder = diffHours >= 18.0 && diffHours <= 22.0;
       const isCountdownReminder = diffHours >= 0.75 && diffHours <= 3.0;
 
-      // Anti-Pesan Basi (Context Expiry Guard)
-      if (isH1Reminder && diffHours < 12) {
+      // Anti-Pesan Basi (Context Expiry Guard): Batalkan jika jadwal sudah dimulai/lewat
+      if (diffHours <= 0) {
         processLogs.push(
-          `[Context Expired] H-1 untuk "${schedule.title}" kedaluwarsa (sisa waktu ${diffHours.toFixed(
-            1
-          )} jam < 12 jam). Beralih ke Countdown.`
-        );
-        continue;
-      }
-      if (isCountdownReminder && diffHours <= 0) {
-        processLogs.push(
-          `[Context Expired] Countdown untuk "${schedule.title}" dibatalkan (jadwal sudah mulai/lewat).`
+          `[Context Expired] Pengingat untuk "${schedule.title}" dibatalkan (jadwal sudah mulai/lewat).`
         );
         continue;
       }
@@ -459,6 +455,33 @@ async function handleScheduleReminders(request: NextRequest) {
       // =========================================================================
       let allowStudentH1 = true;
       if (isH1Reminder) {
+        // Bentuk filter ruang lingkup audiens agar tidak terjadi Cross-Audience Suppression
+        // (contoh: jadwal Caberawit tidak mematikan pengingat H-1 Muda-Mudi di organisasi yang sama)
+        const targetGenIds = Array.from(validGenIdSet);
+        const targetClassIds = Array.from(
+          new Set([
+            ...(schedule.classId ? [schedule.classId] : []),
+            ...(schedule.targetClasses?.map((tc) => tc.classId).filter(Boolean) || []),
+          ])
+        );
+
+        const audienceConditions: any[] = [];
+        if (schedule.classId) {
+          audienceConditions.push({ classId: schedule.classId });
+        }
+        if (targetClassIds.length > 0) {
+          audienceConditions.push({
+            targetClasses: { some: { classId: { in: targetClassIds } } },
+          });
+        }
+        if (targetGenIds.length > 0) {
+          audienceConditions.push(
+            { class: { generationId: { in: targetGenIds } } },
+            { targetGenerations: { some: { generationId: { in: targetGenIds } } } },
+            { targetClasses: { some: { class: { generationId: { in: targetGenIds } } } } }
+          );
+        }
+
         const previousSchedule = await prisma.schedule.findFirst({
           where: {
             organizationId: schedule.organizationId,
@@ -467,6 +490,7 @@ async function handleScheduleReminders(request: NextRequest) {
             status: {
               in: [ScheduleStatus.SCHEDULED, ScheduleStatus.ACTIVE, ScheduleStatus.COMPLETED],
             },
+            ...(audienceConditions.length > 0 ? { OR: audienceConditions } : {}),
           },
           orderBy: {
             endTime: 'desc',
@@ -930,13 +954,18 @@ async function handleScheduleReminders(request: NextRequest) {
       // =========================================================================
       for (const [normPhone, bucket] of recipientPhoneMap.entries()) {
         const dedupKey = `SCHED_${schedule.id}_${normPhone}_${reminderType}`;
+        const mainToken = `${dedupKey}_MAIN`;
+        const secondaryToken =
+          bucket.isTeacher && isCountdownReminder
+            ? `${dedupKey}_PRESENSI`
+            : `${dedupKey}_ACTION`;
 
-        if (
-          sentTokensSet.has(dedupKey) ||
-          sentTokensSet.has(`${dedupKey}_MAIN`) ||
-          sentTokensSet.has(`${dedupKey}_PRESENSI`) ||
-          sentTokensSet.has(`${dedupKey}_ACTION`)
-        ) {
+        const hasLegacySent = exactSentTokensSet.has(dedupKey);
+        const hasBothSubTokens =
+          exactSentTokensSet.has(mainToken) && exactSentTokensSet.has(secondaryToken);
+
+        // Hanya skip sepenuhnya jika pesan lama (tanpa suffix) sudah ada, atau KEDUA sub-pesan sudah berhasil dikirim
+        if (hasLegacySent || hasBothSubTokens) {
           skippedCount++;
           continue;
         }
@@ -1115,30 +1144,37 @@ async function handleScheduleReminders(request: NextRequest) {
               }
             }
 
-            let res;
+            let res: any;
 
             // Skenario Khusus H-1: Ustadz Multi-Sesi (>= 2 Sesi Mengajar Esok Hari)
             if (isMultiSessionTeacher && multiSessionItems.length > 1) {
-              res = await sendTeacherMultiScheduleDigestH1({
-                teacherPhone: bucket.phone,
-                teacherName: bucket.name,
-                teacherGender: bucket.gender,
-                dayDate: dayDateStr,
-                organizationName: orgName,
-                items: multiSessionItems,
-                magicToken: `${dedupKey}_MAIN`,
-                teacherUserId: bucket.userId,
-              });
+              if (!exactSentTokensSet.has(mainToken)) {
+                res = await sendTeacherMultiScheduleDigestH1({
+                  teacherPhone: bucket.phone,
+                  teacherName: bucket.name,
+                  teacherGender: bucket.gender,
+                  dayDate: dayDateStr,
+                  organizationName: orgName,
+                  items: multiSessionItems,
+                  magicToken: mainToken,
+                  teacherUserId: bucket.userId,
+                });
+                if (res?.success) exactSentTokensSet.add(mainToken);
+              }
 
-              await sendTeacherMultiScheduleActionsH1({
-                teacherPhone: bucket.phone,
-                teacherName: bucket.name,
-                teacherGender: bucket.gender,
-                dayDate: dayDateStr,
-                items: multiSessionItems,
-                magicToken: `${dedupKey}_ACTION`,
-                teacherUserId: bucket.userId,
-              });
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                const actRes = await sendTeacherMultiScheduleActionsH1({
+                  teacherPhone: bucket.phone,
+                  teacherName: bucket.name,
+                  teacherGender: bucket.gender,
+                  dayDate: dayDateStr,
+                  items: multiSessionItems,
+                  magicToken: secondaryToken,
+                  teacherUserId: bucket.userId,
+                });
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
+              }
 
               // Tandai log di database untuk jadwal-jadwal lain agar eksekusi cron berikutnya tidak mengirim ulang
               for (const otherSched of teacherTomorrowSchedules) {
@@ -1164,199 +1200,224 @@ async function handleScheduleReminders(request: NextRequest) {
               }
 
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[H1 Ustadz Multi-Sesi (${multiSessionItems.length} Sesi, 2 Pesan)] ${bucket.name} (Tanggal: ${dayDateStr})`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
             // Skenario A: Ustadz yang juga Orang Tua dari santri pada sesi ini (Unified)
             if (bucket.isTeacher && bucket.studentsAsParent.length > 0) {
               const st = bucket.teacherSt;
-              res = await sendUnifiedTeacherParentReminder({
-                teacherPhone: bucket.phone,
-                teacherName: bucket.name,
-                teacherGender: bucket.gender,
-                dayDate: dayDateStr,
-                startTime: startTimeStr,
-                endTime: endTimeStr,
-                venueName,
-                organizationName: orgName,
-                generationName: validGenNames,
-                className: displayClassOrGenList,
-                materialTitle: materialTitles,
-                isBadal: st?.isSubstitute,
-                notes: schedule.notes,
-                scheduleId: schedule.id,
-                scheduleTitle: displayScheduleTitle,
-                magicToken: `${dedupKey}_MAIN`,
-                teacherUserId: bucket.userId,
-                students: bucket.studentsAsParent,
-              });
+              if (!exactSentTokensSet.has(mainToken)) {
+                res = await sendUnifiedTeacherParentReminder({
+                  teacherPhone: bucket.phone,
+                  teacherName: bucket.name,
+                  teacherGender: bucket.gender,
+                  dayDate: dayDateStr,
+                  startTime: startTimeStr,
+                  endTime: endTimeStr,
+                  venueName,
+                  organizationName: orgName,
+                  generationName: validGenNames,
+                  className: displayClassOrGenList,
+                  materialTitle: materialTitles,
+                  isBadal: st?.isSubstitute,
+                  notes: schedule.notes,
+                  scheduleId: schedule.id,
+                  scheduleTitle: displayScheduleTitle,
+                  magicToken: mainToken,
+                  teacherUserId: bucket.userId,
+                  students: bucket.studentsAsParent,
+                });
+                if (res?.success) exactSentTokensSet.add(mainToken);
+              }
 
               // Pesan 2 Terpisah: Aksi Materi & Badal (H-1) atau Akses Presensi (-2 Jam)
-              if (isH1Reminder) {
-                await sendTeacherActionLinksH1({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
-              } else if (isCountdownReminder) {
-                await sendTeacherPresensiLink2h({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_PRESENSI`,
-                });
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isH1Reminder) {
+                  actRes = await sendTeacherActionLinksH1({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                } else if (isCountdownReminder) {
+                  actRes = await sendTeacherPresensiLink2h({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
               }
 
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Unified Ustadz+Ortu (2 Pesan)] ${bucket.name} (${displayScheduleTitle})`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
             // Skenario B: Ustadz yang memiliki sesi santri bentrok di tempat lain
             if (bucket.isTeacher && bucket.concurrentStudentTitle) {
               const st = bucket.teacherSt;
-              res = await sendTeacherWithDispensationReminder({
-                teacherPhone: bucket.phone,
-                teacherName: bucket.name,
-                teacherGender: bucket.gender,
-                dayDate: dayDateStr,
-                startTime: startTimeStr,
-                endTime: endTimeStr,
-                venueName,
-                organizationName: orgName,
-                generationName: validGenNames,
-                className: displayClassOrGenList,
-                materialTitle: materialTitles,
-                isBadal: st?.isSubstitute,
-                notes: schedule.notes,
-                scheduleId: schedule.id,
-                scheduleTitle: displayScheduleTitle,
-                magicToken: `${dedupKey}_MAIN`,
-                teacherUserId: bucket.userId,
-                studentScheduleTitle: bucket.concurrentStudentTitle,
-              });
+              if (!exactSentTokensSet.has(mainToken)) {
+                res = await sendTeacherWithDispensationReminder({
+                  teacherPhone: bucket.phone,
+                  teacherName: bucket.name,
+                  teacherGender: bucket.gender,
+                  dayDate: dayDateStr,
+                  startTime: startTimeStr,
+                  endTime: endTimeStr,
+                  venueName,
+                  organizationName: orgName,
+                  generationName: validGenNames,
+                  className: displayClassOrGenList,
+                  materialTitle: materialTitles,
+                  isBadal: st?.isSubstitute,
+                  notes: schedule.notes,
+                  scheduleId: schedule.id,
+                  scheduleTitle: displayScheduleTitle,
+                  magicToken: mainToken,
+                  teacherUserId: bucket.userId,
+                  studentScheduleTitle: bucket.concurrentStudentTitle,
+                });
+                if (res?.success) exactSentTokensSet.add(mainToken);
+              }
 
               // Pesan 2 Terpisah: Aksi Materi & Badal (H-1) atau Akses Presensi (-2 Jam)
-              if (isH1Reminder) {
-                await sendTeacherActionLinksH1({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
-              } else if (isCountdownReminder) {
-                await sendTeacherPresensiLink2h({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_PRESENSI`,
-                });
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isH1Reminder) {
+                  actRes = await sendTeacherActionLinksH1({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                } else if (isCountdownReminder) {
+                  actRes = await sendTeacherPresensiLink2h({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
               }
 
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Ustadz+Dispensasi (2 Pesan)] ${bucket.name} (${displayScheduleTitle})`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
             // Skenario C: Ustadz Reguler
             if (bucket.isTeacher) {
               const st = bucket.teacherSt;
-              if (isCountdownReminder) {
-                // Pesan 1: Pengingat Keberangkatan Countdown 2 Jam
-                res = await sendScheduleReminderCountdownTeacher({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  generationName: validGenNames,
-                  className: displayClassOrGenList,
-                  materialTitle: materialTitles,
-                  isBadal: st?.isSubstitute,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  scheduleTitle: displayScheduleTitle,
-                  magicToken: `${dedupKey}_MAIN`,
-                  teacherUserId: bucket.userId,
-                });
+              if (!exactSentTokensSet.has(mainToken)) {
+                if (isCountdownReminder) {
+                  // Pesan 1: Pengingat Keberangkatan Countdown 2 Jam
+                  res = await sendScheduleReminderCountdownTeacher({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    generationName: validGenNames,
+                    className: displayClassOrGenList,
+                    materialTitle: materialTitles,
+                    isBadal: st?.isSubstitute,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    scheduleTitle: displayScheduleTitle,
+                    magicToken: mainToken,
+                    teacherUserId: bucket.userId,
+                  });
+                } else {
+                  // H-1: Pesan 1: Detail Jadwal Mengajar & Link Detail Jadwal
+                  res = await sendScheduleReminderH1ToTeacher({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    generationName: validGenNames,
+                    className: displayClassOrGenList,
+                    materialTitle: materialTitles,
+                    isBadal: st?.isSubstitute,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    scheduleTitle: displayScheduleTitle,
+                    magicToken: mainToken,
+                    teacherUserId: bucket.userId,
+                  });
+                }
+                if (res?.success) exactSentTokensSet.add(mainToken);
+              }
 
-                // Pesan 2: Akses Cepat Presensi Kelas Langsung
-                await sendTeacherPresensiLink2h({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_PRESENSI`,
-                });
-              } else {
-                // H-1: Pesan 1: Detail Jadwal Mengajar & Link Detail Jadwal
-                res = await sendScheduleReminderH1ToTeacher({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  generationName: validGenNames,
-                  className: displayClassOrGenList,
-                  materialTitle: materialTitles,
-                  isBadal: st?.isSubstitute,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  scheduleTitle: displayScheduleTitle,
-                  magicToken: `${dedupKey}_MAIN`,
-                  teacherUserId: bucket.userId,
-                });
-
-                // H-1: Pesan 2 Terpisah: Link Persiapan Materi & Link Pengajuan Badal
-                await sendTeacherActionLinksH1({
-                  teacherPhone: bucket.phone,
-                  teacherName: bucket.name,
-                  teacherGender: bucket.gender,
-                  scheduleTitle: displayScheduleTitle,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  teacherUserId: bucket.userId,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
+              // Pesan 2: Akses Cepat Presensi (-2 Jam) atau Link Persiapan Materi & Badal (H-1)
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isCountdownReminder) {
+                  actRes = await sendTeacherPresensiLink2h({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                } else {
+                  actRes = await sendTeacherActionLinksH1({
+                    teacherPhone: bucket.phone,
+                    teacherName: bucket.name,
+                    teacherGender: bucket.gender,
+                    scheduleTitle: displayScheduleTitle,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    teacherUserId: bucket.userId,
+                    magicToken: secondaryToken,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
               }
 
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Ustadz (2 Pesan Terpisah)] ${bucket.name} (${displayScheduleTitle})`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
@@ -1372,239 +1433,272 @@ async function handleScheduleReminders(request: NextRequest) {
                 ? `${baseUrl}/keluarga/sesi/${familyToken}`
                 : `${baseUrl}/jadwal/${schedule.id}`;
 
-              if (isH1Reminder) {
-                // Pesan 1 (H-1): Ringkasan Jadwal Pengajian Keluarga
-                res = await sendFamilyScheduleReminderH1({
-                  parentPhone: bucket.phone,
-                  parentName: bucket.name,
-                  parentGender: bucket.gender,
-                  relationshipType: bucket.relationshipType,
-                  dayDate: dayDateStr,
-                  organizationName: orgName,
-                  students: bucket.studentsAsParent,
-                  notes: schedule.notes,
-                  primaryScheduleId: schedule.id,
-                  familyActionUrl,
-                  magicToken: `${dedupKey}_MAIN`,
-                  parentUserId: bucket.userId,
-                });
-
-                // Pesan 2 (H-1 Terpisah): Tautan Khusus Konfirmasi Izin Keluarga
-                await sendFamilyActionLinkH1({
-                  parentPhone: bucket.phone,
-                  parentName: bucket.name,
-                  dayDate: dayDateStr,
-                  primaryScheduleId: schedule.id,
-                  familyActionUrl,
-                  magicToken: `${dedupKey}_ACTION`,
-                  parentUserId: bucket.userId,
-                });
-              } else {
-                // Pesan 1 (-2 Jam): Countdown Keberangkatan Pengajian Keluarga
-                res = await sendFamilyScheduleReminderCountdown({
-                  parentPhone: bucket.phone,
-                  parentName: bucket.name,
-                  parentGender: bucket.gender,
-                  relationshipType: bucket.relationshipType,
-                  dayDate: dayDateStr,
-                  organizationName: orgName,
-                  students: bucket.studentsAsParent,
-                  notes: schedule.notes,
-                  primaryScheduleId: schedule.id,
-                  familyActionUrl,
-                  magicToken: `${dedupKey}_MAIN`,
-                  parentUserId: bucket.userId,
-                });
-
-                // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin Keluarga
-                await sendFamilyActionLinks2h({
-                  parentPhone: bucket.phone,
-                  parentName: bucket.name,
-                  dayDate: dayDateStr,
-                  primaryScheduleId: schedule.id,
-                  familyActionUrl,
-                  magicToken: `${dedupKey}_ACTION`,
-                  parentUserId: bucket.userId,
-                });
+              if (!exactSentTokensSet.has(mainToken)) {
+                if (isH1Reminder) {
+                  // Pesan 1 (H-1): Ringkasan Jadwal Pengajian Keluarga
+                  res = await sendFamilyScheduleReminderH1({
+                    parentPhone: bucket.phone,
+                    parentName: bucket.name,
+                    parentGender: bucket.gender,
+                    relationshipType: bucket.relationshipType,
+                    dayDate: dayDateStr,
+                    organizationName: orgName,
+                    students: bucket.studentsAsParent,
+                    notes: schedule.notes,
+                    primaryScheduleId: schedule.id,
+                    familyActionUrl,
+                    magicToken: mainToken,
+                    parentUserId: bucket.userId,
+                  });
+                } else {
+                  // Pesan 1 (-2 Jam): Countdown Keberangkatan Pengajian Keluarga
+                  res = await sendFamilyScheduleReminderCountdown({
+                    parentPhone: bucket.phone,
+                    parentName: bucket.name,
+                    parentGender: bucket.gender,
+                    relationshipType: bucket.relationshipType,
+                    dayDate: dayDateStr,
+                    organizationName: orgName,
+                    students: bucket.studentsAsParent,
+                    notes: schedule.notes,
+                    primaryScheduleId: schedule.id,
+                    familyActionUrl,
+                    magicToken: mainToken,
+                    parentUserId: bucket.userId,
+                  });
+                }
+                if (res?.success) exactSentTokensSet.add(mainToken);
               }
+
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isH1Reminder) {
+                  // Pesan 2 (H-1 Terpisah): Tautan Khusus Konfirmasi Izin Keluarga
+                  actRes = await sendFamilyActionLinkH1({
+                    parentPhone: bucket.phone,
+                    parentName: bucket.name,
+                    dayDate: dayDateStr,
+                    primaryScheduleId: schedule.id,
+                    familyActionUrl,
+                    magicToken: secondaryToken,
+                    parentUserId: bucket.userId,
+                  });
+                } else {
+                  // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin Keluarga
+                  actRes = await sendFamilyActionLinks2h({
+                    parentPhone: bucket.phone,
+                    parentName: bucket.name,
+                    dayDate: dayDateStr,
+                    primaryScheduleId: schedule.id,
+                    familyActionUrl,
+                    magicToken: secondaryToken,
+                    parentUserId: bucket.userId,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
+              }
+
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Family Digest (2 Pesan)] ${bucket.name} (${bucket.studentsAsParent.length} Santri)`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
             // Skenario E: Orang Tua dengan 1 Santri Tunggal
             if (bucket.studentsAsParent.length === 1) {
               const single = bucket.studentsAsParent[0];
-              if (isH1Reminder) {
-                // Pesan 1 (H-1): Detail Jadwal Santri
-                res = await sendScheduleReminderH1ToStudent({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientGender: bucket.gender,
-                  relationshipType: bucket.relationshipType,
-                  isParent: true,
-                  studentName: single.studentName,
-                  generationName: single.generationName,
-                  className: single.className,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  materialTitle: single.materialTitle,
-                  teacherName: teacherNames,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: `${dedupKey}_MAIN`,
-                  recipientUserId: bucket.userId,
-                  studentUserId: single.studentId,
-                });
-
-                // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit
-                await sendStudentActionLinkH1({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientUserId: bucket.userId,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  studentUserId: single.studentId,
-                  isParent: true,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
-              } else {
-                // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
-                res = await sendScheduleReminderCountdown({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientGender: bucket.gender,
-                  relationshipType: bucket.relationshipType,
-                  isParent: true,
-                  studentName: single.studentName,
-                  generationName: single.generationName,
-                  className: single.className,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  materialTitle: single.materialTitle,
-                  teacherName: teacherNames,
-                  teacherGender: schedule.teachers[0]?.teacher?.gender,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: `${dedupKey}_MAIN`,
-                  recipientUserId: bucket.userId,
-                  studentUserId: single.studentId,
-                });
-
-                // Pesan 2 (-2 Jam Terpisah): Tautan Presensi Mandiri & Pengajuan Izin
-                await sendStudentActionLinks2h({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientUserId: bucket.userId,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  studentUserId: single.studentId,
-                  isParent: true,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
+              if (!exactSentTokensSet.has(mainToken)) {
+                if (isH1Reminder) {
+                  // Pesan 1 (H-1): Detail Jadwal Santri
+                  res = await sendScheduleReminderH1ToStudent({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientGender: bucket.gender,
+                    relationshipType: bucket.relationshipType,
+                    isParent: true,
+                    studentName: single.studentName,
+                    generationName: single.generationName,
+                    className: single.className,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    materialTitle: single.materialTitle,
+                    teacherName: teacherNames,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: mainToken,
+                    recipientUserId: bucket.userId,
+                    studentUserId: single.studentId,
+                  });
+                } else {
+                  // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
+                  res = await sendScheduleReminderCountdown({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientGender: bucket.gender,
+                    relationshipType: bucket.relationshipType,
+                    isParent: true,
+                    studentName: single.studentName,
+                    generationName: single.generationName,
+                    className: single.className,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    materialTitle: single.materialTitle,
+                    teacherName: teacherNames,
+                    teacherGender: schedule.teachers[0]?.teacher?.gender,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: mainToken,
+                    recipientUserId: bucket.userId,
+                    studentUserId: single.studentId,
+                  });
+                }
+                if (res?.success) exactSentTokensSet.add(mainToken);
               }
+
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isH1Reminder) {
+                  // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit
+                  actRes = await sendStudentActionLinkH1({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientUserId: bucket.userId,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    studentUserId: single.studentId,
+                    isParent: true,
+                    magicToken: secondaryToken,
+                  });
+                } else {
+                  // Pesan 2 (-2 Jam Terpisah): Tautan Presensi Mandiri & Pengajuan Izin
+                  actRes = await sendStudentActionLinks2h({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientUserId: bucket.userId,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    studentUserId: single.studentId,
+                    isParent: true,
+                    magicToken: secondaryToken,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
+              }
+
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Ortu Tunggal (2 Pesan)] ${bucket.name} (Ananda ${single.studentName})`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
             // Skenario F: Santri Mandiri Langsung
             if (bucket.isDirectStudent && bucket.directStudentInfo) {
               const direct = bucket.directStudentInfo;
-              if (isH1Reminder) {
-                // Pesan 1 (H-1): Detail Jadwal Santri
-                res = await sendScheduleReminderH1ToStudent({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientGender: bucket.gender,
-                  isParent: false,
-                  studentName: direct.studentName,
-                  generationName: direct.generationName,
-                  className: direct.className,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  materialTitle: direct.materialTitle,
-                  teacherName: teacherNames,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: `${dedupKey}_MAIN`,
-                  recipientUserId: bucket.userId,
-                  studentUserId: direct.studentId,
-                });
-
-                // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit
-                await sendStudentActionLinkH1({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientUserId: bucket.userId,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  studentUserId: direct.studentId,
-                  isParent: false,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
-              } else {
-                // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
-                res = await sendScheduleReminderCountdown({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientGender: bucket.gender,
-                  isParent: false,
-                  studentName: direct.studentName,
-                  generationName: direct.generationName,
-                  className: direct.className,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  startTime: startTimeStr,
-                  endTime: endTimeStr,
-                  venueName,
-                  organizationName: orgName,
-                  materialTitle: direct.materialTitle,
-                  teacherName: teacherNames,
-                  teacherGender: schedule.teachers[0]?.teacher?.gender,
-                  notes: schedule.notes,
-                  scheduleId: schedule.id,
-                  magicToken: `${dedupKey}_MAIN`,
-                  recipientUserId: bucket.userId,
-                  studentUserId: direct.studentId,
-                });
-
-                // Pesan 2 (-2 Jam Terpisah): Tautan Presensi Mandiri & Pengajuan Izin
-                await sendStudentActionLinks2h({
-                  recipientPhone: bucket.phone,
-                  recipientName: bucket.name,
-                  recipientUserId: bucket.userId,
-                  scheduleTitle: schedule.title,
-                  dayDate: dayDateStr,
-                  scheduleId: schedule.id,
-                  studentUserId: direct.studentId,
-                  isParent: false,
-                  magicToken: `${dedupKey}_ACTION`,
-                });
+              if (!exactSentTokensSet.has(mainToken)) {
+                if (isH1Reminder) {
+                  // Pesan 1 (H-1): Detail Jadwal Santri
+                  res = await sendScheduleReminderH1ToStudent({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientGender: bucket.gender,
+                    isParent: false,
+                    studentName: direct.studentName,
+                    generationName: direct.generationName,
+                    className: direct.className,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    materialTitle: direct.materialTitle,
+                    teacherName: teacherNames,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: mainToken,
+                    recipientUserId: bucket.userId,
+                    studentUserId: direct.studentId,
+                  });
+                } else {
+                  // Pesan 1 (-2 Jam): Countdown Keberangkatan Santri
+                  res = await sendScheduleReminderCountdown({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientGender: bucket.gender,
+                    isParent: false,
+                    studentName: direct.studentName,
+                    generationName: direct.generationName,
+                    className: direct.className,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    startTime: startTimeStr,
+                    endTime: endTimeStr,
+                    venueName,
+                    organizationName: orgName,
+                    materialTitle: direct.materialTitle,
+                    teacherName: teacherNames,
+                    teacherGender: schedule.teachers[0]?.teacher?.gender,
+                    notes: schedule.notes,
+                    scheduleId: schedule.id,
+                    magicToken: mainToken,
+                    recipientUserId: bucket.userId,
+                    studentUserId: direct.studentId,
+                  });
+                }
+                if (res?.success) exactSentTokensSet.add(mainToken);
               }
+
+              if (!exactSentTokensSet.has(secondaryToken)) {
+                let actRes;
+                if (isH1Reminder) {
+                  // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit
+                  actRes = await sendStudentActionLinkH1({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientUserId: bucket.userId,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    studentUserId: direct.studentId,
+                    isParent: false,
+                    magicToken: secondaryToken,
+                  });
+                } else {
+                  // Pesan 2 (-2 Jam Terpisah): Tautan Presensi Mandiri & Pengajuan Izin
+                  actRes = await sendStudentActionLinks2h({
+                    recipientPhone: bucket.phone,
+                    recipientName: bucket.name,
+                    recipientUserId: bucket.userId,
+                    scheduleTitle: schedule.title,
+                    dayDate: dayDateStr,
+                    scheduleId: schedule.id,
+                    studentUserId: direct.studentId,
+                    isParent: false,
+                    magicToken: secondaryToken,
+                  });
+                }
+                if (actRes?.success) exactSentTokensSet.add(secondaryToken);
+                if (!res) res = actRes;
+              }
+
               return {
-                success: Boolean(res.success),
+                success: Boolean(res?.success ?? true),
                 log: `[${reminderType} Santri Mandiri (2 Pesan)] ${bucket.name}`,
-                error: res.error,
+                error: res?.error,
               };
             }
 
@@ -1983,6 +2077,7 @@ async function handleScheduleReminders(request: NextRequest) {
                 scheduleId: schedule.id,
                 teacherUserId: teacher.id,
                 magicToken: journalReminderKey,
+                scheduleTime: `${startTimeStr} - ${endTimeStr} WIB`,
               });
               return {
                 success: Boolean(res.success),
@@ -1996,7 +2091,7 @@ async function handleScheduleReminders(request: NextRequest) {
     }
 
     // =========================================================================
-    // 9. Eksekusi Antrean Sekuensial dengan Jeda Acak 3-15 Detik
+    // 9. Eksekusi Antrean Sekuensial dengan Adaptive Delay (Anti-Ban Jitter)
     // Batas Runtime Maksimal 20 Detik (Sangat Aman dari Limit 30 Detik cron-job.org)
     // =========================================================================
     const startTimeMs = Date.now();
@@ -2047,7 +2142,9 @@ async function handleScheduleReminders(request: NextRequest) {
         processLogs.push(`[Error] ${item.name}: ${lastErrorMessage}`);
       }
 
-      // Beri jeda acak 3 s/d 15 detik jika masih ada pesan berikutnya dalam antrean
+      // Beri jeda acak adaptif jika masih ada pesan berikutnya dalam antrean:
+      // - Jika sisa antrean > 5: jeda pendek (1.5s - 3.0s) agar tidak terjadi queue starvation
+      // - Jika sisa antrean <= 5: jeda moderat (2.5s - 5.0s)
       if (i < dispatchQueue.length - 1) {
         const currentElapsed = Date.now() - startTimeMs;
         if (currentElapsed >= MAX_DELAY_CUTOFF_MS) {
@@ -2058,7 +2155,12 @@ async function handleScheduleReminders(request: NextRequest) {
           break;
         }
 
-        const randomDelay = getRandomDelayMs(3, 15);
+        const remainingCount = dispatchQueue.length - (i + 1);
+        const randomDelay =
+          remainingCount > 5
+            ? getRandomDelayMs(1.5, 3.0)
+            : getRandomDelayMs(2.5, 5.0);
+
         if (currentElapsed + randomDelay > MAX_EXECUTION_TIME_MS) {
           const remaining = dispatchQueue.length - (i + 1);
           processLogs.push(
