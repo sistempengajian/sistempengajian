@@ -28,6 +28,7 @@ import {
 import { TaskType } from '@prisma/client';
 import { createAssignment } from '@/app/(protected)/tugas/actions';
 import TargetAudienceModal, { StudentOption, GenerationOption, ClassOption } from './TargetAudienceModal';
+import CustomSelect from '@/components/ui/CustomSelect';
 import {
   DEFAULT_CHECKLIST_ITEMS,
   serializeAssignmentConfig,
@@ -441,18 +442,20 @@ export default function AssignmentCreateModal({
                 <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <span>Tautan Materi Kurikulum</span>
                 </label>
-                <select
+                <CustomSelect
                   value={materialId}
-                  onChange={(e) => setMaterialId(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                >
-                  <option value="">Tanpa Tautan Materi</option>
-                  {availableMaterials.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setMaterialId(val as string)}
+                  options={[
+                    { value: '', label: 'Tanpa Tautan Materi' },
+                    ...availableMaterials.map((m) => ({
+                      value: m.id,
+                      label: m.title,
+                    })),
+                  ]}
+                  searchable={availableMaterials.length > 5}
+                  searchPlaceholder="Cari materi kurikulum..."
+                  placeholder="Pilih Materi Kurikulum"
+                />
               </div>
             </div>
 

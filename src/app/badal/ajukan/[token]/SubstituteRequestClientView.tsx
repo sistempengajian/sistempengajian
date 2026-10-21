@@ -22,6 +22,7 @@ import {
   cancelSubstituteRequest,
   getSubstituteRequestStatus,
 } from '@/app/badal/actions';
+import { useConfirm } from '@/components/ui/ConfirmModal';
 
 interface TeacherItem {
   id: string;
@@ -106,6 +107,7 @@ export default function SubstituteRequestClientView({
     type: 'success' | 'error' | 'info';
     message: string;
   } | null>(null);
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
 
   // Jika status ditolak, beri opsi untuk membuka form pengajuan ulang
   const [isReapplying, setIsReapplying] = useState<boolean>(false);
@@ -247,30 +249,37 @@ export default function SubstituteRequestClientView({
   // Handler batal pengajuan
   const handleCancel = () => {
     if (!currentRequest) return;
-    if (!confirm('Apakah Anda yakin ingin membatalkan pengajuan Ustadz Badal ini?')) return;
-
-    startCancelTransition(async () => {
-      const res = await cancelSubstituteRequest({
-        token,
-        requestId: currentRequest.id,
-      });
-
-      if (res.success) {
-        setCurrentRequest(null);
-        setIsReapplying(false);
-        setSelectedTeacherId('');
-        setReason('');
-        setFeedback({
-          type: 'info',
-          message: 'Pengajuan Ustadz Badal telah dibatalkan.',
+    openConfirm(
+      {
+        title: 'Batalkan Pengajuan Ustadz Badal?',
+        description: 'Apakah Anda yakin ingin membatalkan pengajuan Ustadz Badal ini?',
+        variant: 'danger',
+        confirmText: 'Ya, Batalkan',
+        cancelText: 'Kembali',
+      },
+      async () => {
+        const res = await cancelSubstituteRequest({
+          token,
+          requestId: currentRequest.id,
         });
-      } else {
-        setFeedback({
-          type: 'error',
-          message: res.error || 'Gagal membatalkan pengajuan.',
-        });
+
+        if (res.success) {
+          setCurrentRequest(null);
+          setIsReapplying(false);
+          setSelectedTeacherId('');
+          setReason('');
+          setFeedback({
+            type: 'info',
+            message: 'Pengajuan Ustadz Badal telah dibatalkan.',
+          });
+        } else {
+          setFeedback({
+            type: 'error',
+            message: res.error || 'Gagal membatalkan pengajuan.',
+          });
+        }
       }
-    });
+    );
   };
 
   const showForm =
@@ -701,6 +710,7 @@ export default function SubstituteRequestClientView({
           </section>
         )}
       </main>
+      <ConfirmModalComponent />
     </div>
   );
 }

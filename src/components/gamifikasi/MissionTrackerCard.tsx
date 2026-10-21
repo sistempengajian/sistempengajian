@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { GamificationMission, MissionCategory } from '@/app/(protected)/gamifikasi/types';
 import { claimMissionReward } from '@/app/(protected)/gamifikasi/actions';
+import { useToast } from '@/components/ui/Toast';
 
 interface MissionTrackerCardProps {
   studentId: string;
@@ -50,10 +51,10 @@ export default function MissionTrackerCard({
   milestoneMissions,
   onMissionClaimed,
 }: MissionTrackerCardProps) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<MissionCategory>('DAILY');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimedMissions, setClaimedMissions] = useState<Set<string>>(new Set());
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const missionsMap = {
     DAILY: dailyMissions,
@@ -72,11 +73,10 @@ export default function MissionTrackerCard({
       const res = await claimMissionReward(studentId, mission.code, mission.rewardXp);
       if (res.success) {
         setClaimedMissions((prev) => new Set(prev).add(mission.id));
-        setToastMessage(res.message);
+        toast.success(res.message);
         if (onMissionClaimed) {
           onMissionClaimed(mission.id, mission.rewardXp, res.newPoints);
         }
-        setTimeout(() => setToastMessage(null), 4000);
       } else {
         if (
           res.message.toLowerCase().includes('sudah pernah') ||
@@ -88,11 +88,11 @@ export default function MissionTrackerCard({
             onMissionClaimed(mission.id, 0);
           }
         }
-        setToastMessage(res.message);
-        setTimeout(() => setToastMessage(null), 4000);
+        toast.info(res.message);
       }
     } catch (err) {
       console.error(err);
+      toast.error('Terjadi kesalahan saat mengklaim misi.');
     } finally {
       setClaimingId(null);
     }
@@ -108,14 +108,6 @@ export default function MissionTrackerCard({
 
   return (
     <div className="rounded-3xl bg-white/90 border border-slate-200/80 shadow-sm p-4 sm:p-6 relative">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl bg-slate-900/95 text-white text-xs sm:text-sm font-semibold shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4 duration-200 max-w-md w-11/12">
-          <Sparkles className="w-5 h-5 text-amber-400 flex-shrink-0" />
-          <span className="flex-1">{toastMessage}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2.5">

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { HomeroomTeacherClassData } from '../types';
 import { formatWhatsAppUrl, displayPhoneNumber } from '@/lib/whatsapp';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface HomeroomClassViewProps {
   data: HomeroomTeacherClassData;
@@ -461,20 +462,29 @@ export default function HomeroomClassView({ data, initialTab = 'santri' }: Homer
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-700 shrink-0">Periode:</span>
-                    <select
-                      value={periodFilter}
-                      onChange={(e) => setPeriodFilter(e.target.value as any)}
-                      className="text-xs font-bold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                    >
-                      <option value="THIS_MONTH">
-                        Bulan Ini ({now.toLocaleDateString('id-ID', { month: 'short' })})
-                      </option>
-                      <option value="THIS_WEEK">Pekan Ini</option>
-                      <option value="LAST_MONTH">
-                        Bulan Lalu ({new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'short' })})
-                      </option>
-                      <option value="ALL">Semua Periode ({activeClass?.schedules.length || 0})</option>
-                    </select>
+                    <div className="min-w-[170px]">
+                      <CustomSelect
+                        value={periodFilter}
+                        onChange={(val) => setPeriodFilter(val as any)}
+                        options={[
+                          {
+                            value: 'THIS_MONTH',
+                            label: `Bulan Ini (${now.toLocaleDateString('id-ID', { month: 'short' })})`,
+                          },
+                          { value: 'THIS_WEEK', label: 'Pekan Ini' },
+                          {
+                            value: 'LAST_MONTH',
+                            label: `Bulan Lalu (${new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'short' })})`,
+                          },
+                          {
+                            value: 'ALL',
+                            label: `Semua Periode (${activeClass?.schedules.length || 0})`,
+                          },
+                        ]}
+                        size="sm"
+                        placeholder="Pilih Periode"
+                      />
+                    </div>
                   </div>
                 </div>
 

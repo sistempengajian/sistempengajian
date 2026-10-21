@@ -14,6 +14,7 @@ import {
 import { OrganizationOption, GenerationOption } from './types';
 import OrganizationSelectModal from '@/components/organisasi/OrganizationSelectModal';
 import OrganizationSelectTrigger from '@/components/organisasi/OrganizationSelectTrigger';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface UserFilterBarProps {
   activeRoleTab: string;
@@ -226,18 +227,19 @@ export default function UserFilterBar({
             <label className="block text-[11px] font-bold text-slate-600">
               Jenjang Generasi:
             </label>
-            <select
+            <CustomSelect
               value={selectedGenId}
-              onChange={(e) => onGenChange(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 font-semibold focus:border-emerald-500 transition-all cursor-pointer"
-            >
-              <option value="">Semua Generasi</option>
-              {generations.map((gen) => (
-                <option key={gen.id} value={gen.id}>
-                  {gen.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => onGenChange(val as string)}
+              options={[
+                { value: '', label: 'Semua Generasi' },
+                ...generations.map((gen) => ({
+                  value: gen.id,
+                  label: gen.name,
+                })),
+              ]}
+              size="sm"
+              placeholder="Semua Generasi"
+            />
           </div>
 
           {/* Filter Status Akun & Reset Button */}
@@ -246,16 +248,20 @@ export default function UserFilterBar({
               Status Akun:
             </label>
             <div className="flex items-center gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => onStatusChange(e.target.value)}
-                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 font-semibold focus:border-emerald-500 transition-all cursor-pointer"
-              >
-                <option value="ALL">Semua Status</option>
-                <option value="ACTIVE">Aktif</option>
-                <option value="INACTIVE">Nonaktif</option>
-                <option value="SUSPENDED">Ditangguhkan</option>
-              </select>
+              <div className="flex-1 min-w-[140px]">
+                <CustomSelect
+                  value={selectedStatus}
+                  onChange={(val) => onStatusChange(val as string)}
+                  options={[
+                    { value: 'ALL', label: 'Semua Status' },
+                    { value: 'ACTIVE', label: 'Aktif' },
+                    { value: 'INACTIVE', label: 'Nonaktif' },
+                    { value: 'SUSPENDED', label: 'Ditangguhkan' },
+                  ]}
+                  size="sm"
+                  placeholder="Semua Status"
+                />
+              </div>
 
               {hasActiveFilters && (
                 <button

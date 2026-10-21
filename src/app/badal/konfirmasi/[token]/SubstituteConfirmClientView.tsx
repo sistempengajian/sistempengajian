@@ -14,6 +14,8 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { confirmSubstituteRequest } from '@/app/badal/actions';
+import { useConfirm } from '@/components/ui/ConfirmModal';
+import { useToast } from '@/components/ui/Toast';
 
 interface TeacherInfo {
   id: string;
@@ -89,6 +91,8 @@ export default function SubstituteConfirmClientView({
   reviewer,
   targetRole,
 }: Props) {
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
   const [currentStatus, setCurrentStatus] = useState(request.status);
   const [actionNotes, setActionNotes] = useState(request.actionNotes || '');
 
@@ -137,36 +141,45 @@ export default function SubstituteConfirmClientView({
 
   // Handler Persetujuan
   const handleApprove = () => {
-    if (!confirm('Apakah Anda bersedia menyetujui permohonan guru badal ini?')) return;
-
-    setFeedback(null);
-    startTransition(async () => {
-      const res = await confirmSubstituteRequest({
-        token,
-        action: 'APPROVE',
-        notes: notesInput.trim() || undefined,
-      });
-
-      if (res.success) {
-        setCurrentStatus('APPROVED');
-        setActionNotes(notesInput.trim() || '');
-        setFeedback({
-          type: 'success',
-          message: res.message || 'Permohonan berhasil disetujui!',
+    openConfirm(
+      {
+        title: 'Setujui Permohonan Badal?',
+        description: 'Apakah Anda bersedia menyetujui permohonan guru badal ini?',
+        variant: 'info',
+        confirmText: 'Ya, Setujui',
+        cancelText: 'Batal',
+      },
+      async () => {
+        setFeedback(null);
+        const res = await confirmSubstituteRequest({
+          token,
+          action: 'APPROVE',
+          notes: notesInput.trim() || undefined,
         });
-      } else {
-        setFeedback({
-          type: 'error',
-          message: res.error || 'Gagal memproses persetujuan.',
-        });
+
+        if (res.success) {
+          setCurrentStatus('APPROVED');
+          setActionNotes(notesInput.trim() || '');
+          setFeedback({
+            type: 'success',
+            message: res.message || 'Permohonan berhasil disetujui!',
+          });
+          toast.success(res.message || 'Permohonan berhasil disetujui!');
+        } else {
+          setFeedback({
+            type: 'error',
+            message: res.error || 'Gagal memproses persetujuan.',
+          });
+          toast.error(res.error || 'Gagal memproses persetujuan.');
+        }
       }
-    });
+    );
   };
 
   // Handler Penolakan
   const handleReject = () => {
     if (!rejectReason.trim()) {
-      alert('Mohon cantumkan alasan penolakan permohonan.');
+      toast.error('Mohon cantumkan alasan penolakan permohonan.');
       return;
     }
 
@@ -186,11 +199,13 @@ export default function SubstituteConfirmClientView({
           type: 'success',
           message: 'Permohonan telah ditolak. Pengajar pemohon telah diberitahu via WhatsApp.',
         });
+        toast.info('Permohonan berhasil ditolak.');
       } else {
         setFeedback({
           type: 'error',
           message: res.error || 'Gagal memproses penolakan.',
         });
+        toast.error(res.error || 'Gagal memproses penolakan.');
       }
     });
   };
@@ -516,6 +531,7 @@ export default function SubstituteConfirmClientView({
           </div>
         </div>
       )}
+      <ConfirmModalComponent />
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import { confirmStudentAbsenceRequest } from '@/app/izin/actions';
+import { useConfirm } from '@/components/ui/ConfirmModal';
+import { useToast } from '@/components/ui/Toast';
 
 interface ScheduleInfo {
   id: string;
@@ -109,6 +111,8 @@ export default function StudentAbsenceConfirmClientView({
   approverRole,
   myApproval: initialMyApproval,
 }: Props) {
+  const toast = useToast();
+  const { open: openConfirm, ConfirmModalComponent } = useConfirm();
   const [myApproval, setMyApproval] = useState<ApprovalItem | null | undefined>(initialMyApproval);
   const [approvedCount, setApprovedCount] = useState(request.approvedCount);
   const [notesInput, setNotesInput] = useState('');
@@ -157,43 +161,52 @@ export default function StudentAbsenceConfirmClientView({
 
   // Handler Persetujuan
   const handleApprove = () => {
-    if (!confirm(`Konfirmasi persetujuan izin untuk ananda ${request.student.fullName}?`)) return;
+    openConfirm(
+      {
+        title: 'Konfirmasi Persetujuan Izin',
+        description: `Konfirmasi persetujuan izin untuk ananda ${request.student.fullName}?`,
+        variant: 'info',
+        confirmText: 'Ya, Setujui',
+        cancelText: 'Batal',
+      },
+      async () => {
+        setFeedback(null);
+        const res = await confirmStudentAbsenceRequest({
+          token,
+          action: 'APPROVE',
+          notes: notesInput.trim() || undefined,
+        });
 
-    setFeedback(null);
-    startTransition(async () => {
-      const res = await confirmStudentAbsenceRequest({
-        token,
-        action: 'APPROVE',
-        notes: notesInput.trim() || undefined,
-      });
-
-      if (res.success) {
-        setMyApproval({
-          id: 'temp-' + Date.now(),
-          approverRole,
-          action: 'APPROVED',
-          notes: notesInput.trim() || null,
-          createdAt: new Date(),
-          approverUser: { id: approverUser.id, fullName: approverUser.fullName },
-        });
-        if (res.currentApprovedCount) setApprovedCount(res.currentApprovedCount);
-        setFeedback({
-          type: 'success',
-          message: res.message || 'Konfirmasi persetujuan berhasil disimpan.',
-        });
-      } else {
-        setFeedback({
-          type: 'error',
-          message: res.error || 'Gagal menyimpan konfirmasi.',
-        });
+        if (res.success) {
+          setMyApproval({
+            id: 'temp-' + Date.now(),
+            approverRole,
+            action: 'APPROVED',
+            notes: notesInput.trim() || null,
+            createdAt: new Date(),
+            approverUser: { id: approverUser.id, fullName: approverUser.fullName },
+          });
+          if (res.currentApprovedCount) setApprovedCount(res.currentApprovedCount);
+          setFeedback({
+            type: 'success',
+            message: res.message || 'Konfirmasi persetujuan berhasil disimpan.',
+          });
+          toast.success(res.message || 'Konfirmasi persetujuan berhasil disimpan.');
+        } else {
+          setFeedback({
+            type: 'error',
+            message: res.error || 'Gagal menyimpan konfirmasi.',
+          });
+          toast.error(res.error || 'Gagal menyimpan konfirmasi.');
+        }
       }
-    });
+    );
   };
 
   // Handler Penolakan
   const handleReject = () => {
     if (!rejectReason.trim()) {
-      alert('Mohon cantumkan alasan penolakan.');
+      toast.error('Mohon cantumkan alasan penolakan.');
       return;
     }
 
@@ -585,6 +598,7 @@ export default function StudentAbsenceConfirmClientView({
           </div>
         </div>
       )}
+      <ConfirmModalComponent />
     </div>
   );
 }

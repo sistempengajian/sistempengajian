@@ -87,7 +87,7 @@ export default function EditProfileModal({
         if (e.target === e.currentTarget && !isLoading) onClose();
       }}
     >
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 flex flex-col animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 flex flex-col animate-in zoom-in-95 max-h-[90dvh] overflow-y-auto">
         {/* Header Modal */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
           <div className="flex items-center gap-3">

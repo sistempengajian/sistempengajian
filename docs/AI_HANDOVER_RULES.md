@@ -62,36 +62,36 @@ Seluruh komponen baru (seperti `EmptyState.tsx`) atau penyesuaian *styling* waji
 - *(Catatan: Pertahankan `DeleteConfirmModal.tsx` yang sudah berjalan baik)*
 
 #### Batch 2B — Modul Kelas & Users (`src/components/kelas/` & `src/components/users/`)
-- [ ] `ClassFilterBar.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
-- [ ] `HomeroomClassView.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
-- [ ] `ParentClassView.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
-- [ ] `UserFilterBar.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
-- [ ] `form/EditUserForm.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
-- [ ] `UserManagementView.tsx`: Hapus state toast ad-hoc lokal (`toastMessage`), migrasi ke global `useToast()`
+- [x] `ClassFilterBar.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
+- [x] `HomeroomClassView.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
+- [x] `ParentClassView.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
+- [x] `UserFilterBar.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
+- [x] `form/EditUserForm.tsx`: Ganti **2 `<select>`** → `<CustomSelect>`
+- [x] `UserManagementView.tsx`: Hapus state toast ad-hoc lokal (`toastMessage`), migrasi ke global `useToast()`
 
 #### Batch 2C — Modul Tugas, Analisis & Leaderboard
-- [ ] `src/components/tugas/TeacherTaskDetail.tsx`: Ganti **2 `alert()`** → `useToast()`
-- [ ] `src/components/tugas/AssignmentCreateModal.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
-- [ ] `src/components/analisis/AnalyticsFilterBar.tsx`: Ganti **1 `alert()`** → `useToast()`, dan **1 `<select>`** → `<CustomSelect>`
-- [ ] `src/components/leaderboard/LeaderboardClientWrapper.tsx`: Ganti **4 `<select>`** → `<CustomSelect>`
+- [x] `src/components/tugas/TeacherTaskDetail.tsx`: Ganti **2 `alert()`** → `useToast()`
+- [x] `src/components/tugas/AssignmentCreateModal.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
+- [x] `src/components/analisis/AnalyticsFilterBar.tsx`: Ganti **1 `alert()`** → `useToast()`, dan **1 `<select>`** → `<CustomSelect>`
+- [x] `src/components/leaderboard/LeaderboardClientWrapper.tsx`: Ganti **4 `<select>`** → `<CustomSelect>`
 
 ---
 
 ### 🔹 FASE 3: Migrasi Halaman Penunjang & Route Publik
 #### Batch 3A — Organisasi, Generasi, Gamifikasi, Remedial, Profil
-- [ ] `src/components/organisasi/OrganizationManagementView.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
-- [ ] `src/components/generasi/GenerationManagementView.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
-- [ ] `src/components/generasi/EditGenerationForm.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
-- [ ] `src/components/gamifikasi/MissionTrackerCard.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
-- [ ] `src/components/private-remedial/PrivateRemedialForm.tsx`: Ganti **1 `alert()`** → `useToast()`, dan **1 `<select>`** → `<CustomSelect>`
-- [ ] `src/components/profil/`: Pastikan `LogoutCard` menggunakan `<ConfirmModal>` dan modal edit aman dari *virtual keyboard overlap* di mobile.
+- [x] `src/components/organisasi/OrganizationManagementView.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
+- [x] `src/components/generasi/GenerationManagementView.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
+- [x] `src/components/generasi/EditGenerationForm.tsx`: Ganti **1 `<select>`** → `<CustomSelect>`
+- [x] `src/components/gamifikasi/MissionTrackerCard.tsx`: Migrasi toast ad-hoc lokal → global `useToast()`
+- [x] `src/components/private-remedial/PrivateRemedialForm.tsx`: Ganti **1 `alert()`** → `useToast()`, dan **1 `<select>`** → `<CustomSelect>`
+- [x] `src/components/profil/`: Pastikan `LogoutCard` menggunakan `<ConfirmModal>` dan modal edit aman dari *virtual keyboard overlap* di mobile.
 
 #### Batch 3B — Halaman Publik (Magic Link) & Empty State
-- [ ] `src/app/badal/ajukan/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>`
-- [ ] `src/app/badal/konfirmasi/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>` & **1 `alert()`** → `useToast()`
-- [ ] `src/app/izin/ajukan/[token]/`: Ganti **1 `alert()`** (validasi ukuran file) → `useToast()`
-- [ ] `src/app/izin/konfirmasi/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>` & **1 `alert()`** → `useToast()`
-- [ ] Buat `src/components/ui/EmptyState.tsx` (props: `icon`, `title`, `description`, `actionLabel`, `onAction`) dan pasang pada tampilan list yang kosong.
+- [x] `src/app/badal/ajukan/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>`
+- [x] `src/app/badal/konfirmasi/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>` & **1 `alert()`** → `useToast()`
+- [x] `src/app/izin/ajukan/[token]/`: Ganti **1 `alert()`** (validasi ukuran file) → `useToast()`
+- [x] `src/app/izin/konfirmasi/[token]/`: Ganti **1 `confirm()`** → `<ConfirmModal>` & **1 `alert()`** → `useToast()`
+- [x] Buat `src/components/ui/EmptyState.tsx` (props: `icon`, `title`, `description`, `actionLabel`, `onAction`) dan pasang pada tampilan list yang kosong.
 
 ---
 

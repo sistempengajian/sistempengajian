@@ -39,3 +39,8 @@ export {
   SkeletonStat,
   SkeletonPage,
 } from './Skeleton';
+
+// Empty State
+export { default as EmptyState } from './EmptyState';
+export type { EmptyStateProps } from './EmptyState';
+

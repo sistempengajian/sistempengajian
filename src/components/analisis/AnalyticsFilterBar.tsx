@@ -24,6 +24,8 @@ import {
   Building2,
   GraduationCap,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface AnalyticsFilterBarProps {
   filterOptions: AnalyticsFilterOptions;
@@ -70,6 +72,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   onOpenExportModal,
   isPending = false,
 }) => {
+  const toast = useToast();
   const [isCustomStudentModalOpen, setIsCustomStudentModalOpen] = useState(false);
   const [customSearchQuery, setCustomSearchQuery] = useState('');
   const [tempSelectedStudentIds, setTempSelectedStudentIds] = useState<string[]>(selectedStudentIds);
@@ -124,7 +127,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
 
   const handleApplyCustomStudents = () => {
     if (tempSelectedStudentIds.length === 0) {
-      alert('Pilih setidaknya 1 santri untuk cohort komparasi.');
+      toast.warning('Pilih setidaknya 1 santri untuk cohort komparasi.');
       return;
     }
     setIsCustomStudentModalOpen(false);
@@ -180,21 +183,20 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           {/* Entity Dropdown Selector (if not custom) */}
           {currentScopeType !== 'CUSTOM' && currentItems.length > 0 && (
             <div className="flex items-center gap-2">
-              <div className="relative min-w-[200px] sm:min-w-[240px]">
-                <select
-                  value={currentScopeId || activeItem?.id}
-                  onChange={(e) => handleEntitySelect(e.target.value)}
+              <div className="min-w-[200px] sm:min-w-[260px]">
+                <CustomSelect
+                  value={currentScopeId || activeItem?.id || ''}
+                  onChange={(val) => handleEntitySelect(val as string)}
                   disabled={isPending}
-                  aria-label="Pilih Unit Analisis"
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 pr-9 text-xs font-bold text-slate-800 shadow-2xs transition hover:bg-slate-100/70 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                >
-                  {currentItems.map((item) => (
-                    <option key={item.id} value={item.id} className="bg-white text-slate-800">
-                      {item.name} {item.subtitle ? `(${item.subtitle})` : ''} {item.count ? `• ${item.count} Santri` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  options={currentItems.map((item) => ({
+                    value: item.id,
+                    label: `${item.name}${item.subtitle ? ` (${item.subtitle})` : ''}${item.count ? ` • ${item.count} Santri` : ''}`,
+                  }))}
+                  size="sm"
+                  searchable={currentItems.length > 5}
+                  searchPlaceholder="Cari unit analisis..."
+                  placeholder="Pilih Unit Analisis"
+                />
               </div>
             </div>
           )}

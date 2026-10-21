@@ -8,7 +8,6 @@ import {
   Landmark,
   Globe,
   Calendar,
-  ChevronDown,
   RefreshCw,
   ChevronRight,
   Gift,
@@ -23,6 +22,7 @@ import {
 import { getLeaderboardData } from '@/app/(protected)/gamifikasi/actions';
 import LeaderboardPodium from '@/components/gamifikasi/LeaderboardPodium';
 import LeaderboardList from '@/components/gamifikasi/LeaderboardList';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface LeaderboardClientWrapperProps {
   initialData: LeaderboardDashboardData;
@@ -156,119 +156,54 @@ export default function LeaderboardClientWrapper({
       </div>
 
       {/* 2. Sub-Filter Row: Specific Organization & Period Selector */}
-      <div className="p-1.5 sm:p-2.5 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/70 shadow-2xs">
-        {/* Mobile < 400px: Compact View (Only Icons with clickable native dropdown overlay) */}
-        <div className="flex min-[400px]:hidden items-center justify-between px-2 py-1 gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-extrabold text-slate-800 truncate max-w-[130px]">
-              {currentOrgOptions.find((o) => o.id === selectedOrgId)?.name || data.tierLabel}
-            </span>
-            <span className="text-[10px] text-slate-300">•</span>
-            <span className="text-[10px] font-bold text-slate-600 whitespace-nowrap">
-              {selectedPeriod === 'THIS_MONTH'
-                ? 'Bulan Ini'
-                : selectedPeriod === 'THIS_WEEK'
-                ? 'Pekan Ini'
-                : selectedPeriod === 'THIS_SEMESTER'
-                ? 'Semester'
-                : 'Semua'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Filter Wilayah Icon Button */}
-            <div
-              className="relative w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 cursor-pointer active:scale-95 transition-all shadow-2xs"
-              title="Pilih Wilayah"
-            >
-              <Filter className="w-4 h-4 text-slate-700" />
-              <select
+      <div className="p-2 sm:p-2.5 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/70 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+          {/* Organization Dropdown */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <Filter className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CustomSelect
                 value={selectedOrgId}
-                onChange={(e) => handleSubFilterChange(e.target.value, selectedPeriod)}
+                onChange={(val) => handleSubFilterChange(val as string, selectedPeriod)}
                 disabled={isPending || currentOrgOptions.length === 0}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                aria-label="Pilih Wilayah"
-              >
-                {currentOrgOptions.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {activeTier === 'KELOMPOK'
+                options={currentOrgOptions.map((org) => ({
+                  value: org.id,
+                  label:
+                    activeTier === 'KELOMPOK'
                       ? `Kelompok ${org.name}`
                       : activeTier === 'DESA'
                       ? `Desa ${org.name}`
-                      : `Daerah ${org.name}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter Waktu Icon Button */}
-            <div
-              className="relative w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 cursor-pointer active:scale-95 transition-all shadow-2xs"
-              title="Pilih Periode"
-            >
-              <Calendar className="w-4 h-4 text-slate-700" />
-              <select
-                value={selectedPeriod}
-                onChange={(e) => handleSubFilterChange(selectedOrgId, e.target.value as GamifikasiPeriod)}
-                disabled={isPending}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                aria-label="Pilih Periode"
-              >
-                <option value="THIS_MONTH">Bulan Ini</option>
-                <option value="THIS_WEEK">Pekan Ini</option>
-                <option value="THIS_SEMESTER">Semester Ini</option>
-                <option value="ALL_TIME">Sepanjang Waktu</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Screens >= 400px: Standard Dropdowns with Icons & Text */}
-        <div className="hidden min-[400px]:flex flex-row items-center justify-between gap-2 sm:gap-3">
-          {/* Left: Organization Specific Dropdown */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
-              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-            <div className="relative flex-1 min-w-0">
-              <select
-                value={selectedOrgId}
-                onChange={(e) => handleSubFilterChange(e.target.value, selectedPeriod)}
-                disabled={isPending || currentOrgOptions.length === 0}
-                className="w-full appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold text-slate-800 pr-6 sm:pr-8 transition-colors cursor-pointer truncate focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              >
-                {currentOrgOptions.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {activeTier === 'KELOMPOK'
-                      ? `Kelompok ${org.name}`
-                      : activeTier === 'DESA'
-                      ? `Desa ${org.name}`
-                      : `Daerah ${org.name}`}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      : `Daerah ${org.name}`,
+                }))}
+                size="sm"
+                searchable={currentOrgOptions.length > 5}
+                searchPlaceholder="Cari wilayah..."
+                placeholder="Pilih Wilayah"
+              />
             </div>
           </div>
 
-          {/* Right: Period Dropdown */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          {/* Period Dropdown */}
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-0 sm:min-w-[170px]">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <Calendar className="w-4 h-4" />
             </div>
-            <div className="relative flex-1 min-w-0">
-              <select
+            <div className="flex-1 min-w-0">
+              <CustomSelect
                 value={selectedPeriod}
-                onChange={(e) => handleSubFilterChange(selectedOrgId, e.target.value as GamifikasiPeriod)}
+                onChange={(val) => handleSubFilterChange(selectedOrgId, val as GamifikasiPeriod)}
                 disabled={isPending}
-                className="w-full appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold text-slate-800 pr-6 sm:pr-8 transition-colors cursor-pointer truncate focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              >
-                <option value="THIS_MONTH">Bulan Ini</option>
-                <option value="THIS_WEEK">Pekan Ini</option>
-                <option value="THIS_SEMESTER">Semester Ini</option>
-                <option value="ALL_TIME">Sepanjang Waktu</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                options={[
+                  { value: 'THIS_MONTH', label: 'Bulan Ini' },
+                  { value: 'THIS_WEEK', label: 'Pekan Ini' },
+                  { value: 'THIS_SEMESTER', label: 'Semester Ini' },
+                  { value: 'ALL_TIME', label: 'Sepanjang Waktu' },
+                ]}
+                size="sm"
+                placeholder="Pilih Periode"
+              />
             </div>
           </div>
         </div>

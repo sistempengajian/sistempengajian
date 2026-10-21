@@ -10,6 +10,7 @@ import {
   Layers,
   RotateCcw,
 } from 'lucide-react';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface GenerationFilterOption {
   id: string;
@@ -93,49 +94,36 @@ export default function ClassFilterBar({
         {/* Dropdown Filters & Controls */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           {/* Dropdown Tingkatan Wilayah */}
-          <div className="relative flex-1 sm:flex-none min-w-[130px]">
-            <select
+          <div className="flex-1 sm:flex-none min-w-[150px]">
+            <CustomSelect
               value={selectedTierLevel}
-              onChange={(e) => onTierLevelChange(e.target.value)}
-              className={`w-full sm:w-auto pl-8 pr-7 py-2 rounded-2xl border text-xs font-bold transition-all shadow-2xs cursor-pointer appearance-none ${
-                selectedTierLevel !== 'ALL'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30'
-                  : 'bg-white/95 text-slate-700 border-slate-200/80 hover:bg-slate-50'
-              }`}
-            >
-              <option value="ALL">Semua Tingkat</option>
-              <option value="KELOMPOK">Tingkat Kelompok</option>
-              <option value="DESA">Tingkat Desa</option>
-              <option value="DAERAH">Tingkat Daerah</option>
-            </select>
-            <Layers className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
-              ▼
-            </div>
+              onChange={(val) => onTierLevelChange(val as string)}
+              options={[
+                { value: 'ALL', label: 'Semua Tingkat' },
+                { value: 'KELOMPOK', label: 'Tingkat Kelompok' },
+                { value: 'DESA', label: 'Tingkat Desa' },
+                { value: 'DAERAH', label: 'Tingkat Daerah' },
+              ]}
+              size="sm"
+              placeholder="Pilih Tingkat"
+            />
           </div>
 
           {/* Dropdown Tahun Ajaran */}
-          <div className="relative flex-1 sm:flex-none min-w-[125px]">
-            <select
+          <div className="flex-1 sm:flex-none min-w-[145px]">
+            <CustomSelect
               value={selectedAcademicYear}
-              onChange={(e) => onAcademicYearChange(e.target.value)}
-              className={`w-full sm:w-auto pl-8 pr-7 py-2 rounded-2xl border text-xs font-bold transition-all shadow-2xs cursor-pointer appearance-none ${
-                selectedAcademicYear !== 'ALL'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/30'
-                  : 'bg-white/95 text-slate-700 border-slate-200/80 hover:bg-slate-50'
-              }`}
-            >
-              <option value="ALL">Semua Tahun</option>
-              {academicYears.map((yr) => (
-                <option key={yr} value={yr}>
-                  TP {yr}
-                </option>
-              ))}
-            </select>
-            <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
-              ▼
-            </div>
+              onChange={(val) => onAcademicYearChange(val as string)}
+              options={[
+                { value: 'ALL', label: 'Semua Tahun' },
+                ...academicYears.map((yr) => ({
+                  value: yr,
+                  label: `TP ${yr}`,
+                })),
+              ]}
+              size="sm"
+              placeholder="Pilih Tahun"
+            />
           </div>
 
           {/* Reset Filter Button */}

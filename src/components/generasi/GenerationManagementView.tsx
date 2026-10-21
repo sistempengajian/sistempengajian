@@ -6,11 +6,11 @@ import {
   Sparkles,
   Layers,
   ShieldCheck,
-  CheckCircle2,
   Info,
   Plus,
   Search,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 import {
   GenerationWithStats,
   GenerationsOverviewData,
@@ -35,16 +35,12 @@ export default function GenerationManagementView({
   const [generationToDelete, setGenerationToDelete] =
     useState<GenerationWithStats | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   const { canEdit } = initialData.userPermissions;
 
   const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+    toast.success(msg);
   };
 
   const handleOpenDelete = (gen: GenerationWithStats) => {
@@ -73,13 +69,6 @@ export default function GenerationManagementView({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 animate-fade-in">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-18 right-4 sm:right-8 z-50 rounded-2xl bg-emerald-700 text-white px-4 py-3 shadow-xl border border-emerald-500/50 flex items-center gap-2.5 text-xs font-semibold animate-slide-down">
-          <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* Header Halaman */}
       <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/60 p-5 sm:p-6 shadow-xs">

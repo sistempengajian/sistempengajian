@@ -33,6 +33,7 @@ import {
   testSendGroupPing,
   triggerGenerationWeeklyDigest,
 } from '@/app/(protected)/generasi/actions';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 const COLOR_OPTIONS = [
   { id: 'emerald', label: 'Emerald', bgClass: 'bg-emerald-500', ringClass: 'ring-emerald-400', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
@@ -516,25 +517,28 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                           Tutup
                         </button>
                       </div>
-                      <select
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 cursor-pointer"
-                        onChange={(e) => {
-                          const selected = availableGroups.find((g) => g.id === e.target.value);
+                      <CustomSelect
+                        value=""
+                        onChange={(val) => {
+                          const selected = availableGroups.find((g) => g.id === (val as string));
                           if (selected) {
                             setWhatsappGroupId(selected.id);
                             setWhatsappGroupName(selected.name);
                             setShowGroupPicker(false);
                           }
                         }}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>-- Pilih salah satu grup --</option>
-                        {availableGroups.map((grp) => (
-                          <option key={grp.id} value={grp.id}>
-                            {grp.name} ({grp.id})
-                          </option>
-                        ))}
-                      </select>
+                        options={[
+                          { value: '', label: '-- Pilih salah satu grup --', disabled: true },
+                          ...availableGroups.map((grp) => ({
+                            value: grp.id,
+                            label: `${grp.name} (${grp.id})`,
+                          })),
+                        ]}
+                        searchable={availableGroups.length > 5}
+                        searchPlaceholder="Cari nama grup WhatsApp..."
+                        placeholder="-- Pilih salah satu grup --"
+                        size="sm"
+                      />
                     </div>
                   )}
 

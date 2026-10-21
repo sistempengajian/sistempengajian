@@ -31,6 +31,7 @@ import {
 import { UserRole, Gender, ParentRelationType } from '@prisma/client';
 import { FormReferenceData, CreateUserInput } from '../types';
 import { createUser } from '@/app/(protected)/users/actions';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface CreateUserFormProps {
   referenceData: FormReferenceData;
@@ -533,19 +534,18 @@ export default function CreateUserForm({
                     <label className="block text-xs font-bold text-slate-700">
                       Jenjang Generasi Santri <span className="text-rose-500">*</span>
                     </label>
-                    <select
-                      required={isSantri}
+                    <CustomSelect
                       value={generationId}
-                      onChange={(e) => setGenerationId(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 font-semibold bg-white cursor-pointer transition-all"
-                    >
-                      <option value="">-- Pilih Jenjang Generasi --</option>
-                      {referenceData.generations.map((gen) => (
-                        <option key={gen.id} value={gen.id}>
-                          {gen.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setGenerationId(val as string)}
+                      options={[
+                        { value: '', label: '-- Pilih Jenjang Generasi --' },
+                        ...referenceData.generations.map((gen) => ({
+                          value: gen.id,
+                          label: gen.name,
+                        })),
+                      ]}
+                      placeholder="Pilih Jenjang Generasi"
+                    />
                   </div>
                 )}
               </div>

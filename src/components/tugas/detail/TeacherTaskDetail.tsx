@@ -33,6 +33,7 @@ import TaskStatusBadge from '../shared/TaskStatusBadge';
 import DeadlineCountdown, { formatDueDate } from '../shared/DeadlineCountdown';
 import ManageGradersModal, { TeacherGraderOption } from '../form/ManageGradersModal';
 import { deleteAssignment, updateAssignmentGraders } from '@/app/(protected)/tugas/actions';
+import { useToast } from '@/components/ui/Toast';
 import { formatTierOrganization } from '../list/TaskListCard';
 import type { OverdueAction, AssignmentLinkAttachment } from '@/lib/assignmentConfig';
 
@@ -110,6 +111,7 @@ interface TeacherTaskDetailProps {
 
 export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
   const router = useRouter();
+  const toast = useToast();
   const { assignment, stats, isOwner } = data;
   const config = assignment.config || {};
   const formattedTierOrg = formatTierOrganization(
@@ -177,14 +179,15 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
         graderIds,
       });
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else {
+        toast.success('Akses koreksi asisten berhasil diperbarui.');
         setAssistantGraderIds(graderIds);
         setShowGradersModal(false);
         router.refresh();
       }
     } catch (err: any) {
-      alert(err.message || 'Gagal memperbarui akses koreksi.');
+      toast.error(err.message || 'Gagal memperbarui akses koreksi.');
     }
   };
 

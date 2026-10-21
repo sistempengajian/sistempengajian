@@ -24,6 +24,7 @@ import {
   submitStudentAbsenceRequest,
   getStudentAbsenceRequestStatus,
 } from '@/app/izin/actions';
+import { useToast } from '@/components/ui/Toast';
 
 interface ScheduleData {
   id: string;
@@ -115,6 +116,7 @@ export default function StudentAbsenceRequestClientView({
   submitterRole,
   initialRequest,
 }: Props) {
+  const toast = useToast();
   const [currentRequest, setCurrentRequest] = useState<CurrentRequestData | null>(initialRequest);
   const [absenceType, setAbsenceType] = useState<'IZIN' | 'SAKIT'>('IZIN');
   const [notes, setNotes] = useState('');
@@ -164,7 +166,7 @@ export default function StudentAbsenceRequestClientView({
     if (!file) return;
 
     if (file.size > 4 * 1024 * 1024) {
-      alert('Ukuran file foto maksimal 4MB.');
+      toast.error('Ukuran file foto maksimal 4MB.');
       return;
     }
 
