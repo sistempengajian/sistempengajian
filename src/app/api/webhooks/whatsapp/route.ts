@@ -17,9 +17,15 @@ import {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Validasi Signature / Webhook Secret Header jika secret env dikonfigurasi
+    // Validasi Signature / Webhook Secret Header jika secret env dikonfigurasi nyata (bukan template placeholder)
     const webhookSecret = process.env.PETAPOD_WAHA_WEBHOOK_SECRET || process.env.WHATSAPP_WEBHOOK_SECRET;
-    if (webhookSecret) {
+    const isConfiguredSecret =
+      Boolean(webhookSecret) &&
+      !webhookSecret!.includes('your-') &&
+      !webhookSecret!.includes('example') &&
+      webhookSecret !== 'change-this-secret';
+
+    if (isConfiguredSecret) {
       const incomingSecret =
         req.headers.get('x-webhook-secret') ||
         req.headers.get('x-api-key') ||
@@ -28,7 +34,7 @@ export async function POST(req: NextRequest) {
           : null) ||
         req.nextUrl.searchParams.get('secret');
 
-      if (!incomingSecret || !timingSafeCompare(incomingSecret, webhookSecret)) {
+      if (!incomingSecret || !timingSafeCompare(incomingSecret, webhookSecret!)) {
         return NextResponse.json(
           { error: 'Akses ditolak: Secret webhook tidak valid' },
           { status: 401 }

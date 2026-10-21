@@ -50,6 +50,7 @@ export const INTENT_REGEX = {
   AFFIRMATION: /\b(siap|oke|ok|baik|noted|insyaallah|insya allah|bismillah|inggih|siap hadir|bisa hadir|hadir ustadz|siap ustadz|siap ustadzah|siap kak|siap laksanakan)\b/i,
   GREETING: /\b(assalamu|assalamualaikum|assalamu'alaikum|waalaikumsalam|wa'alaikumsalam|samlikum|halo|hai|selamat pagi|selamat siang|selamat sore|selamat malam)\b/i,
   THANKS: /\b(alhamdulillah|syukron|syukran|terima kasih|terimakasih|makasih|jazakallah|jazakillah|jazakumullah)\b/i,
+  MENU: /\b(menu|bantuan|help|panduan|fitur|perintah|layanan|info|informasi|tes|test|ping)\b|^[/!](menu|bantuan|help|panduan|fitur|info)\b/i,
 };
 
 /**
@@ -326,7 +327,7 @@ export interface InboundMessagePayload {
 
 export interface InboundProcessResult {
   handled: boolean;
-  intent: 'ABSENCE' | 'CLOSING_PRAYER' | 'AFFIRMATION' | 'GREETING' | 'THANKS' | 'OTHER' | 'IGNORED_SELF' | 'RATE_LIMITED' | 'DUPLICATE_MESSAGE';
+  intent: 'ABSENCE' | 'CLOSING_PRAYER' | 'AFFIRMATION' | 'GREETING' | 'THANKS' | 'MENU' | 'OTHER' | 'IGNORED_SELF' | 'RATE_LIMITED' | 'DUPLICATE_MESSAGE';
   replySent?: boolean;
   replyMessage?: string;
   recipientPhone?: string;
@@ -405,6 +406,7 @@ export async function processInboundWhatsAppMessage(
   const isAffirmation = INTENT_REGEX.AFFIRMATION.test(rawText);
   const isGreeting = INTENT_REGEX.GREETING.test(rawText);
   const isThanks = INTENT_REGEX.THANKS.test(rawText);
+  const isMenu = INTENT_REGEX.MENU.test(rawText);
 
   // =========================================================================
   // FITUR KHUSUS: PENAUTAN AKUN INSTAN VIA NOMOR HP (ACCOUNT LINKING)
@@ -837,6 +839,87 @@ export async function processInboundWhatsAppMessage(
   }
 
   // =========================================================================
+  // KASUS MENU / BANTUAN: INTENT PANDUAN & DAFTAR LAYANAN CHATBOT
+  // Pengguna meminta bantuan, menu, fitur, info layanan, atau mengetes bot
+  // =========================================================================
+  if (isMenu) {
+    const userSender = await resolveInboundUser({
+      replyDestination,
+      normalizedPhone,
+      quotedMessageId: payload.quotedMessageId,
+      rawText,
+    });
+
+    const orgName = userSender?.organization?.name || 'Sistem Pengajian';
+    const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
+    const isParent = Boolean(userSender?.children && userSender.children.length > 0);
+    const isStudent = userSender?.roles?.some((r) => r.role === 'SANTRI');
+
+    let profileGreeting = `*LAYANAN ASISTEN SISTEM PENGAJIAN*\n`;
+    if (userSender) {
+      const rolesLabel = userSender.roles?.map((r) => r.role).join(', ') || 'Pengguna';
+      profileGreeting += `👤 *Akun Terhubung:* ${userSender.fullName} (${rolesLabel})\n`;
+      if (userSender.organization?.name) {
+        profileGreeting += `🏢 *Organisasi:* ${userSender.organization.name}\n`;
+      }
+    } else {
+      profileGreeting += `📱 *Status Akun:* _Belum tertaut langsung dengan nomor ini_\n`;
+    }
+
+    let specificGuide = '';
+    if (isParent) {
+      const childNames = userSender!.children.map((c) => c.student.fullName).join(', ');
+      specificGuide =
+        `\n👨‍👩‍👦 *Layanan Wali Santri (${childNames}):*\n` +
+        `• Ketik *izin* atau *sakit* untuk membuka formulir digital konfirmasi izin santri instan tanpa login.\n` +
+        `• Ketik *siap* untuk konfirmasi kehadiran santri pada jadwal mendatang.\n`;
+    } else if (isTeacher) {
+      specificGuide =
+        `\n📚 *Layanan Ustadz / Pengajar:*\n` +
+        `• Ketik *siap* untuk konfirmasi kesiapan mengajar sesi berikutnya.\n` +
+        `• Akses web pengajian untuk pencatatan presensi santri, jurnal mengajar, dan materi kurikulum.\n`;
+    } else if (isStudent) {
+      specificGuide =
+        `\n📖 *Layanan Santri:*\n` +
+        `• Ketik *izin* atau *sakit* jika berhalangan hadir pada sesi pengajian.\n` +
+        `• Ketik *siap* untuk konfirmasi kesiapan mengikuti pengajian.\n`;
+    } else if (!userSender) {
+      specificGuide =
+        `\n🔗 *Penautan Akun Mandiri:*\n` +
+        `• Jika nomor WhatsApp ini berbeda dari yang terdaftar di akun, cukup ketikkan *Nomor HP terdaftar Anda* di chat ini (contoh: *081234567890*) untuk menautkannya langsung secara mandiri.\n`;
+    }
+
+    const menuReply =
+      `${profileGreeting}\n` +
+      `Halo! Saya adalah asisten bot WhatsApp resmi notifikasi dan administrasi *${orgName}*.\n` +
+      specificGuide +
+      `\n📌 *Daftar Kata Kunci Perintah Japri:*\n` +
+      `• *izin* / *sakit* — Ajukan izin ketidakhadiran santri instan tanpa login\n` +
+      `• *siap* / *insyaallah* — Konfirmasi kesiapan mengikuti pengajian\n` +
+      `• *menu* / *bantuan* — Menampilkan menu panduan layanan ini\n` +
+      `• *terima kasih* / *syukron* — Ucapan apresiasi\n\n` +
+      `🌐 *Portal Web Pengajian:*\n` +
+      `${baseUrl}\n\n` +
+      `Alhamdulillah Jazakumullahu Khairan.\n` +
+      `— *Pengurus Pengajian*`;
+
+    await sendReplyWithTyping(replyDestination, {
+      recipientName: userSender?.fullName,
+      recipientUserId: userSender?.id,
+      messageType: 'CUSTOM_DIRECT',
+      message: menuReply,
+    });
+
+    return {
+      handled: true,
+      intent: 'MENU',
+      replySent: true,
+      replyMessage: menuReply,
+      recipientPhone: replyDestination,
+    };
+  }
+
+  // =========================================================================
   // KASUS D: INTENT SALAM / SAPAAN
   // =========================================================================
   if (isGreeting) {
@@ -846,6 +929,7 @@ export async function processInboundWhatsAppMessage(
       `Pemberitahuan:\n` +
       `*• Saluran Otomatis* _Nomor ini adalah bot pengingat dan notifikasi pengajian otomatis_\n` +
       `*• Pengajuan Izin* _Ketik pesan memuat kata izin atau sakit untuk mendapatkan tautan instan_\n` +
+      `*• Menu Bantuan* _Ketik 'menu' atau 'bantuan' untuk panduan layanan lengkap_\n` +
       `*• Administrasi & Info* _Silakan hubungi Wali Kelas atau Pengurus Wilayah setempat_\n\n` +
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Pengurus Pengajian*`;
