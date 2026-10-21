@@ -53,3 +53,9 @@ public/swe-worker-*.js
 public/swe-worker-*.js.map
 
 /src/generated/prisma
+
+
+# AI-generated documentation
+docs/AI_HANDOVER_RULES.md
+docs/rancangan_notifikasi_jadwal_wa_otomatis.md
+docs/whatsapp_gateway_integration_blueprint.md
