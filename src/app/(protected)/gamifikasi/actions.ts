@@ -1,9 +1,19 @@
 'use server';
 
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const claimMissionSchema = z.object({
+  studentId: z.string().uuid('ID santri tidak valid.'),
+  missionCode: z.string().min(1, 'Kode misi tidak valid.').max(100),
+  requestedRewardXp: z.coerce.number().min(0, 'XP reward tidak valid.'),
+});
+
+const studentIdSchema = z.string().uuid('ID santri tidak valid.');
 import {
   LeaderboardFilterOptions,
   LeaderboardDashboardData,
@@ -240,6 +250,11 @@ async function ensureSeedBadges() {
 
 // Automatically evaluate & unlock badges for a student
 export async function evaluateAndAwardBadges(studentId: string): Promise<number> {
+  const idValidation = studentIdSchema.safeParse(studentId);
+  if (!idValidation.success) {
+    return 0;
+  }
+
   await ensureSeedBadges();
 
   const [student, allBadges] = await Promise.all([
@@ -1101,6 +1116,15 @@ export async function claimMissionReward(
   requestedRewardXp: number
 ): Promise<{ success: boolean; message: string; newPoints?: number }> {
   try {
+    const validation = claimMissionSchema.safeParse({
+      studentId,
+      missionCode,
+      requestedRewardXp,
+    });
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
     const { dbUser: currentUser } = await getEffectiveAuthUser();
 
     if (!currentUser) {

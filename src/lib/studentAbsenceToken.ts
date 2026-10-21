@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { timingSafeCompare } from '@/lib/security-utils';
 
 function getMagicSecret(): string {
   const secret = process.env.MAGIC_LINK_SECRET;
@@ -67,10 +68,7 @@ export function verifyStudentAbsenceRequestToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan digital tautan tidak sah.' };
     }
 
@@ -136,10 +134,7 @@ export function verifyStudentAbsenceApprovalToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan digital konfirmasi izin tidak sah.' };
     }
 
@@ -202,10 +197,7 @@ export function verifyStudentDirectPresensiToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan tautan presensi santri tidak sah.' };
     }
 
@@ -267,10 +259,7 @@ export function verifyFamilyActionHubToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan digital portal keluarga tidak sah.' };
     }
 
@@ -332,10 +321,7 @@ export function verifyTeacherLessonPlanToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan digital rencana ajar pengajar tidak sah.' };
     }
 

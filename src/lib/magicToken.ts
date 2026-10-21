@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { timingSafeCompare } from '@/lib/security-utils';
 
 const MAGIC_SECRET = process.env.MAGIC_LINK_SECRET || 'sistem-pengajian-magic-secret-key-2026';
 
@@ -51,10 +52,7 @@ export function verifyMagicToken(token: string): {
       .update(data)
       .digest('hex');
 
-    if (
-      signature.length !== expectedSignature.length ||
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-    ) {
+    if (!timingSafeCompare(signature, expectedSignature)) {
       return { valid: false, error: 'Tanda tangan tautan tidak sah' };
     }
 

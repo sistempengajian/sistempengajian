@@ -31,6 +31,7 @@ import EditProfileModal from './EditProfileModal';
 import EditPhoneModal from './EditPhoneModal';
 import GoogleAuthButton from './GoogleAuthButton';
 import NotificationPreferencesCard from './NotificationPreferencesCard';
+import AccessibilityPreferencesCard from './AccessibilityPreferencesCard';
 import PwaProfileInstallCard from '@/components/pwa/PwaProfileInstallCard';
 
 export interface UserProfileData {
@@ -531,7 +532,10 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
         isParentOrStudent={isSantri || isOrangTua}
       />
 
-      {/* 5. Keamanan Akun & Metode Masuk */}
+      {/* 5. Aksesibilitas & Keterbacaan Teks (Outdoor / Masjid Mode) */}
+      <AccessibilityPreferencesCard />
+
+      {/* 6. Keamanan Akun & Metode Masuk */}
       <div className="rounded-3xl bg-white/90 backdrop-blur-md border border-slate-200/80 p-5 sm:p-6 shadow-sm">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100 mb-4">
           <div className="w-8 h-8 flex-shrink-0 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs border border-emerald-200/60">

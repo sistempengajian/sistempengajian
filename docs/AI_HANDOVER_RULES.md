@@ -99,24 +99,24 @@ Seluruh komponen baru (seperti `EmptyState.tsx`) atau penyesuaian *styling* waji
 > **Acuan Standar Zod:** Baca `src/app/(protected)/kelas/actions.ts` terlebih dahulu. Ikuti pola deklarasi schema Zod dan cara pengembalian pesan error tanpa mengubah *return signature* yang dibutuhkan oleh komponen Client.
 
 #### Batch 4A — Implementasi Zod di Server Actions (Kerjakan maks 3 file per eksekusi)
-- [ ] Grup 1: `organisasi/actions.ts`, `generasi/actions.ts`, `profil/actions.ts`
-- [ ] Grup 2: `users/actions.ts`, `private-remedial/actions.ts`, `gamifikasi/actions.ts`
-- [ ] Grup 3: `kurikulum/actions.ts`, `jadwal/actions.ts`, `laporan/actions.ts`, `analisis/actions.ts`
-- [ ] Grup 4 (File Besar): `presensi/actions.ts` (70KB), `tugas/actions.ts` (73KB)
+- [x] Grup 1: `organisasi/actions.ts`, `generasi/actions.ts`, `profil/actions.ts`
+- [x] Grup 2: `users/actions.ts`, `private-remedial/actions.ts`, `gamifikasi/actions.ts`
+- [x] Grup 3: `kurikulum/actions.ts`, `jadwal/actions.ts`, `laporan/actions.ts`, `analisis/actions.ts`
+- [x] Grup 4 (File Besar): `presensi/actions.ts` (70KB), `tugas/actions.ts` (73KB)
 
 #### Batch 4B — Mitigasi Celah Keamanan Spesifik
-- [ ] **Cron Secret:** Di `src/lib/whatsapp/broadcastMagicLoginService.ts` (sekitar L35), hapus fallback `'pengajian-cron-secret-2026'`. Wajib gunakan `process.env.CRON_SECRET` dan *throw error* atau return `401 Unauthorized` jika env kosong/tidak cocok.
-- [ ] **Timing-Safe Token Comparison:** Gunakan `crypto.timingSafeEqual` (pastikan panjang `Buffer` dicek terlebih dahulu agar tidak throw range error) pada verifikasi token magic link (`/badal`, `/izin`, `/pengajar/sesi`).
-- [ ] **Bot Honeypot:** Tambahkan input tersembunyi `<input type="text" name="website_url" tabIndex={-1} autoComplete="off" className="hidden" />` di form publik `/badal/ajukan` dan `/izin/ajukan`. Tolak proses di Server Action jika field tersebut berisi nilai.
-- [ ] **IDOR & API Auth Check:** Pastikan seluruh mutasi di `actions.ts` dan route `/api/kelas/classes/route.ts` memverifikasi sesi via `getEffectiveAuthUser()` dan ruang lingkup organisasi via `getScopedOrganizationIds()`.
+- [x] **Cron Secret:** Di `src/lib/whatsapp/broadcastMagicLoginService.ts` (sekitar L35), hapus fallback `'pengajian-cron-secret-2026'`. Wajib gunakan `process.env.CRON_SECRET` dan *throw error* atau return `401 Unauthorized` jika env kosong/tidak cocok.
+- [x] **Timing-Safe Token Comparison:** Gunakan `crypto.timingSafeEqual` (pastikan panjang `Buffer` dicek terlebih dahulu agar tidak throw range error) pada verifikasi token magic link (`/badal`, `/izin`, `/pengajar/sesi`).
+- [x] **Bot Honeypot:** Tambahkan input tersembunyi `<input type="text" name="website_url" tabIndex={-1} autoComplete="off" className="hidden" />` di form publik `/badal/ajukan` dan `/izin/ajukan`. Tolak proses di Server Action jika field tersebut berisi nilai.
+- [x] **IDOR & API Auth Check:** Pastikan seluruh mutasi di `actions.ts` dan route `/api/kelas/classes/route.ts` memverifikasi sesi via `getEffectiveAuthUser()` dan ruang lingkup organisasi via `getScopedOrganizationIds()`.
 
 ---
 
 ### 🔹 FASE 5: Polish UX & Performance (Opsional / Bertahap)
-- [ ] Sticky filter bar (`sticky top-0 z-20 backdrop-blur-md`) pada halaman daftar santri, jadwal, dan kurikulum.
-- [ ] Haptic feedback helper (`if (typeof window !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(50)`) saat sukses presensi/kirim tugas.
-- [ ] Table ↔ Card view toggle di layar mobile untuk data tabular.
-- [ ] Optimistic UI (`useOptimistic`) & Offline Queue (Dexie IndexedDB) untuk pencatatan presensi.
+- [x] Sticky filter bar (`sticky top-0 z-20 backdrop-blur-md`) pada halaman daftar santri, jadwal, dan kurikulum.
+- [x] Haptic feedback helper (`if (typeof window !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(50)`) saat sukses presensi/kirim tugas.
+- [x] Table ↔ Card view toggle di layar mobile untuk data tabular.
+- [x] Optimistic UI (`useOptimistic`) & Offline Queue (Dexie IndexedDB) untuk pencatatan presensi.
 
 ---
 

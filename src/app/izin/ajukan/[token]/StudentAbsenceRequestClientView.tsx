@@ -121,6 +121,7 @@ export default function StudentAbsenceRequestClientView({
   const [absenceType, setAbsenceType] = useState<'IZIN' | 'SAKIT'>('IZIN');
   const [notes, setNotes] = useState('');
   const [attachmentBase64, setAttachmentBase64] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState('');
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [isPolling, setIsPolling] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -253,6 +254,7 @@ export default function StudentAbsenceRequestClientView({
         absenceType,
         notes: notes.trim(),
         attachmentUrl: attachmentBase64 || undefined,
+        website_url: honeypot,
       });
 
       if (res.success && res.request) {
@@ -385,6 +387,17 @@ export default function StudentAbsenceRequestClientView({
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4"
           >
+            {/* Bot Honeypot Input */}
+            <input
+              type="text"
+              name="website_url"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="hidden"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
             <div>
               <h3 className="text-sm font-bold text-slate-900">
                 Pilih Jenis Ketidakhadiran

@@ -1,10 +1,13 @@
 'use server';
 
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, RollingTargetScope, UserRole, ApprovalStatus } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
+import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
 import {
   notifyScheduleChangeIfHariH,
   broadcastScheduleReminder,
@@ -12,6 +15,47 @@ import {
   getScheduleChangeNotificationPreview,
   dispatchConfirmedScheduleChangeNotification,
 } from '@/lib/whatsapp/scheduleNotificationService';
+
+const scheduleIdSchema = z.string().uuid('ID jadwal tidak valid.');
+const substituteTeacherIdSchema = z.string().uuid('ID ustadz badal tidak valid.');
+const rejectionReasonSchema = z.string().min(1, 'Alasan penolakan pengajuan jadwal wajib diisi.').max(500);
+const notesSchema = z.string().max(1000).optional().nullable();
+const updateStatusSchema = z.nativeEnum(ScheduleStatus, {
+  errorMap: () => ({ message: 'Status jadwal tidak valid.' }),
+});
+const confirmNotificationSchema = z.object({
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  changeDescription: z.string().min(1, 'Deskripsi perubahan wajib diisi.'),
+});
+
+const createScheduleSchema = z.object({
+  title: z.string({ required_error: 'Judul wajib diisi.' }).min(1, 'Judul wajib diisi.').max(150),
+  venuePlaceName: z.string({ required_error: 'Tempat wajib diisi.' }).min(1, 'Tempat wajib diisi.').max(150),
+  venueType: z.string().default('MASJID'),
+  startTime: z.string({ required_error: 'Waktu mulai wajib diisi.' }),
+  endTime: z.string({ required_error: 'Waktu selesai wajib diisi.' }),
+  primaryTeacherId: z.string({ required_error: 'Ustadz utama wajib diisi.' }).uuid('ID Ustadz utama tidak valid.'),
+  substituteTeacherId: z.string().uuid().optional().nullable().or(z.literal('')),
+  targetScope: z.nativeEnum(RollingTargetScope).default(RollingTargetScope.WILAYAH_UMUM),
+  organizationId: z.string().uuid().optional().nullable().or(z.literal('')),
+  notes: z.string().max(1000).optional().nullable(),
+  isRecurringWeekly: z.boolean().default(false),
+  recurringWeeks: z.number().int().min(1).max(12).default(4),
+});
+
+const updateScheduleSchema = z.object({
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  title: z.string({ required_error: 'Judul wajib diisi.' }).min(1, 'Judul wajib diisi.').max(150),
+  venuePlaceName: z.string({ required_error: 'Tempat wajib diisi.' }).min(1, 'Tempat wajib diisi.').max(150),
+  venueType: z.string().default('MASJID'),
+  startTime: z.string({ required_error: 'Waktu mulai wajib diisi.' }),
+  endTime: z.string({ required_error: 'Waktu selesai wajib diisi.' }),
+  primaryTeacherId: z.string({ required_error: 'Ustadz utama wajib diisi.' }).uuid('ID Ustadz utama tidak valid.'),
+  substituteTeacherId: z.string().uuid().optional().nullable().or(z.literal('')),
+  targetScope: z.nativeEnum(RollingTargetScope).default(RollingTargetScope.WILAYAH_UMUM),
+  status: z.nativeEnum(ScheduleStatus).default(ScheduleStatus.SCHEDULED),
+  notes: z.string().max(1000).optional().nullable(),
+});
 
 function parseArrayField(formData: FormData, fieldName: string): string[] {
   const val = formData.get(fieldName) as string;
@@ -28,20 +72,11 @@ function parseArrayField(formData: FormData, fieldName: string): string[] {
 }
 
 export async function createSchedule(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk membuat jadwal.' };
   }
-
-  const title = (formData.get('title') as string)?.trim();
-  const venuePlaceName = (formData.get('venuePlaceName') as string)?.trim();
-  const venueType = (formData.get('venueType') as string) || 'MASJID';
-  const startTimeStr = formData.get('startTime') as string;
-  const endTimeStr = formData.get('endTime') as string;
 
   let selectedTeacherIds = parseArrayField(formData, 'selectedTeacherIds');
   let primaryTeacherId = (formData.get('primaryTeacherId') as string)?.trim();
@@ -52,24 +87,46 @@ export async function createSchedule(formData: FormData) {
     selectedTeacherIds.unshift(primaryTeacherId);
   }
 
-  const substituteTeacherId = (formData.get('substituteTeacherId') as string)?.trim() || null;
+  const rawInput = {
+    title: (formData.get('title') as string)?.trim(),
+    venuePlaceName: (formData.get('venuePlaceName') as string)?.trim(),
+    venueType: (formData.get('venueType') as string) || 'MASJID',
+    startTime: formData.get('startTime') as string,
+    endTime: formData.get('endTime') as string,
+    primaryTeacherId,
+    substituteTeacherId: (formData.get('substituteTeacherId') as string)?.trim() || null,
+    targetScope: ((formData.get('targetScope') as string) || 'WILAYAH_UMUM') as RollingTargetScope,
+    organizationId: (formData.get('organizationId') as string)?.trim() || null,
+    notes: (formData.get('notes') as string)?.trim() || null,
+    isRecurringWeekly: formData.get('isRecurringWeekly') === 'true',
+    recurringWeeks: parseInt((formData.get('recurringWeeks') as string) || '4', 10),
+  };
+
+  const validation = createScheduleSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return { error: formatZodError(validation.error) };
+  }
+
+  const {
+    title,
+    venuePlaceName,
+    venueType,
+    startTime: startTimeStr,
+    endTime: endTimeStr,
+    substituteTeacherId,
+    targetScope,
+    notes,
+    isRecurringWeekly,
+    recurringWeeks,
+  } = validation.data;
 
   // Target Scope & Target Items
-  const targetScope = ((formData.get('targetScope') as string) || 'WILAYAH_UMUM') as RollingTargetScope;
   const selectedClassIds = parseArrayField(formData, 'selectedClassIds');
   const selectedGenerationIds = parseArrayField(formData, 'selectedGenerationIds');
   const selectedMaterialIds = parseArrayField(formData, 'selectedMaterialIds').slice(0, 3); // Maks. 3 materi
 
   // Jenis kegiatan default REGULAR_ROUTINE
   const scheduleType = ScheduleType.REGULAR_ROUTINE;
-
-  const isRecurringWeekly = formData.get('isRecurringWeekly') === 'true';
-  const recurringWeeks = parseInt((formData.get('recurringWeeks') as string) || '4', 10);
-  const notes = (formData.get('notes') as string)?.trim() || null;
-
-  if (!title || !venuePlaceName || !startTimeStr || !endTimeStr || !primaryTeacherId) {
-    return { error: 'Judul, tempat, waktu mulai & selesai, dan Ustadz utama wajib diisi.' };
-  }
 
   const startDate = new Date(startTimeStr);
   const endDate = new Date(endTimeStr);
@@ -81,11 +138,6 @@ export async function createSchedule(formData: FormData) {
   if (endDate <= startDate) {
     return { error: 'Waktu selesai harus lebih lambat dari waktu mulai.' };
   }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
 
   if (!userProfile?.organizationId) {
     return { error: 'Anda belum terdaftar dalam organisasi wilayah.' };
@@ -242,21 +294,11 @@ export async function createSchedule(formData: FormData) {
 }
 
 export async function updateSchedule(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mengedit jadwal.' };
   }
-
-  const scheduleId = formData.get('scheduleId') as string;
-  const title = (formData.get('title') as string)?.trim();
-  const venuePlaceName = (formData.get('venuePlaceName') as string)?.trim();
-  const venueType = (formData.get('venueType') as string) || 'MASJID';
-  const startTimeStr = formData.get('startTime') as string;
-  const endTimeStr = formData.get('endTime') as string;
 
   let selectedTeacherIds = parseArrayField(formData, 'selectedTeacherIds');
   let primaryTeacherId = (formData.get('primaryTeacherId') as string)?.trim();
@@ -267,20 +309,42 @@ export async function updateSchedule(formData: FormData) {
     selectedTeacherIds.unshift(primaryTeacherId);
   }
 
-  const substituteTeacherId = (formData.get('substituteTeacherId') as string)?.trim() || null;
+  const rawInput = {
+    scheduleId: (formData.get('scheduleId') as string)?.trim(),
+    title: (formData.get('title') as string)?.trim(),
+    venuePlaceName: (formData.get('venuePlaceName') as string)?.trim(),
+    venueType: (formData.get('venueType') as string) || 'MASJID',
+    startTime: formData.get('startTime') as string,
+    endTime: formData.get('endTime') as string,
+    primaryTeacherId,
+    substituteTeacherId: (formData.get('substituteTeacherId') as string)?.trim() || null,
+    targetScope: ((formData.get('targetScope') as string) || 'WILAYAH_UMUM') as RollingTargetScope,
+    status: (formData.get('status') as ScheduleStatus) || ScheduleStatus.SCHEDULED,
+    notes: (formData.get('notes') as string)?.trim() || null,
+  };
+
+  const validation = updateScheduleSchema.safeParse(rawInput);
+  if (!validation.success) {
+    return { error: formatZodError(validation.error) };
+  }
+
+  const {
+    scheduleId,
+    title,
+    venuePlaceName,
+    venueType,
+    startTime: startTimeStr,
+    endTime: endTimeStr,
+    substituteTeacherId,
+    targetScope,
+    status,
+    notes,
+  } = validation.data;
 
   // Target Scope & Target Items
-  const targetScope = ((formData.get('targetScope') as string) || 'WILAYAH_UMUM') as RollingTargetScope;
   const selectedClassIds = parseArrayField(formData, 'selectedClassIds');
   const selectedGenerationIds = parseArrayField(formData, 'selectedGenerationIds');
   const selectedMaterialIds = parseArrayField(formData, 'selectedMaterialIds').slice(0, 3); // Maks. 3 materi
-
-  const status = (formData.get('status') as ScheduleStatus) || ScheduleStatus.SCHEDULED;
-  const notes = (formData.get('notes') as string)?.trim() || null;
-
-  if (!scheduleId || !title || !venuePlaceName || !startTimeStr || !endTimeStr || !primaryTeacherId) {
-    return { error: 'ID jadwal, judul, tempat, waktu, dan Ustadz utama wajib diisi.' };
-  }
 
   const startDate = new Date(startTimeStr);
   const endDate = new Date(endTimeStr);
@@ -307,11 +371,6 @@ export async function updateSchedule(formData: FormData) {
   if (!existingSchedule) {
     return { error: 'Jadwal pengajian tidak ditemukan.' };
   }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
 
   const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
@@ -489,21 +548,21 @@ export async function updateSchedule(formData: FormData) {
 }
 
 export async function deleteSchedule(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk menghapus jadwal.' };
   }
 
-  if (!scheduleId) {
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
     return { error: 'ID jadwal tidak valid.' };
   }
 
+  const validatedScheduleId = parsedScheduleId.data;
+
   const existingSchedule = await prisma.schedule.findUnique({
-    where: { id: scheduleId },
+    where: { id: validatedScheduleId },
     select: {
       id: true,
       organizationId: true,
@@ -515,11 +574,6 @@ export async function deleteSchedule(scheduleId: string) {
   if (!existingSchedule) {
     return { error: 'Jadwal pengajian tidak ditemukan.' };
   }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
 
   const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
@@ -568,25 +622,26 @@ export async function deleteSchedule(scheduleId: string) {
 }
 
 export async function updateScheduleStatus(scheduleId: string, status: ScheduleStatus) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mengubah status jadwal.' };
   }
 
-  if (!scheduleId || !status) {
-    return { error: 'ID jadwal dan status baru wajib ditentukan.' };
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    return { error: 'ID jadwal tidak valid.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
+  const parsedStatus = updateStatusSchema.safeParse(status);
+  if (!parsedStatus.success) {
+    return { error: 'Status baru wajib ditentukan dan harus valid.' };
+  }
 
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const validatedScheduleId = parsedScheduleId.data;
+  const validatedStatus = parsedStatus.data;
+
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
 
   // Hanya PJ Wilayah yang boleh mengubah status sesi
@@ -668,21 +723,20 @@ export async function confirmAndDispatchScheduleChangeNotification(params: {
   scheduleId: string;
   changeDescription: string;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mengirimkan notifikasi.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
+  const validation = confirmNotificationSchema.safeParse(params);
+  if (!validation.success) {
+    return { error: formatZodError(validation.error) };
+  }
 
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const { scheduleId, changeDescription } = validation.data;
+
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) =>
     ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r)
   );
@@ -696,12 +750,12 @@ export async function confirmAndDispatchScheduleChangeNotification(params: {
 
   try {
     const result = await dispatchConfirmedScheduleChangeNotification({
-      scheduleId: params.scheduleId,
-      changeDescription: params.changeDescription,
+      scheduleId,
+      changeDescription,
     });
 
     revalidatePath('/jadwal');
-    revalidatePath(`/jadwal/${params.scheduleId}`);
+    revalidatePath(`/jadwal/${scheduleId}`);
     revalidatePath('/dashboard');
 
     return result;
@@ -714,21 +768,27 @@ export async function confirmAndDispatchScheduleChangeNotification(params: {
 // Delegasi Badal Pengajar (Substitute Teacher)
 // Boleh dilakukan oleh PJ Wilayah ATAU Ustadz Pengampu / Wali Kelas pada sesi terkait
 export async function assignSubstituteTeacher(scheduleId: string, substituteTeacherId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mendelegasikan badal.' };
   }
 
-  if (!scheduleId || !substituteTeacherId) {
-    return { error: 'ID jadwal dan Ustadz badal wajib diisi.' };
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    return { error: 'ID jadwal tidak valid.' };
   }
 
+  const parsedSubstituteId = substituteTeacherIdSchema.safeParse(substituteTeacherId);
+  if (!parsedSubstituteId.success) {
+    return { error: 'ID ustadz badal tidak valid.' };
+  }
+
+  const validatedScheduleId = parsedScheduleId.data;
+  const validatedSubstituteId = parsedSubstituteId.data;
+
   const schedule = await prisma.schedule.findUnique({
-    where: { id: scheduleId },
+    where: { id: validatedScheduleId },
     include: {
       teachers: true,
       class: true,
@@ -740,12 +800,7 @@ export async function assignSubstituteTeacher(scheduleId: string, substituteTeac
     return { error: 'Jadwal pengajian tidak ditemukan.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
-
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
   const isAssignedTeacher = schedule.teachers.some((t) => t.teacherId === user.id);
   const isHomeroomTeacher =
@@ -806,21 +861,21 @@ export async function assignSubstituteTeacher(scheduleId: string, substituteTeac
 // Batalkan atau Cabut Badal Pengajar
 // Boleh dilakukan oleh PJ Wilayah ATAU Ustadz Pengampu / Wali Kelas pada sesi terkait
 export async function removeSubstituteTeacher(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mencabut badal.' };
   }
 
-  if (!scheduleId) {
-    return { error: 'ID jadwal wajib diisi.' };
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    return { error: 'ID jadwal tidak valid.' };
   }
 
+  const validatedScheduleId = parsedScheduleId.data;
+
   const schedule = await prisma.schedule.findUnique({
-    where: { id: scheduleId },
+    where: { id: validatedScheduleId },
     include: {
       teachers: true,
       class: true,
@@ -832,12 +887,7 @@ export async function removeSubstituteTeacher(scheduleId: string) {
     return { error: 'Jadwal pengajian tidak ditemukan.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
-
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
   const isAssignedTeacher = schedule.teachers.some((t) => t.teacherId === user.id);
   const isHomeroomTeacher =
@@ -870,35 +920,36 @@ export async function removeSubstituteTeacher(scheduleId: string) {
 
 // Persetujuan Pengajuan Jadwal oleh PJ Wilayah
 export async function approveScheduleProposal(scheduleId: string, notes?: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk menyetujui pengajuan jadwal.' };
   }
 
-  if (!scheduleId) {
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
     return { error: 'ID jadwal tidak valid.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
+  const parsedNotes = notesSchema.safeParse(notes);
+  if (!parsedNotes.success) {
+    return { error: 'Catatan persetujuan tidak valid.' };
+  }
 
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const validatedScheduleId = parsedScheduleId.data;
+  const validatedNotes = parsedNotes.data;
+
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
 
   if (!isManager) {
     return { error: 'Hanya PJ Wilayah yang berwenang menyetujui pengajuan jadwal.' };
   }
 
-  const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile?.organizationId || null);
+  const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile.organizationId || null);
 
   const schedule = await prisma.schedule.findUnique({
-    where: { id: scheduleId },
+    where: { id: validatedScheduleId },
     select: { id: true, organizationId: true, approvalStatus: true, notes: true },
   });
 
@@ -911,14 +962,14 @@ export async function approveScheduleProposal(scheduleId: string, notes?: string
   }
 
   try {
-    const updatedNotes = notes?.trim()
+    const updatedNotes = validatedNotes?.trim()
       ? schedule.notes
-        ? `${schedule.notes}\n[Catatan Persetujuan PJ]: ${notes.trim()}`
-        : `[Catatan Persetujuan PJ]: ${notes.trim()}`
+        ? `${schedule.notes}\n[Catatan Persetujuan PJ]: ${validatedNotes.trim()}`
+        : `[Catatan Persetujuan PJ]: ${validatedNotes.trim()}`
       : undefined;
 
     await prisma.schedule.update({
-      where: { id: scheduleId },
+      where: { id: validatedScheduleId },
       data: {
         approvalStatus: ApprovalStatus.APPROVED,
         approvedByPjId: user.id,
@@ -927,7 +978,7 @@ export async function approveScheduleProposal(scheduleId: string, notes?: string
     });
 
     revalidatePath('/jadwal');
-    revalidatePath(`/jadwal/${scheduleId}`);
+    revalidatePath(`/jadwal/${validatedScheduleId}`);
     revalidatePath('/dashboard');
     return { success: true, message: 'Pengajuan jadwal pengajian berhasil disetujui dan kini aktif.' };
   } catch (err: any) {
@@ -938,35 +989,36 @@ export async function approveScheduleProposal(scheduleId: string, notes?: string
 
 // Penolakan Pengajuan Jadwal oleh PJ Wilayah
 export async function rejectScheduleProposal(scheduleId: string, rejectionReason: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk menolak pengajuan jadwal.' };
   }
 
-  if (!scheduleId || !rejectionReason?.trim()) {
-    return { error: 'Alasan penolakan pengajuan jadwal wajib diisi.' };
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    return { error: 'ID jadwal tidak valid.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
+  const parsedReason = rejectionReasonSchema.safeParse(rejectionReason);
+  if (!parsedReason.success) {
+    return { error: formatZodError(parsedReason.error) };
+  }
 
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const validatedScheduleId = parsedScheduleId.data;
+  const validatedReason = parsedReason.data;
+
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
 
   if (!isManager) {
     return { error: 'Hanya PJ Wilayah yang berwenang menolak pengajuan jadwal.' };
   }
 
-  const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile?.organizationId || null);
+  const scopedOrgIds = await getScopedOrganizationIds(roleCodes, userProfile.organizationId || null);
 
   const schedule = await prisma.schedule.findUnique({
-    where: { id: scheduleId },
+    where: { id: validatedScheduleId },
     select: { id: true, organizationId: true, notes: true },
   });
 
@@ -979,13 +1031,13 @@ export async function rejectScheduleProposal(scheduleId: string, rejectionReason
   }
 
   try {
-    const trimmedReason = rejectionReason.trim();
+    const trimmedReason = validatedReason.trim();
     const updatedNotes = schedule.notes
       ? `${schedule.notes}\n[Alasan Penolakan PJ]: ${trimmedReason}`
       : `[Alasan Penolakan PJ]: ${trimmedReason}`;
 
     await prisma.schedule.update({
-      where: { id: scheduleId },
+      where: { id: validatedScheduleId },
       data: {
         approvalStatus: ApprovalStatus.REJECTED,
         approvedByPjId: user.id,
@@ -994,7 +1046,7 @@ export async function rejectScheduleProposal(scheduleId: string, rejectionReason
     });
 
     revalidatePath('/jadwal');
-    revalidatePath(`/jadwal/${scheduleId}`);
+    revalidatePath(`/jadwal/${validatedScheduleId}`);
     revalidatePath('/dashboard');
     return { success: true, message: 'Pengajuan jadwal berhasil ditolak.' };
   } catch (err: any) {
@@ -1007,21 +1059,20 @@ export async function rejectScheduleProposal(scheduleId: string, rejectionReason
  * Server Action: Siaran / Broadcast Pengingat WhatsApp On-Demand oleh PJ / Pengajar
  */
 export async function broadcastScheduleReminderAction(scheduleId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     return { error: 'Anda harus masuk untuk mengirimkan siaran pengingat.' };
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: { roles: true },
-  });
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    return { error: 'ID jadwal tidak valid.' };
+  }
 
-  const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
+  const validatedScheduleId = parsedScheduleId.data;
+
+  const roleCodes = (userProfile.roles.map((r) => r.role) || []) as UserRole[];
   const isManager = roleCodes.some((r) => ['PJ_DAERAH', 'ADMIN_MASTER', 'PJ_DESA', 'PJ_KELOMPOK'].includes(r));
   const isTeacher = roleCodes.includes('PENGAJAR') || roleCodes.includes('WALI_KELAS');
 
@@ -1030,7 +1081,7 @@ export async function broadcastScheduleReminderAction(scheduleId: string) {
   }
 
   try {
-    const result = await broadcastScheduleReminder(scheduleId);
+    const result = await broadcastScheduleReminder(validatedScheduleId);
     return result;
   } catch (err: any) {
     console.error('Error in broadcastScheduleReminderAction:', err);

@@ -11,6 +11,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import CustomSelect from '@/components/ui/CustomSelect';
+import ViewModeToggle from '@/components/ui/ViewModeToggle';
 
 interface GenerationFilterOption {
   id: string;
@@ -66,7 +67,7 @@ export default function ClassFilterBar({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 sticky top-0 z-20 bg-slate-50/90 backdrop-blur-md py-2.5 -my-1 rounded-2xl transition-shadow">
       {/* 1. Baris Kontrol Atas: Pencarian, Filter Tingkatan Wilayah, Filter Tahun Ajaran, & View Switcher */}
       <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
         {/* Input Pencarian */}
@@ -140,32 +141,12 @@ export default function ClassFilterBar({
           )}
 
           {/* View Mode Switcher (Grid / Table) */}
-          <div className="hidden md:inline-flex items-center p-0.5 rounded-2xl bg-slate-100/90 border border-slate-200/80 shadow-2xs shrink-0">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('grid')}
-              className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                viewMode === 'grid'
-                  ? 'bg-white text-emerald-700 shadow-xs font-semibold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-              title="Tampilan Kartu"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('table')}
-              className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white text-emerald-700 shadow-xs font-semibold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-              title="Tampilan Tabel"
-            >
-              <TableIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <ViewModeToggle
+            viewMode={viewMode}
+            onChange={onViewModeChange}
+            storageKey="sipanji_view_mode_classes"
+            size="sm"
+          />
         </div>
       </div>
 

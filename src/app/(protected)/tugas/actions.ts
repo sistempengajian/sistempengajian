@@ -1,9 +1,11 @@
 'use server';
 
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
 import { TaskType, SubmissionStatus, TierLevel } from '@prisma/client';
 import { generateMagicToken, verifyMagicToken } from '@/lib/magicToken';
 import { processMediaPayload, deleteUnusedMedia, deleteTaskMedia, uploadTaskImage } from '@/lib/storage/mediaUploader';
@@ -14,6 +16,60 @@ import {
   AssignmentConfig,
   formatTargetSasaranLabel,
 } from '@/lib/assignmentConfig';
+
+const assignmentIdSchema = z.string().uuid('ID tugas tidak valid.');
+const submissionIdSchema = z.string().uuid('ID pengumpulan tugas tidak valid.');
+const deleteMediaSchema = z.string().min(1, 'URL berkas media wajib diisi.');
+
+const createAssignmentSchema = z.object({
+  title: z.string({ required_error: 'Judul tugas wajib diisi.' }).min(1, 'Judul tugas wajib diisi.').max(150),
+  description: z.string().max(2000).optional().nullable(),
+  taskType: z.nativeEnum(TaskType).default(TaskType.DAILY_HABIT),
+  classId: z.string().uuid('ID kelas tidak valid.').optional().nullable().or(z.literal('')),
+  materialId: z.string().uuid('ID materi tidak valid.').optional().nullable().or(z.literal('')),
+  dueDate: z.string().optional().nullable().or(z.literal('')),
+  pointsReward: z.number().int().min(0).max(1000).default(20),
+  parentBonusPoints: z.number().int().min(0).max(500).default(10),
+  requiresParentVerification: z.boolean().default(false),
+  assignmentConfig: z.string().optional().nullable(),
+});
+
+const submitAssignmentSchema = z.object({
+  assignmentId: z.string().uuid('ID tugas tidak valid.'),
+  submissionText: z.string().max(5000).optional().nullable(),
+  mediaFileUrl: z.string().max(2000).optional().nullable(),
+});
+
+const gradeSubmissionSchema = z.object({
+  submissionId: z.string().uuid('ID pengumpulan tugas tidak valid.'),
+  score: z.number().min(0).max(100),
+  teacherFeedback: z.string().max(1000).optional().nullable(),
+  status: z.nativeEnum(SubmissionStatus).default(SubmissionStatus.GRADED),
+});
+
+const verifySubmissionByParentSchema = z.object({
+  submissionId: z.string().uuid('ID pengumpulan tugas tidak valid.'),
+  parentFeedback: z.string().max(1000).optional().nullable(),
+  magicToken: z.string().optional().nullable(),
+});
+
+const updateAssignmentSchema = z.object({
+  title: z.string({ required_error: 'Judul tugas wajib diisi.' }).min(1, 'Judul tugas wajib diisi.').max(150),
+  description: z.string().max(2000).optional().nullable(),
+  taskType: z.nativeEnum(TaskType).default(TaskType.DAILY_HABIT),
+  classId: z.string().uuid('ID kelas tidak valid.').optional().nullable().or(z.literal('')),
+  materialId: z.string().uuid('ID materi tidak valid.').optional().nullable().or(z.literal('')),
+  dueDate: z.string().optional().nullable().or(z.literal('')),
+  pointsReward: z.number().int().min(0).max(1000).default(20),
+  parentBonusPoints: z.number().int().min(0).max(500).default(10),
+  requiresParentVerification: z.boolean().default(false),
+  assignmentConfig: z.string().optional().nullable(),
+});
+
+const updateAssignmentGradersSchema = z.object({
+  assignmentId: z.string().uuid('ID tugas tidak valid.'),
+  graderIds: z.array(z.string().uuid('ID pengajar tidak valid.')),
+});
 
 /**
  * Memeriksa apakah pengguna memiliki hak akses penuh untuk mengelola tugas
@@ -696,20 +752,36 @@ export async function createAssignment(formData: FormData) {
       return { error: 'Tidak terautentikasi' };
     }
 
-    const title = (formData.get('title') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    const taskType = (formData.get('taskType') as TaskType) || TaskType.DAILY_HABIT;
-    const classId = (formData.get('classId') as string) || null;
-    const materialId = (formData.get('materialId') as string) || null;
-    const dueDateStr = formData.get('dueDate') as string;
-    const pointsReward = parseInt((formData.get('pointsReward') as string) || '20', 10);
-    const parentBonusPoints = parseInt((formData.get('parentBonusPoints') as string) || '10', 10);
-    const requiresParentVerification = formData.get('requiresParentVerification') === 'true';
-    const assignmentConfig = (formData.get('assignmentConfig') as string) || null;
+    const rawInput = {
+      title: (formData.get('title') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      taskType: (formData.get('taskType') as TaskType) || TaskType.DAILY_HABIT,
+      classId: (formData.get('classId') as string) || null,
+      materialId: (formData.get('materialId') as string) || null,
+      dueDate: (formData.get('dueDate') as string) || null,
+      pointsReward: parseInt((formData.get('pointsReward') as string) || '20', 10),
+      parentBonusPoints: parseInt((formData.get('parentBonusPoints') as string) || '10', 10),
+      requiresParentVerification: formData.get('requiresParentVerification') === 'true',
+      assignmentConfig: (formData.get('assignmentConfig') as string) || null,
+    };
 
-    if (!title) {
-      return { error: 'Judul tugas wajib diisi.' };
+    const validation = createAssignmentSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const {
+      title,
+      description,
+      taskType,
+      classId,
+      materialId,
+      dueDate: dueDateStr,
+      pointsReward,
+      parentBonusPoints,
+      requiresParentVerification,
+      assignmentConfig,
+    } = validation.data;
 
     const teacher = await prisma.user.findUnique({
       where: { id: authUser.id },
@@ -779,13 +851,18 @@ export async function submitAssignment(formData: FormData) {
       return { error: 'Tidak terautentikasi' };
     }
 
-    const assignmentId = formData.get('assignmentId') as string;
-    const submissionText = (formData.get('submissionText') as string) || null;
-    const mediaFileUrl = (formData.get('mediaFileUrl') as string) || null;
+    const rawInput = {
+      assignmentId: formData.get('assignmentId') as string,
+      submissionText: (formData.get('submissionText') as string) || null,
+      mediaFileUrl: (formData.get('mediaFileUrl') as string) || null,
+    };
 
-    if (!assignmentId) {
-      return { error: 'ID Tugas tidak valid.' };
+    const validation = submitAssignmentSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const { assignmentId, submissionText, mediaFileUrl } = validation.data;
 
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
@@ -866,7 +943,7 @@ export async function submitAssignment(formData: FormData) {
     // Audio -> Cloudflare R2 (Zero Egress)
     // Jika kredensial belum ada -> Fallback ke Supabase Storage / Mock
     const isAudioTask = assignment.taskType === TaskType.AUDIO_MEMORIZATION;
-    const uploadedMediaUrl = await processMediaPayload(mediaFileUrl, isAudioTask);
+    const uploadedMediaUrl = await processMediaPayload(mediaFileUrl ?? null, isAudioTask);
 
     // Otomatis bersihkan file lama dari Cloudinary/R2 jika ada file yang dihapus/diganti
     if (existingSubmission?.mediaFileUrl) {
@@ -941,6 +1018,16 @@ export async function gradeAssignmentSubmission({
   status?: SubmissionStatus;
 }) {
   try {
+    const validation = gradeSubmissionSchema.safeParse({
+      submissionId,
+      score,
+      teacherFeedback,
+      status,
+    });
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
+    }
+
     const supabase = await createClient();
     const {
       data: { user: authUser },
@@ -1049,6 +1136,15 @@ export async function verifySubmissionByParent({
   magicToken?: string;
 }) {
   try {
+    const validation = verifySubmissionByParentSchema.safeParse({
+      submissionId,
+      parentFeedback,
+      magicToken,
+    });
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
+    }
+
     let parentUserId: string | null = null;
 
     if (magicToken) {
@@ -1117,17 +1213,23 @@ export async function verifySubmissionByParent({
  */
 export async function getParentMagicLink(submissionId: string) {
   try {
+    const parsed = submissionIdSchema.safeParse(submissionId);
+    if (!parsed.success) {
+      return { error: 'ID pengumpulan tugas tidak valid.' };
+    }
+    const validatedSubmissionId = parsed.data;
+
     const verification = await prisma.assignmentParentVerification.findUnique({
-      where: { submissionId },
+      where: { submissionId: validatedSubmissionId },
     });
 
     if (!verification || !verification.magicToken) {
-      const token = generateMagicToken(submissionId, undefined, 72);
+      const token = generateMagicToken(validatedSubmissionId, undefined, 72);
       await prisma.assignmentParentVerification.upsert({
-        where: { submissionId },
+        where: { submissionId: validatedSubmissionId },
         update: { magicToken: token, tokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000) },
         create: {
-          submissionId,
+          submissionId: validatedSubmissionId,
           parentUserId: '00000000-0000-0000-0000-000000000000',
           magicToken: token,
           tokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
@@ -1147,6 +1249,11 @@ export async function getParentMagicLink(submissionId: string) {
  */
 export async function deleteSubmissionMediaAction(mediaUrl: string) {
   try {
+    const parsed = deleteMediaSchema.safeParse(mediaUrl);
+    if (!parsed.success) {
+      return { error: 'URL berkas media wajib diisi.' };
+    }
+
     const supabase = await createClient();
     const {
       data: { user: authUser },
@@ -1169,6 +1276,11 @@ export async function deleteSubmissionMediaAction(mediaUrl: string) {
  */
 export async function deleteAssignment(assignmentId: string) {
   try {
+    const parsed = assignmentIdSchema.safeParse(assignmentId);
+    if (!parsed.success) {
+      return { error: 'ID tugas tidak valid.' };
+    }
+
     const supabase = await createClient();
     const {
       data: { user: authUser },
@@ -1653,18 +1765,39 @@ export async function updateAssignment(assignmentId: string, formData: FormData)
       return { error: 'Anda tidak memiliki hak akses untuk mengedit tugas ini. Hanya pembuat tugas atau PJ wilayah yang berwenang.' };
     }
 
-    const title = (formData.get('title') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    const materialId = (formData.get('materialId') as string) || null;
-    const dueDateStr = formData.get('dueDate') as string;
-    const pointsReward = parseInt((formData.get('pointsReward') as string) || '20', 10);
-    const parentBonusPoints = parseInt((formData.get('parentBonusPoints') as string) || '10', 10);
-    const requiresParentVerification = formData.get('requiresParentVerification') === 'true';
-    const assignmentConfig = (formData.get('assignmentConfig') as string) || null;
-
-    if (!title) {
-      return { error: 'Judul tugas wajib diisi.' };
+    const parsedAssignmentId = assignmentIdSchema.safeParse(assignmentId);
+    if (!parsedAssignmentId.success) {
+      return { error: 'ID tugas tidak valid.' };
     }
+
+    const rawInput = {
+      title: (formData.get('title') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      taskType: (formData.get('taskType') as TaskType) || TaskType.DAILY_HABIT,
+      classId: (formData.get('classId') as string) || null,
+      materialId: (formData.get('materialId') as string) || null,
+      dueDate: (formData.get('dueDate') as string) || null,
+      pointsReward: parseInt((formData.get('pointsReward') as string) || '20', 10),
+      parentBonusPoints: parseInt((formData.get('parentBonusPoints') as string) || '10', 10),
+      requiresParentVerification: formData.get('requiresParentVerification') === 'true',
+      assignmentConfig: (formData.get('assignmentConfig') as string) || null,
+    };
+
+    const validation = updateAssignmentSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
+    }
+
+    const {
+      title,
+      description,
+      materialId,
+      dueDate: dueDateStr,
+      pointsReward,
+      parentBonusPoints,
+      requiresParentVerification,
+      assignmentConfig,
+    } = validation.data;
 
     // Proses upload foto lampiran jika ada Base64
     let finalConfigStr = assignmentConfig;
@@ -1901,6 +2034,14 @@ export async function updateAssignmentGraders({
   graderIds: string[];
 }) {
   try {
+    const validation = updateAssignmentGradersSchema.safeParse({
+      assignmentId,
+      graderIds,
+    });
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
+    }
+
     const supabase = await createClient();
     const {
       data: { user: authUser },

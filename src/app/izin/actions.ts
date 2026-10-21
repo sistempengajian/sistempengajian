@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { isHoneypotTriggered } from '@/lib/security-utils';
 import {
   verifyStudentAbsenceRequestToken,
   verifyStudentAbsenceApprovalToken,
@@ -190,12 +191,21 @@ export async function submitStudentAbsenceRequest({
   absenceType,
   notes,
   attachmentUrl,
+  website_url,
 }: {
   token: string;
   absenceType: 'IZIN' | 'SAKIT';
   notes: string;
   attachmentUrl?: string;
+  website_url?: string;
 }) {
+  if (isHoneypotTriggered({ website_url })) {
+    return {
+      success: false,
+      error: 'Permintaan tidak valid terdeteksi (bot protection).',
+    };
+  }
+
   const verified = verifyStudentAbsenceRequestToken(token);
   if (!verified.valid || !verified.scheduleId || !verified.studentId || !verified.submitterUserId) {
     return {

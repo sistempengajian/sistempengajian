@@ -21,11 +21,15 @@ import {
   Info,
   ShieldCheck,
   Eye,
+  WifiOff,
+  CloudUpload,
 } from 'lucide-react';
 import { recordManualAttendance, markAllPresent, verifyAbsenceConfirmation } from '@/app/(protected)/presensi/actions';
 import { AttendanceStatus, AttendanceMethod, AbsenceConfirmationStatus } from '@prisma/client';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmModal';
+import { enqueueOfflineAttendance } from '@/lib/offline/attendanceQueue';
+import { useOfflineAttendanceSync } from '@/lib/offline/useOfflineAttendanceSync';
 
 export interface AbsenceConfirmationItem {
   id: string;
@@ -103,6 +107,13 @@ export default function ManualAttendanceSheet({
 
   const toast = useToast();
   const { open: openConfirm, ConfirmModalComponent } = useConfirm();
+
+  const { isOnline, pendingCount, isSyncing, syncNow, refreshPendingCount } =
+    useOfflineAttendanceSync({
+      onSyncComplete: () => {
+        onRefresh?.();
+      },
+    });
 
   // Sinkronkan state internal saat props santri dari parent diperbarui secara realtime
   useEffect(() => {
@@ -185,6 +196,10 @@ export default function ManualAttendanceSheet({
       return;
     }
 
+    const previousStatus = currentStudent?.currentStatus || AttendanceStatus.ALPA;
+    const previousMethod = currentStudent?.method;
+    const previousCheckInTime = currentStudent?.checkInTime;
+
     // 2. Naikkan nomor versi request untuk santri ini agar respons usang diabaikan
     const nextVersion = (requestVersionRef.current.get(studentId) || 0) + 1;
     requestVersionRef.current.set(studentId, nextVersion);
@@ -220,6 +235,18 @@ export default function ManualAttendanceSheet({
     const timer = setTimeout(async () => {
       debounceTimersRef.current.delete(studentId);
 
+      // Jika koneksi sedang offline, langsung simpan ke antrean offline IndexedDB
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await enqueueOfflineAttendance({
+          sessionId,
+          studentId,
+          status: newStatus,
+        });
+        await refreshPendingCount();
+        toast.info('Mode Offline: Data absensi tersimpan aman di perangkat.');
+        return;
+      }
+
       // Kunci tombol santri ini selama proses simpan ke server berlangsung (in-flight lock)
       setSavingStudentIds((prev) => new Set(prev).add(studentId));
 
@@ -232,6 +259,35 @@ export default function ManualAttendanceSheet({
         }
       } catch (err) {
         console.error('Gagal mencatat absensi manual:', err);
+        // Jika gagal karena jaringan terputus tiba-tiba, amankan ke IndexedDB offline
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          await enqueueOfflineAttendance({
+            sessionId,
+            studentId,
+            status: newStatus,
+          });
+          await refreshPendingCount();
+          toast.info('Koneksi terputus: Absensi disimpan ke antrean lokal perangkat.');
+        } else {
+          // Rollback state jika error server
+          setStudents((prev) =>
+            prev.map((s) => {
+              if (s.id === studentId) {
+                return {
+                  ...s,
+                  currentStatus: previousStatus,
+                  method: previousMethod,
+                  checkInTime: previousCheckInTime,
+                };
+              }
+              return s;
+            })
+          );
+          onStudentStatusChange?.(studentId, previousStatus);
+          toast.error(
+            'Gagal mencatat absensi: ' + (err instanceof Error ? err.message : 'Terjadi kesalahan')
+          );
+        }
       } finally {
         // Buka kembali kunci tombol setelah server selesai merespons
         setSavingStudentIds((prev) => {
@@ -333,7 +389,33 @@ export default function ManualAttendanceSheet({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Badge Indikator Status Offline / Antrean Sinkronisasi */}
+          {(!isOnline || pendingCount > 0) && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200/90 text-amber-900 shadow-2xs">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  !isOnline ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                }`}
+              />
+              <span className="flex items-center gap-1">
+                {!isOnline ? 'Mode Offline' : 'Tersambung Kembali'}
+                {pendingCount > 0 && ` — ${pendingCount} antrean lokal`}
+              </span>
+              {isOnline && pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => syncNow()}
+                  disabled={isSyncing}
+                  className="ml-1 text-[11px] underline font-extrabold hover:text-amber-950 cursor-pointer flex items-center gap-1"
+                >
+                  <CloudUpload className="w-3 h-3" />
+                  <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkron Sekarang'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {onRefresh && (
             <button
               type="button"

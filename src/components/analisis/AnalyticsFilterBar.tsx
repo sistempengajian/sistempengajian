@@ -142,7 +142,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   );
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
+    <div className="rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-md p-4 sm:p-5 shadow-xs sticky top-0 z-20 transition-shadow">
       <div className="flex flex-col gap-4">
         {/* Row 1: Scope Tabs & Entity Selector */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">

@@ -1,9 +1,11 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
 import {
   generateSessionSecret,
   generateQrPayload,
@@ -14,6 +16,71 @@ import { AttendanceStatus, AttendanceMethod, AbsenceReasonType, AbsenceConfirmat
 import crypto from 'crypto';
 import { uploadTaskImage } from '@/lib/storage/mediaUploader';
 import { formatWibTime } from '@/lib/utils';
+
+const sessionIdSchema = z.string().uuid('ID sesi presensi tidak valid.');
+const scheduleIdSchema = z.string().uuid('ID jadwal tidak valid.');
+const studentIdSchema = z.string().uuid('ID santri tidak valid.');
+const confirmationIdSchema = z.string().uuid('ID surat izin tidak valid.');
+
+const targetCapaianInputSchema = z.object({
+  checklistItemId: z.string().uuid('ID capaian tidak valid.'),
+  score: z.number().nullable().optional(),
+  isCompleted: z.boolean(),
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED']).optional(),
+  teacherFeedback: z.string().max(1000).optional(),
+  pointsWeight: z.number().optional(),
+});
+
+const saveComprehensiveEvaluationSchema = z.object({
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  studentId: z.string().uuid('ID santri tidak valid.'),
+  adabScore: z.number().min(0).max(100),
+  keaktifanScore: z.number().min(0).max(100),
+  teacherPrivateNote: z.string().max(2000).optional().nullable(),
+  targetCapaianUpdates: z.array(targetCapaianInputSchema).optional(),
+});
+
+const saveBulkComprehensiveEvaluationSchema = z.object({
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  studentIds: z.array(z.string().uuid('ID santri tidak valid.')).min(1, 'Pilih minimal satu santri.'),
+  adabScore: z.number().min(0).max(100),
+  keaktifanScore: z.number().min(0).max(100),
+  teacherPrivateNote: z.string().max(2000).optional().nullable(),
+  targetCapaianUpdates: z.array(targetCapaianInputSchema).optional(),
+  applyToAllGenerations: z.boolean().optional(),
+});
+
+const recordManualAttendanceSchema = z.object({
+  sessionId: z.string().uuid('ID sesi presensi tidak valid.'),
+  studentId: z.string().uuid('ID santri tidak valid.'),
+  status: z.nativeEnum(AttendanceStatus),
+  notes: z.string().max(500).optional().nullable(),
+});
+
+const markAllPresentSchema = z.object({
+  sessionId: z.string().uuid('ID sesi presensi tidak valid.'),
+  studentIds: z.array(z.string().uuid('ID santri tidak valid.')),
+});
+
+const parentAbsenceRequestSchema = z.object({
+  studentId: z.string().uuid('ID santri tidak valid.'),
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  status: z.enum(['IZIN', 'SAKIT']),
+  notes: z.string().max(1000).optional().nullable(),
+  attachmentData: z.string().optional().nullable(),
+  removeAttachment: z.boolean().optional(),
+});
+
+const verifyAbsenceConfirmationSchema = z.object({
+  confirmationId: z.string().uuid('ID surat izin tidak valid.'),
+  decision: z.enum(['APPROVE', 'REJECT']),
+  reviewNotes: z.string().max(500).optional().nullable(),
+});
+
+const updateTeachingSummaryNotesSchema = z.object({
+  scheduleId: z.string().uuid('ID jadwal tidak valid.'),
+  teachingSummaryNotes: z.string().max(2000),
+});
 
 /**
  * Memeriksa apakah seorang santri terdaftar / berhak mengikuti jadwal pengajian tertentu
@@ -250,8 +317,13 @@ export async function checkTeacherScheduleAuthorization(
  * Memastikan data di server sinkron dengan tampilan default Alpa sejak sesi dibuka maupun saat ditutup.
  */
 export async function populateDefaultAbsenceForSession(sessionId: string) {
+  const parsedSessionId = sessionIdSchema.safeParse(sessionId);
+  if (!parsedSessionId.success) {
+    return { success: false, message: 'ID sesi presensi tidak valid.' };
+  }
+
   const session = await prisma.attendanceSession.findUnique({
-    where: { id: sessionId },
+    where: { id: parsedSessionId.data },
     include: {
       schedule: {
         include: {
@@ -375,6 +447,11 @@ export async function populateDefaultAbsenceForSession(sessionId: string) {
  * Mengisi status awal ALPA untuk seluruh santri terdaftar (Opsi B)
  */
 export async function getOrOpenSession(scheduleId: string) {
+  const parsedScheduleId = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedScheduleId.success) {
+    throw new Error('ID jadwal tidak valid.');
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -382,7 +459,7 @@ export async function getOrOpenSession(scheduleId: string) {
   }
 
   // Teacher authorization check (Utama, Pendamping, Badal, Wali Kelas, atau Pengurus/Admin):
-  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, scheduleId);
+  const authCheck = await checkTeacherScheduleAuthorization(userProfile.id, parsedScheduleId.data);
   if (!authCheck.isAuthorized) {
     throw new Error('Anda tidak memiliki otorisasi pengajar pada sesi jadwal ini.');
   }
@@ -504,6 +581,11 @@ export async function getLiveSessionToken(sessionId: string) {
  * Memastikan seluruh santri yang belum tercatat presensinya otomatis terisi ALPA di database
  */
 export async function closeAttendanceSession(sessionId: string) {
+  const parsedSessionId = sessionIdSchema.safeParse(sessionId);
+  if (!parsedSessionId.success) {
+    throw new Error('ID sesi presensi tidak valid.');
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -516,7 +598,7 @@ export async function closeAttendanceSession(sessionId: string) {
   );
 
   const existingSession = await prisma.attendanceSession.findUnique({
-    where: { id: sessionId },
+    where: { id: parsedSessionId.data },
     select: { scheduleId: true },
   });
 
@@ -558,6 +640,11 @@ export async function closeAttendanceSession(sessionId: string) {
  * Membuka kembali sesi presensi yang telah ditutup
  */
 export async function reopenAttendanceSession(sessionId: string) {
+  const parsedSessionId = sessionIdSchema.safeParse(sessionId);
+  if (!parsedSessionId.success) {
+    throw new Error('ID sesi presensi tidak valid.');
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -565,7 +652,7 @@ export async function reopenAttendanceSession(sessionId: string) {
   }
 
   const existingSession = await prisma.attendanceSession.findUnique({
-    where: { id: sessionId },
+    where: { id: parsedSessionId.data },
     select: { scheduleId: true },
   });
 
@@ -605,6 +692,14 @@ export async function reopenAttendanceSession(sessionId: string) {
  * Memproses scan QR oleh Santri via pemindai kamera
  */
 export async function submitStudentQrScan(rawContent: string, scheduleId: string) {
+  const parsedSchedule = scheduleIdSchema.safeParse(scheduleId);
+  if (!parsedSchedule.success) {
+    return { success: false, message: 'ID jadwal tidak valid.' };
+  }
+  if (!rawContent || typeof rawContent !== 'string') {
+    return { success: false, message: 'Kode QR tidak valid.' };
+  }
+
   const { authUser, dbUser, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!authUser || !effectiveUserId) {
@@ -730,6 +825,15 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
  * Memproses scan Dynamic QR oleh Orang Tua atas nama Ananda/Santri
  */
 export async function submitParentQrScan(rawContent: string, scheduleId: string, studentId: string) {
+  const parsedSchedule = scheduleIdSchema.safeParse(scheduleId);
+  const parsedStudent = studentIdSchema.safeParse(studentId);
+  if (!parsedSchedule.success || !parsedStudent.success) {
+    return { success: false, message: 'ID jadwal atau santri tidak valid.' };
+  }
+  if (!rawContent || typeof rawContent !== 'string') {
+    return { success: false, message: 'Kode QR tidak valid.' };
+  }
+
   const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!authUser || !effectiveUserId) {
@@ -896,6 +1000,16 @@ export async function recordManualAttendance(
   status: AttendanceStatus,
   notes?: string
 ) {
+  const validation = recordManualAttendanceSchema.safeParse({
+    sessionId,
+    studentId,
+    status,
+    notes,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -962,6 +1076,14 @@ export async function recordManualAttendance(
  * Menandai semua santri yang belum diabsen menjadi HADIR
  */
 export async function markAllPresent(sessionId: string, studentIds: string[]) {
+  const validation = markAllPresentSchema.safeParse({
+    sessionId,
+    studentIds,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -1035,6 +1157,14 @@ export async function markAllPresent(sessionId: string, studentIds: string[]) {
  * Memproses scan kartu fisik QR santri (Caberawit) oleh pengajar
  */
 export async function recordBatchCardScan(sessionId: string, cardQrContent: string) {
+  const parsedSession = sessionIdSchema.safeParse(sessionId);
+  if (!parsedSession.success) {
+    return { success: false, message: 'ID sesi presensi tidak valid.' };
+  }
+  if (!cardQrContent || typeof cardQrContent !== 'string') {
+    return { success: false, message: 'Kode QR kartu tidak valid.' };
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -1234,6 +1364,18 @@ export async function saveComprehensiveEvaluation({
   teacherPrivateNote?: string;
   targetCapaianUpdates?: TargetCapaianInput[];
 }) {
+  const validation = saveComprehensiveEvaluationSchema.safeParse({
+    scheduleId,
+    studentId,
+    adabScore,
+    keaktifanScore,
+    teacherPrivateNote,
+    targetCapaianUpdates,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const { authUser, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
   if (!authUser || !userProfile) {
@@ -1409,6 +1551,19 @@ export async function saveBulkComprehensiveEvaluation({
   targetCapaianUpdates?: TargetCapaianInput[];
   applyToAllGenerations?: boolean;
 }) {
+  const validation = saveBulkComprehensiveEvaluationSchema.safeParse({
+    scheduleId,
+    studentIds,
+    adabScore,
+    keaktifanScore,
+    teacherPrivateNote,
+    targetCapaianUpdates,
+    applyToAllGenerations,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -1777,6 +1932,18 @@ export async function submitParentAbsenceRequest({
   attachmentData?: string;
   removeAttachment?: boolean;
 }) {
+  const validation = parentAbsenceRequestSchema.safeParse({
+    studentId,
+    scheduleId,
+    status,
+    notes,
+    attachmentData,
+    removeAttachment,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -1950,6 +2117,15 @@ export async function verifyAbsenceConfirmation({
   decision: 'APPROVE' | 'REJECT';
   reviewNotes?: string;
 }) {
+  const validation = verifyAbsenceConfirmationSchema.safeParse({
+    confirmationId,
+    decision,
+    reviewNotes,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -2036,6 +2212,11 @@ export async function verifyAbsenceConfirmation({
  * Membatalkan / menghapus permohonan surat izin santri oleh orang tua (Hanya sebelum disetujui ustadz)
  */
 export async function cancelParentAbsenceRequest(confirmationId: string) {
+  const parsedConfirmation = confirmationIdSchema.safeParse(confirmationId);
+  if (!parsedConfirmation.success) {
+    throw new Error('ID surat izin tidak valid.');
+  }
+
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -2284,6 +2465,14 @@ export async function updateTeachingSummaryNotes({
   scheduleId: string;
   teachingSummaryNotes: string;
 }) {
+  const validation = updateTeachingSummaryNotesSchema.safeParse({
+    scheduleId,
+    teachingSummaryNotes,
+  });
+  if (!validation.success) {
+    throw new Error(formatZodError(validation.error));
+  }
+
   const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
   if (!authUser || !userProfile) {
     throw new Error('Tidak terautentikasi');

@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -14,7 +15,162 @@ import {
   canManageTargetUser,
   validateUserOrganizationRoleMatch,
 } from '@/lib/scoped-access';
+import { formatZodError } from '@/lib/security-utils';
 import { getUsersOverview } from './queries';
+
+const userRoleEnum = z.nativeEnum(UserRole);
+const genderEnum = z.nativeEnum(Gender);
+const parentRelationTypeEnum = z.nativeEnum(ParentRelationType);
+
+const createUserSchema = z.object({
+  fullName: z
+    .string({ required_error: 'Nama lengkap wajib diisi.' })
+    .min(2, 'Nama lengkap wajib diisi minimal 2 karakter.')
+    .max(100, 'Nama lengkap maksimal 100 karakter.')
+    .trim(),
+  username: z
+    .string()
+    .max(50, 'Username maksimal 50 karakter.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  email: z
+    .string()
+    .email('Format email tidak valid.')
+    .max(255)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  password: z
+    .string()
+    .min(6, 'Kata sandi awal wajib minimal 6 karakter.')
+    .max(100)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  phoneNumber: z
+    .string()
+    .max(25)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  gender: genderEnum,
+  birthPlace: z
+    .string()
+    .max(100)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  birthDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  status: z
+    .string()
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  roles: z
+    .array(userRoleEnum, { required_error: 'Pilih minimal satu peran (role) untuk pengguna ini.' })
+    .min(1, 'Pilih minimal satu peran (role) untuk pengguna ini.'),
+  organizationId: z
+    .string()
+    .uuid('ID wilayah organisasi tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  generationId: z
+    .string()
+    .uuid('ID jenjang generasi tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  parentRelation: z
+    .object({
+      parentId: z.string().uuid().optional().nullable().or(z.literal('')),
+      newParentName: z.string().max(100).optional().nullable().or(z.literal('')),
+      newParentPhone: z.string().max(25).optional().nullable().or(z.literal('')),
+      relationshipType: parentRelationTypeEnum,
+    })
+    .optional()
+    .nullable(),
+});
+
+const updateUserSchema = z.object({
+  fullName: z
+    .string({ required_error: 'Nama lengkap wajib diisi.' })
+    .min(2, 'Nama lengkap wajib diisi minimal 2 karakter.')
+    .max(100, 'Nama lengkap maksimal 100 karakter.')
+    .trim(),
+  username: z
+    .string()
+    .max(50, 'Username maksimal 50 karakter.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  email: z
+    .string()
+    .email('Format email tidak valid.')
+    .max(255)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  password: z
+    .string()
+    .min(6, 'Kata sandi minimal 6 karakter.')
+    .max(100)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  phoneNumber: z
+    .string()
+    .max(25)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  gender: genderEnum,
+  birthPlace: z
+    .string()
+    .max(100)
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  birthDate: z
+    .union([z.string(), z.date()])
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED'], {
+    errorMap: () => ({ message: 'Status pengguna tidak valid.' }),
+  }),
+  roles: z
+    .array(userRoleEnum, { required_error: 'Pilih minimal satu peran (role) untuk pengguna ini.' })
+    .min(1, 'Pilih minimal satu peran (role) untuk pengguna ini.'),
+  organizationId: z
+    .string()
+    .uuid('ID wilayah organisasi tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  generationId: z
+    .string()
+    .uuid('ID jenjang generasi tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+});
+
+const userIdSchema = z.string().uuid('ID pengguna tidak valid.');
+const relationIdSchema = z.string().uuid('ID relasi tidak valid.');
+const toggleStatusSchema = z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED'], {
+  errorMap: () => ({ message: 'Status pengguna tidak valid.' }),
+});
+const linkParentChildSchema = z.object({
+  parentId: z.string().uuid('ID orang tua tidak valid.'),
+  studentId: z.string().uuid('ID santri tidak valid.'),
+  relationshipType: parentRelationTypeEnum,
+});
 
 /**
  * Validasi otentikasi dan peran pengelola menggunakan resolusi akun terpadu
@@ -162,6 +318,11 @@ export async function syncUserSupabaseAuth(params: {
  */
 export async function createUser(input: CreateUserInput) {
   try {
+    const validation = createUserSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
     const { currentUser, isAdmin, roles } = await getAuthenticatedManager();
 
     // Validasi field wajib
@@ -342,6 +503,16 @@ export async function createUser(input: CreateUserInput) {
  */
 export async function updateUser(userId: string, input: UpdateUserInput) {
   try {
+    const idValidation = userIdSchema.safeParse(userId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
+
+    const validation = updateUserSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
     const { currentUser, roles } = await getAuthenticatedManager();
 
     const existingUser = await prisma.user.findUnique({
@@ -552,12 +723,17 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
  */
 export async function toggleUserStatus(userId: string, newStatus: string) {
   try {
-    const { currentUser } = await getAuthenticatedManager();
-
-    const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED'];
-    if (!validStatuses.includes(newStatus)) {
-      return { success: false, message: 'Status tidak valid.' };
+    const idValidation = userIdSchema.safeParse(userId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
     }
+
+    const statusValidation = toggleStatusSchema.safeParse(newStatus);
+    if (!statusValidation.success) {
+      return { success: false, message: formatZodError(statusValidation.error) };
+    }
+
+    const { currentUser } = await getAuthenticatedManager();
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -684,6 +860,15 @@ export async function linkParentChild(
   relationshipType: ParentRelationType = 'WALI'
 ) {
   try {
+    const validation = linkParentChildSchema.safeParse({
+      parentId: parentUserId,
+      studentId: studentUserId,
+      relationshipType,
+    });
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
     const { currentUser } = await getAuthenticatedManager();
 
     if (studentUserId === parentUserId) {
@@ -773,6 +958,11 @@ export async function linkParentChild(
  */
 export async function unlinkParentChild(relationId: string) {
   try {
+    const idValidation = relationIdSchema.safeParse(relationId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
+
     await getAuthenticatedManager();
 
     await prisma.studentParentRelation.delete({
@@ -848,6 +1038,11 @@ export async function searchParentCandidates(query: string) {
  */
 export async function deleteUser(userId: string) {
   try {
+    const idValidation = userIdSchema.safeParse(userId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
+
     const { currentUser } = await getAuthenticatedManager();
 
     const targetUser = await prisma.user.findUnique({

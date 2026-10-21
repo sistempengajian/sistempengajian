@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -7,9 +8,61 @@ import { normalizePhoneNumber, displayPhoneNumber, whatsAppClient } from '@/lib/
 import crypto from 'crypto';
 import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
 import { invalidateCache, cacheKey } from '@/lib/cache';
+import { formatZodError } from '@/lib/security-utils';
 
 const OTP_COOLDOWN_SECONDS = 60; // 60 detik jeda kirim ulang OTP
 const OTP_EXPIRY_MINUTES = 5; // 5 menit kedaluwarsa
+
+const updateProfileSchema = z.object({
+  fullName: z
+    .string({ required_error: 'Nama lengkap wajib diisi.' })
+    .min(2, 'Nama lengkap wajib diisi minimal 2 karakter.')
+    .max(100, 'Nama lengkap maksimal 100 karakter.')
+    .trim(),
+  username: z
+    .string()
+    .max(50, 'Username maksimal 50 karakter.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  birthPlace: z
+    .string()
+    .max(100, 'Tempat lahir maksimal 100 karakter.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  birthDate: z
+    .string()
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+});
+
+const phoneInputSchema = z
+  .string({ required_error: 'Nomor WhatsApp wajib diisi.' })
+  .min(9, 'Nomor WhatsApp minimal 9 digit.')
+  .max(20, 'Nomor WhatsApp maksimal 20 digit.')
+  .trim();
+
+const verifyOtpSchema = z.object({
+  newPhoneInput: phoneInputSchema,
+  otpInput: z
+    .string({ required_error: 'Kode verifikasi wajib diisi.' })
+    .length(6, 'Format kode verifikasi salah. Masukkan 6 digit angka.')
+    .regex(/^\d{6}$/, 'Format kode verifikasi salah. Masukkan 6 digit angka.'),
+});
+
+const emailInputSchema = z
+  .string({ required_error: 'Alamat email wajib diisi.' })
+  .email('Format alamat email tidak valid (contoh: nama@gmail.com).')
+  .max(255, 'Alamat email maksimal 255 karakter.')
+  .trim();
+
+const updateNotificationPreferencesSchema = z.object({
+  waNotifyH1: z.boolean({ required_error: 'Preferensi notifikasi H-1 wajib diisi.' }),
+  waNotifyCountdown: z.boolean({ required_error: 'Preferensi notifikasi countdown wajib diisi.' }),
+  waPreferredParent: z.enum(['AYAH', 'IBU', 'ALL']).optional(),
+});
 
 export interface UpdateProfileInput {
   fullName: string;
@@ -37,10 +90,17 @@ export async function updateUserProfile(data: UpdateProfileInput): Promise<{
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
-    const trimmedFullName = data.fullName?.trim();
-    if (!trimmedFullName || trimmedFullName.length < 2) {
-      return { success: false, error: 'Nama lengkap wajib diisi minimal 2 karakter.' };
+    const validation = updateProfileSchema.safeParse(data);
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
     }
+
+    const {
+      fullName: trimmedFullName,
+      username: rawUsername,
+      birthPlace: rawBirthPlace,
+      birthDate: rawBirthDate,
+    } = validation.data;
 
     // Validasi Username jika diisi
     let cleanUsername: string | null = null;
@@ -120,6 +180,11 @@ export async function requestPhoneChangeOtp(newPhoneInput: string): Promise<{
   targetPhone?: string;
 }> {
   try {
+    const validation = phoneInputSchema.safeParse(newPhoneInput);
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const { authUser, dbUser: currentUser, effectiveUserId } = await getEffectiveAuthUser();
 
     if (!authUser || !currentUser || !effectiveUserId) {
@@ -242,16 +307,18 @@ export async function verifyPhoneChangeOtp(
   newPhone?: string;
 }> {
   try {
+    const validation = verifyOtpSchema.safeParse({ newPhoneInput, otpInput });
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
     if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
-    const cleanOtp = otpInput?.trim();
-    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
-      return { success: false, error: 'Format kode verifikasi salah. Masukkan 6 digit angka.' };
-    }
+    const cleanOtp = otpInput.trim();
 
     const normalizedNewPhone = normalizePhoneNumber(newPhoneInput);
     if (!normalizedNewPhone) {
@@ -326,16 +393,18 @@ export async function updateUserEmail(emailInput: string): Promise<{
   error?: string;
 }> {
   try {
+    const validation = emailInputSchema.safeParse(emailInput);
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
     if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
-    const cleanEmail = emailInput?.trim().toLowerCase();
-    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return { success: false, error: 'Format alamat email tidak valid (contoh: nama@gmail.com).' };
-    }
+    const cleanEmail = validation.data.toLowerCase();
 
     // Cek apakah email sudah digunakan user lain
     const existing = await prisma.user.findFirst({
@@ -427,18 +496,25 @@ export async function updateNotificationPreferences(data: UpdateNotificationPref
   error?: string;
 }> {
   try {
+    const validation = updateNotificationPreferencesSchema.safeParse(data);
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const { authUser, effectiveUserId } = await getEffectiveAuthUser();
 
     if (!authUser || !effectiveUserId) {
       return { success: false, error: 'Sesi Anda telah berakhir. Silakan login kembali.' };
     }
 
+    const validatedData = validation.data;
+
     await prisma.user.update({
       where: { id: effectiveUserId },
       data: {
-        waNotifyH1: Boolean(data.waNotifyH1),
-        waNotifyCountdown: Boolean(data.waNotifyCountdown),
-        waPreferredParent: data.waPreferredParent || 'ALL',
+        waNotifyH1: validatedData.waNotifyH1,
+        waNotifyCountdown: validatedData.waNotifyCountdown,
+        waPreferredParent: validatedData.waPreferredParent || 'ALL',
       },
     });
 

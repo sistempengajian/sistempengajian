@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeCompare } from '@/lib/security-utils';
 import prisma from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { whatsAppClient } from '@/lib/whatsapp/WhatsAppClient';
@@ -112,22 +113,20 @@ async function handleScheduleReminders(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const secretParam = request.nextUrl.searchParams.get('key');
   const isDryRun = request.nextUrl.searchParams.get('dry_run') === 'true';
-  const expectedSecret =
-    process.env.CRON_SECRET ||
-    (process.env.NODE_ENV === 'production' ? undefined : 'pengajian-cron-secret-2026');
+  const expectedSecret = process.env.CRON_SECRET;
 
-  if (process.env.NODE_ENV === 'production' && !expectedSecret) {
-    console.error('[CRON SECURITY ERROR]: CRON_SECRET is not configured in production environment variables.');
+  if (!expectedSecret) {
+    console.error('[CRON SECURITY ERROR]: CRON_SECRET is not configured in environment variables.');
     return NextResponse.json(
       { success: false, message: 'Server configuration error: CRON_SECRET is not configured.' },
       { status: 500 }
     );
   }
 
+  const bearerSecret = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
   const isAuthorized =
-    (Boolean(expectedSecret) &&
-      (authHeader === `Bearer ${expectedSecret}` || secretParam === expectedSecret)) ||
-    process.env.NODE_ENV === 'development';
+    (bearerSecret ? timingSafeCompare(bearerSecret, expectedSecret) : false) ||
+    (secretParam ? timingSafeCompare(secretParam, expectedSecret) : false);
 
   if (!isAuthorized) {
     return NextResponse.json(

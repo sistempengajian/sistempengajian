@@ -99,6 +99,7 @@ export default function SubstituteRequestClientView({
   const [currentRequest, setCurrentRequest] = useState<SubstituteRequestData | null>(initialRequest);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
   const [reason, setReason] = useState<string>('');
+  const [honeypot, setHoneypot] = useState<string>('');
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [isCancelling, startCancelTransition] = useTransition();
   const [isPolling, setIsPolling] = useState<boolean>(false);
@@ -228,6 +229,7 @@ export default function SubstituteRequestClientView({
         token,
         substituteTeacherId: selectedTeacherId,
         reason: reason.trim(),
+        website_url: honeypot,
       });
 
       if (res.success && res.request) {
@@ -406,6 +408,17 @@ export default function SubstituteRequestClientView({
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4"
           >
+            {/* Bot Honeypot Input */}
+            <input
+              type="text"
+              name="website_url"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="hidden"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                 <UserCheck className="w-4 h-4 text-emerald-600" />

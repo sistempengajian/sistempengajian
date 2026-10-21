@@ -67,6 +67,18 @@ export default function RootLayout({
             }}
           />
         )}
+        {/* Inisialisasi awal preferensi ukuran teks besar (Outdoor / Masjid Mode) tanpa FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (localStorage.getItem('sipanji_large_text') === 'true') {
+                  document.documentElement.setAttribute('data-text-scale', 'large');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
         <link rel="apple-touch-startup-image" href="/splash-screen.png" />
         <link rel="preload" as="image" href="/splash-screen.png" fetchPriority="high" />
       </head>

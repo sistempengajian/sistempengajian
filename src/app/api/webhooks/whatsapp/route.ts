@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeCompare } from '@/lib/security-utils';
 import prisma from '@/lib/prisma';
 import { WhatsAppMessageStatus } from '@prisma/client';
 import { processInboundWhatsAppMessage } from '@/lib/whatsapp/inboundWebhookService';
@@ -16,6 +17,25 @@ import {
  */
 export async function POST(req: NextRequest) {
   try {
+    // Validasi Signature / Webhook Secret Header jika secret env dikonfigurasi
+    const webhookSecret = process.env.PETAPOD_WAHA_WEBHOOK_SECRET || process.env.WHATSAPP_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const incomingSecret =
+        req.headers.get('x-webhook-secret') ||
+        req.headers.get('x-api-key') ||
+        (req.headers.get('authorization')?.startsWith('Bearer ')
+          ? req.headers.get('authorization')!.substring(7)
+          : null) ||
+        req.nextUrl.searchParams.get('secret');
+
+      if (!incomingSecret || !timingSafeCompare(incomingSecret, webhookSecret)) {
+        return NextResponse.json(
+          { error: 'Akses ditolak: Secret webhook tidak valid' },
+          { status: 401 }
+        );
+      }
+    }
+
     const body = await req.json().catch(() => null);
 
     if (!body) {

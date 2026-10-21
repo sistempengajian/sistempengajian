@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { isHoneypotTriggered } from '@/lib/security-utils';
 import {
   verifySubstituteRequestToken,
   generateSubstituteRequestToken,
@@ -199,11 +200,20 @@ export async function submitSubstituteRequest({
   token,
   substituteTeacherId,
   reason,
+  website_url,
 }: {
   token: string;
   substituteTeacherId: string;
   reason: string;
+  website_url?: string;
 }) {
+  if (isHoneypotTriggered({ website_url })) {
+    return {
+      success: false,
+      error: 'Permintaan tidak valid terdeteksi (bot protection).',
+    };
+  }
+
   const verified = verifySubstituteRequestToken(token);
   if (!verified.valid || !verified.scheduleId || !verified.teacherUserId) {
     return {

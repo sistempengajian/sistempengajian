@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import { whatsAppClient } from '@/lib/whatsapp/WhatsAppClient';
 
 export const dynamic = 'force-dynamic';
@@ -12,28 +11,16 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !dbUser) {
       return NextResponse.json(
         { success: false, message: 'Tidak terautentikasi. Silakan login kembali.' },
         { status: 401 }
       );
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = dbUser.roles.map((r: any) => r.role) || [];
     const canManage =
       roleCodes.includes('ADMIN_MASTER') ||
       roleCodes.includes('PJ_DAERAH') ||

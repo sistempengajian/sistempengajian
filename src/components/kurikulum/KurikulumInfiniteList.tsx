@@ -1151,7 +1151,7 @@ export default function KurikulumInfiniteList({
         </div>
       )}
       {/* 3. Control Bar: Pencarian & Tombol Tambah */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5">
+      <div className="bg-white/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5 sticky top-0 z-20 transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-center gap-2.5">
           {/* Kolom Pencarian dengan Debounce */}
           <div className="relative flex-1">

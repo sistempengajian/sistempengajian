@@ -1,7 +1,22 @@
 'use server';
 
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const analyticsUserIdSchema = z.string().uuid('ID pengguna tidak valid.').optional();
+
+const analyticsFilterParamsSchema = z.object({
+  scopeType: z.enum(['CLASS', 'GENERATION', 'KELOMPOK', 'DESA', 'DAERAH', 'CUSTOM'], {
+    errorMap: () => ({ message: 'Tipe cakupan analisis tidak valid.' }),
+  }),
+  scopeId: z.string().optional().nullable(),
+  period: z.enum(['THIS_MONTH', 'LAST_MONTH', 'THIS_SEMESTER', 'ALL'], {
+    errorMap: () => ({ message: 'Periode waktu analisis tidak valid.' }),
+  }),
+  customStudentIds: z.array(z.string().uuid('ID santri tidak valid.')).optional().nullable(),
+});
 import {
   AnalyticsScopeType,
   AnalyticsPeriod,
@@ -155,7 +170,19 @@ function getPeriodDateRange(period: AnalyticsPeriod): {
 export async function getAnalyticsFilterOptions(
   userId?: string
 ): Promise<AnalyticsFilterOptions> {
+  const { authUser } = await getEffectiveAuthUser();
+  if (!authUser) {
+    throw new Error('Unauthorized');
+  }
+
   let targetUserId = userId;
+  if (targetUserId) {
+    const parsedUserId = analyticsUserIdSchema.safeParse(targetUserId);
+    if (!parsedUserId.success) {
+      throw new Error('ID pengguna tidak valid.');
+    }
+    targetUserId = parsedUserId.data;
+  }
   let user = null;
 
   if (targetUserId) {
@@ -366,7 +393,22 @@ export async function getAnalyticsDashboardData(
     customStudentIds?: string[];
   }
 ): Promise<AnalyticsDashboardData> {
-  const { scopeType, scopeId, period, customStudentIds } = params;
+  const { authUser } = await getEffectiveAuthUser();
+  if (!authUser) {
+    throw new Error('Unauthorized');
+  }
+
+  const parsedUserId = z.string().uuid('ID pengguna tidak valid.').safeParse(userId);
+  if (!parsedUserId.success) {
+    throw new Error('ID pengguna tidak valid.');
+  }
+
+  const parsedParams = analyticsFilterParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    throw new Error(formatZodError(parsedParams.error));
+  }
+
+  const { scopeType, scopeId, period, customStudentIds } = parsedParams.data;
   const { startDate, endDate, periodLabel, dateRangeLabel } = getPeriodDateRange(period);
 
   // 1. Tentukan daftar student IDs dalam cakupan

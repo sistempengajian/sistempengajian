@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import {
@@ -8,6 +8,68 @@ import {
   CreateGenerationInput,
   UpdateGenerationInput,
 } from '@/components/generasi/types';
+import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const createGenerationSchema = z
+  .object({
+    name: z
+      .string({ required_error: 'Nama jenjang generasi wajib diisi.' })
+      .min(2, 'Nama jenjang generasi minimal harus 2 karakter.')
+      .max(100, 'Nama jenjang generasi maksimal 100 karakter.')
+      .trim(),
+    code: z
+      .string()
+      .max(50, 'Kode generasi maksimal 50 karakter.')
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    minAge: z.coerce.number().min(0, 'Usia minimal tidak boleh negatif atau kosong.'),
+    maxAge: z.coerce.number().min(0, 'Usia maksimal tidak boleh negatif atau kosong.'),
+    description: z
+      .string()
+      .max(500, 'Deskripsi maksimal 500 karakter.')
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    color: z.string().max(50).optional().nullable().or(z.literal('')),
+    whatsappGroupId: z.string().max(100).optional().nullable().or(z.literal('')),
+    whatsappGroupName: z.string().max(100).optional().nullable().or(z.literal('')),
+    waGroupH1Enabled: z.boolean().optional(),
+    waGroupWeeklyEnabled: z.boolean().optional(),
+  })
+  .refine((data) => data.maxAge >= data.minAge, {
+    message: 'Usia maksimal harus lebih besar atau sama dengan usia minimal.',
+    path: ['maxAge'],
+  });
+
+const updateGenerationSchema = z
+  .object({
+    name: z
+      .string({ required_error: 'Nama jenjang generasi wajib diisi.' })
+      .min(2, 'Nama jenjang generasi minimal harus 2 karakter.')
+      .max(100, 'Nama jenjang generasi maksimal 100 karakter.')
+      .trim(),
+    minAge: z.coerce.number().min(0, 'Usia minimal tidak boleh negatif atau kosong.'),
+    maxAge: z.coerce.number().min(0, 'Usia maksimal tidak boleh negatif atau kosong.'),
+    description: z
+      .string()
+      .max(500, 'Deskripsi maksimal 500 karakter.')
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    color: z.string().max(50).optional().nullable().or(z.literal('')),
+    whatsappGroupId: z.string().max(100).optional().nullable().or(z.literal('')),
+    whatsappGroupName: z.string().max(100).optional().nullable().or(z.literal('')),
+    waGroupH1Enabled: z.boolean().optional(),
+    waGroupWeeklyEnabled: z.boolean().optional(),
+  })
+  .refine((data) => data.maxAge >= data.minAge, {
+    message: 'Usia maksimal harus lebih besar atau sama dengan usia minimal.',
+    path: ['maxAge'],
+  });
+
+const generationIdSchema = z.string().uuid('ID generasi tidak valid.');
 
 /**
  * Membuat jenjang generasi kustom baru
@@ -17,25 +79,13 @@ export async function createGeneration(
   input: CreateGenerationInput
 ): Promise<{ success: boolean; message: string; generation?: GenerationWithStats }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const canEdit = roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH');
 
     if (!canEdit) {
@@ -45,14 +95,26 @@ export async function createGeneration(
       };
     }
 
-    // Validasi Nama
-    const trimmedName = (input.name || '').trim();
-    if (!trimmedName || trimmedName.length < 2) {
-      return { success: false, message: 'Nama jenjang generasi minimal harus 2 karakter.' };
+    const validation = createGenerationSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
     }
 
+    const {
+      name: trimmedName,
+      code: rawCode,
+      minAge,
+      maxAge,
+      description,
+      color,
+      whatsappGroupId,
+      whatsappGroupName,
+      waGroupH1Enabled,
+      waGroupWeeklyEnabled,
+    } = validation.data;
+
     // Validasi & Format Kode Unik
-    let formattedCode = (input.code || '')
+    let formattedCode = (rawCode || '')
       .trim()
       .toUpperCase()
       .replace(/[\s-]+/g, '_')
@@ -83,20 +145,8 @@ export async function createGeneration(
       };
     }
 
-    // Validasi Usia
-    const minAge = Math.floor(Number(input.minAge));
-    const maxAge = Math.floor(Number(input.maxAge));
-
-    if (isNaN(minAge) || minAge < 0) {
-      return { success: false, message: 'Usia minimal tidak boleh negatif atau kosong.' };
-    }
-
-    if (isNaN(maxAge) || maxAge < minAge) {
-      return { success: false, message: 'Usia maksimal harus lebih besar atau sama dengan usia minimal.' };
-    }
-
     const validColors = ['emerald', 'sky', 'purple', 'amber', 'rose', 'teal', 'orange', 'cyan', 'indigo'];
-    const chosenColor = validColors.includes(input.color || '') ? input.color : 'emerald';
+    const chosenColor = validColors.includes(color || '') ? color : 'emerald';
 
     const created = await prisma.generation.create({
       data: {
@@ -148,25 +198,35 @@ export async function updateGeneration(
   input: UpdateGenerationInput
 ): Promise<{ success: boolean; message: string; generation?: GenerationWithStats }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const idValidation = generationIdSchema.safeParse(id);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
 
-    if (!authUser) {
+    const validation = updateGenerationSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
+    const {
+      name: trimmedName,
+      minAge,
+      maxAge,
+      description,
+      color,
+      whatsappGroupId,
+      whatsappGroupName,
+      waGroupH1Enabled,
+      waGroupWeeklyEnabled,
+    } = validation.data;
+
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const canEdit = roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH');
 
     if (!canEdit) {
@@ -174,23 +234,6 @@ export async function updateGeneration(
         success: false,
         message: 'Akses ditolak: Hanya Pengelola (Admin Master / PJ Daerah) yang berhak memperbarui data jenjang generasi.',
       };
-    }
-
-    // Validasi input
-    const trimmedName = (input.name || '').trim();
-    if (!trimmedName || trimmedName.length < 2) {
-      return { success: false, message: 'Nama jenjang generasi minimal harus 2 karakter.' };
-    }
-
-    const minAge = Math.floor(Number(input.minAge));
-    const maxAge = Math.floor(Number(input.maxAge));
-
-    if (isNaN(minAge) || minAge < 0) {
-      return { success: false, message: 'Usia minimal tidak boleh negatif atau kosong.' };
-    }
-
-    if (isNaN(maxAge) || maxAge < minAge) {
-      return { success: false, message: 'Usia maksimal harus lebih besar atau sama dengan usia minimal.' };
     }
 
     // Pastikan generasi dengan ID tersebut ada
@@ -264,25 +307,18 @@ export async function deleteGeneration(
   id: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const idValidation = generationIdSchema.safeParse(id);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
 
-    if (!authUser) {
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        roles: {
-          select: { role: true },
-        },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const canEdit = roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH');
 
     if (!canEdit) {
@@ -359,13 +395,25 @@ export async function triggerGenerationWeeklyDigest(
   generationId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const idValidation = generationIdSchema.safeParse(generationId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
 
-    if (!authUser) {
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
+    }
+
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
+    const canEdit = roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH');
+
+    if (!canEdit) {
+      return {
+        success: false,
+        message: 'Akses ditolak: Hanya Pengelola (Admin Master / PJ Daerah) yang berhak memicu notifikasi grup.',
+      };
     }
 
     const { dispatchWeeklyScheduleDigestForGeneration } = await import(
@@ -401,6 +449,27 @@ export async function testSendGroupPing(
   generationId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const idValidation = generationIdSchema.safeParse(generationId);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
+
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
+      return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
+    }
+
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
+    const canEdit = roleCodes.includes('ADMIN_MASTER') || roleCodes.includes('PJ_DAERAH');
+
+    if (!canEdit) {
+      return {
+        success: false,
+        message: 'Akses ditolak: Hanya Pengelola yang berhak menguji pesan grup.',
+      };
+    }
+
     const gen = await prisma.generation.findUnique({
       where: { id: generationId },
     });

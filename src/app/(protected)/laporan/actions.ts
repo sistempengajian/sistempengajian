@@ -1,8 +1,14 @@
 'use server';
 
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { AttendanceStatus, AttendanceMethod } from '@prisma/client';
+import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const studentIdSchema = z.string().uuid('ID santri tidak valid.');
+const reportPeriodSchema = z.string().max(50).default('THIS_MONTH');
 import {
   ChildDevelopmentReport,
   ChildSelectorItem,
@@ -268,10 +274,20 @@ export async function getAccessibleStudents(
     id: 'ORANG_TUA' | 'PENGAJAR' | 'SANTRI' | 'ADMIN';
     label: string;
     description: string;
-  }>;
+    }>;
 }> {
+  const { authUser } = await getEffectiveAuthUser();
+  if (!authUser) {
+    throw new Error('Unauthorized');
+  }
+
+  const parsedId = studentIdSchema.safeParse(currentUserId);
+  if (!parsedId.success) {
+    throw new Error('ID user tidak valid.');
+  }
+
   const user = await prisma.user.findUnique({
-    where: { id: currentUserId },
+    where: { id: parsedId.data },
     include: {
       roles: true,
       generation: true,
@@ -469,11 +485,24 @@ export async function getChildDevelopmentReport(
   studentId: string,
   period: string = 'THIS_MONTH'
 ): Promise<ChildDevelopmentReport> {
-  const { startDate, endDate } = getPeriodDateRange(period);
+  const { authUser } = await getEffectiveAuthUser();
+  if (!authUser) {
+    throw new Error('Unauthorized');
+  }
+
+  const parsedStudentId = studentIdSchema.safeParse(studentId);
+  if (!parsedStudentId.success) {
+    throw new Error('ID santri tidak valid.');
+  }
+
+  const parsedPeriod = reportPeriodSchema.safeParse(period);
+  const validatedPeriod = parsedPeriod.success ? parsedPeriod.data : 'THIS_MONTH';
+
+  const { startDate, endDate } = getPeriodDateRange(validatedPeriod);
 
   // 1. Ambil data profil santri
   const student = await prisma.user.findUnique({
-    where: { id: studentId },
+    where: { id: parsedStudentId.data },
     include: {
       organization: {
         include: {

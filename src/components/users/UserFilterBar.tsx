@@ -15,6 +15,7 @@ import { OrganizationOption, GenerationOption } from './types';
 import OrganizationSelectModal from '@/components/organisasi/OrganizationSelectModal';
 import OrganizationSelectTrigger from '@/components/organisasi/OrganizationSelectTrigger';
 import CustomSelect from '@/components/ui/CustomSelect';
+import ViewModeToggle from '@/components/ui/ViewModeToggle';
 
 interface UserFilterBarProps {
   activeRoleTab: string;
@@ -93,7 +94,7 @@ export default function UserFilterBar({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 sticky top-0 z-20 bg-slate-50/90 backdrop-blur-md py-2.5 -my-1 rounded-2xl transition-shadow">
       {/* 1. Horizontal Scrollable Role Filter Tabs */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-2xl overflow-x-auto no-scrollbar shrink-0 max-w-full">
@@ -117,34 +118,12 @@ export default function UserFilterBar({
         </div>
 
         {/* View Mode Switcher (Card vs Table) */}
-        <div className="flex items-center gap-1 p-1 bg-slate-200/60 rounded-xl shrink-0 self-end sm:self-center">
-          <button
-            type="button"
-            onClick={() => onViewModeChange('CARD')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-              viewMode === 'CARD'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-            title="Tampilan Kartu (Mobile-First)"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="hidden sm:inline text-[11px]">Kartu</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('TABLE')}
-            className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-              viewMode === 'TABLE'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-            title="Tampilan Tabel"
-          >
-            <TableIcon className="w-4 h-4" />
-            <span className="hidden sm:inline text-[11px]">Tabel</span>
-          </button>
-        </div>
+        <ViewModeToggle
+          viewMode={viewMode}
+          onChange={onViewModeChange}
+          storageKey="sipanji_view_mode_users"
+          size="sm"
+        />
       </div>
 
       {/* 2. Search Bar, Quick Filters & Result Counter */}

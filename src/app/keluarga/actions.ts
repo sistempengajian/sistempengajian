@@ -30,7 +30,7 @@ function formatIndonesianTime(date: Date): string {
 /**
  * Helper untuk memvalidasi apakah santri merupakan peserta sah dari jadwal
  */
-export function isStudentEligibleForSchedule(
+function isStudentEligibleForSchedule(
   student: {
     id?: string;
     organizationId?: string | null;

@@ -44,3 +44,7 @@ export {
 export { default as EmptyState } from './EmptyState';
 export type { EmptyStateProps } from './EmptyState';
 
+// View Mode Toggle (Card vs Table)
+export { default as ViewModeToggle } from './ViewModeToggle';
+export type { ViewModeToggleProps, ViewMode } from './ViewModeToggle';
+

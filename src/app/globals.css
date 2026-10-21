@@ -62,6 +62,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Aksesibilitas Teks Besar (Outdoor / Masjid Readability Mode) */
+html[data-text-scale="large"] {
+  font-size: 110%; /* Menaikkan base font dari 16px ke 17.6px agar seluruh unit rem Tailwind membesar proporsional */
+}
+
 body {
   background-color: #ffffff;
   color: #334155;

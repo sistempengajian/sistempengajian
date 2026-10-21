@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
+import { timingSafeCompare } from '@/lib/security-utils';
 import { whatsAppClient } from '@/lib/whatsapp/WhatsAppClient';
 import {
   normalizePhoneNumber,
@@ -32,12 +33,19 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
     const filterRole = request.nextUrl.searchParams.get('role')?.toUpperCase() as any;
     const validityDays = parseInt(request.nextUrl.searchParams.get('days') || '7', 10);
     const forceResend = request.nextUrl.searchParams.get('force') === 'true';
-    const expectedSecret = process.env.CRON_SECRET || 'pengajian-cron-secret-2026';
+    const expectedSecret = process.env.CRON_SECRET;
+    if (!expectedSecret) {
+      console.error('[CRON SECURITY ERROR]: CRON_SECRET is not configured in environment variables.');
+      return NextResponse.json(
+        { success: false, message: 'Server configuration error: CRON_SECRET is not configured.' },
+        { status: 500 }
+      );
+    }
 
+    const bearerSecret = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
     const isAuthorized =
-      authHeader === `Bearer ${expectedSecret}` ||
-      secretParam === expectedSecret ||
-      process.env.NODE_ENV === 'development';
+      (bearerSecret ? timingSafeCompare(bearerSecret, expectedSecret) : false) ||
+      (secretParam ? timingSafeCompare(secretParam, expectedSecret) : false);
 
     if (!isAuthorized) {
       return NextResponse.json(

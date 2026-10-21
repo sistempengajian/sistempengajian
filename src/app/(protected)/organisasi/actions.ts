@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import {
@@ -12,6 +12,41 @@ import {
   getScopedOrganizationIds,
   canManageOrganizationItem,
 } from '@/lib/scoped-access';
+import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const createOrgSchema = z.object({
+  name: z
+    .string({ required_error: 'Nama tingkatan wilayah wajib diisi.' })
+    .min(2, 'Nama tingkatan wilayah minimal harus 2 karakter.')
+    .max(100, 'Nama tingkatan wilayah maksimal 100 karakter.')
+    .trim(),
+  type: z.enum(['DAERAH', 'DESA', 'KELOMPOK'], {
+    errorMap: () => ({ message: 'Tipe tingkatan wilayah tidak valid.' }),
+  }),
+  parentId: z
+    .string()
+    .uuid('ID induk wilayah tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+});
+
+const updateOrgSchema = z.object({
+  name: z
+    .string({ required_error: 'Nama tingkatan wilayah wajib diisi.' })
+    .min(2, 'Nama tingkatan wilayah minimal harus 2 karakter.')
+    .max(100, 'Nama tingkatan wilayah maksimal 100 karakter.')
+    .trim(),
+  parentId: z
+    .string()
+    .uuid('ID induk wilayah tidak valid.')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+});
+
+const orgIdSchema = z.string().uuid('ID wilayah tidak valid.');
 
 /**
  * Membuat tingkatan wilayah organisasi baru (Daerah, Desa, atau Kelompok)
@@ -21,24 +56,20 @@ export async function createOrganization(
   input: CreateOrganizationInput
 ): Promise<{ success: boolean; message: string; organization?: OrganizationWithStats }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        organizationId: true,
-        roles: { select: { role: true } },
-      },
-    });
+    const validation = createOrgSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
 
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const { name: trimmedName, type, parentId: rawParentId } = validation.data;
+
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const isAdmin = roleCodes.includes('ADMIN_MASTER');
     const isPjDaerah = roleCodes.includes('PJ_DAERAH');
     const isPjDesa = roleCodes.includes('PJ_DESA');
@@ -50,18 +81,12 @@ export async function createOrganization(
       };
     }
 
-    // Validasi Nama
-    const trimmedName = (input.name || '').trim();
-    if (!trimmedName || trimmedName.length < 2) {
-      return { success: false, message: 'Nama tingkatan wilayah minimal harus 2 karakter.' };
-    }
-
     const scopedOrgIds = await getScopedOrganizationIds(
       roleCodes,
-      userProfile?.organizationId || null
+      userProfile.organizationId || null
     );
 
-    let parentId = input.parentId ? input.parentId.trim() : null;
+    let parentId = rawParentId && rawParentId.trim() ? rawParentId.trim() : null;
 
     if (input.type === 'DAERAH') {
       if (!isAdmin) {
@@ -197,24 +222,25 @@ export async function updateOrganization(
   input: UpdateOrganizationInput
 ): Promise<{ success: boolean; message: string; organization?: OrganizationWithStats }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const idValidation = orgIdSchema.safeParse(id);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
 
-    if (!authUser) {
+    const validation = updateOrgSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, message: formatZodError(validation.error) };
+    }
+
+    const { name: trimmedName, parentId: validatedParentId } = validation.data;
+
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        organizationId: true,
-        roles: { select: { role: true } },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const isAdmin = roleCodes.includes('ADMIN_MASTER');
     const isPjDaerah = roleCodes.includes('PJ_DAERAH');
     const isPjDesa = roleCodes.includes('PJ_DESA');
@@ -263,17 +289,17 @@ export async function updateOrganization(
       };
     }
 
-    const trimmedName = (input.name || '').trim();
-    if (!trimmedName || trimmedName.length < 2) {
-      return { success: false, message: 'Nama tingkatan wilayah minimal harus 2 karakter.' };
-    }
-
     const scopedOrgIds = await getScopedOrganizationIds(
       roleCodes,
-      userProfile?.organizationId || null
+      userProfile.organizationId || null
     );
 
-    let parentId = input.parentId !== undefined ? input.parentId : existing.parentId;
+    let parentId =
+      input.parentId !== undefined
+        ? validatedParentId && validatedParentId.trim()
+          ? validatedParentId.trim()
+          : null
+        : existing.parentId;
 
     if (existing.type === 'DAERAH') {
       parentId = null;
@@ -383,24 +409,18 @@ export async function deleteOrganization(
   id: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const idValidation = orgIdSchema.safeParse(id);
+    if (!idValidation.success) {
+      return { success: false, message: formatZodError(idValidation.error) };
+    }
 
-    if (!authUser) {
+    const { authUser, dbUser: userProfile } = await getEffectiveAuthUser();
+
+    if (!authUser || !userProfile) {
       return { success: false, message: 'Sesi tidak valid. Silakan login kembali.' };
     }
 
-    const userProfile = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: {
-        organizationId: true,
-        roles: { select: { role: true } },
-      },
-    });
-
-    const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+    const roleCodes = userProfile.roles.map((r) => r.role) || [];
     const isAdmin = roleCodes.includes('ADMIN_MASTER');
     const isPjDaerah = roleCodes.includes('PJ_DAERAH');
     const isPjDesa = roleCodes.includes('PJ_DESA');

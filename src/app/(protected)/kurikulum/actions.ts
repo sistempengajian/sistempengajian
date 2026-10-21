@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -11,6 +12,80 @@ import {
   OrganizationType,
   Prisma,
 } from '@prisma/client';
+import { getEffectiveAuthUser } from '@/lib/auth';
+import { formatZodError } from '@/lib/security-utils';
+
+const materialIdSchema = z.string().uuid('ID materi tidak valid.');
+const checklistItemIdSchema = z.string().uuid('ID butir capaian tidak valid.');
+const targetIdSchema = z.string().uuid('ID target tidak valid.');
+
+const createMaterialSchema = z.object({
+  title: z.string({ required_error: 'Judul materi wajib diisi.' }).min(1, 'Judul materi wajib diisi.').max(150),
+  description: z.string().max(2000).optional().nullable(),
+  fileUrl: z.string().url('URL materi tidak valid.').optional().nullable().or(z.literal('')),
+  targetGenerationCode: z.string({ required_error: 'Jenjang generasi wajib diisi.' }).min(1, 'Jenjang generasi wajib diisi.'),
+  isMandatory: z.boolean().default(false),
+});
+
+const updateMaterialSchema = z.object({
+  materialId: z.string().uuid('ID materi tidak valid.'),
+  title: z.string({ required_error: 'Judul materi wajib diisi.' }).min(1, 'Judul materi wajib diisi.').max(150),
+  description: z.string().max(2000).optional().nullable(),
+  fileUrl: z.string().url('URL materi tidak valid.').optional().nullable().or(z.literal('')),
+  targetGenerationCode: z.string().optional().nullable(),
+  isMandatory: z.boolean().default(false),
+  upgradeTierLevel: z.nativeEnum(TierLevel).optional().nullable(),
+});
+
+const customMaterialSchema = z.object({
+  materialId: z.string().uuid('ID materi tidak valid.'),
+  customTitle: z.string().max(150).optional().nullable(),
+  customDescription: z.string().max(2000).optional().nullable(),
+  customFileUrl: z.string().url('URL materi kustom tidak valid.').optional().nullable().or(z.literal('')),
+});
+
+const overrideChecklistItemSchema = z.object({
+  materialId: z.string().uuid('ID materi tidak valid.'),
+  itemId: z.string().uuid('ID butir tidak valid.'),
+  itemTitle: z.string({ required_error: 'Judul capaian wajib diisi.' }).min(1, 'Judul capaian wajib diisi.').max(150),
+  description: z.string().max(1000).optional().nullable(),
+  pointsWeight: z.number().int().min(5).max(100).default(10),
+  completionTierLevel: z.nativeEnum(CompletionTierLevel).default(CompletionTierLevel.ANY_TIER),
+});
+
+const createChecklistItemSchema = z.object({
+  materialId: z.string().uuid('ID materi tidak valid.'),
+  itemTitle: z.string({ required_error: 'Judul sub-capaian wajib diisi.' }).min(1, 'Judul sub-capaian wajib diisi.').max(150),
+  description: z.string().max(1000).optional().nullable(),
+  pointsWeight: z.number().int().min(5).max(100).default(10),
+  completionTierLevel: z.nativeEnum(CompletionTierLevel).default(CompletionTierLevel.ANY_TIER),
+});
+
+const updateChecklistItemSchema = z.object({
+  itemId: z.string().uuid('ID butir tidak valid.'),
+  materialId: z.string().uuid().optional().nullable(),
+  itemTitle: z.string({ required_error: 'Judul sub-capaian wajib diisi.' }).min(1, 'Judul sub-capaian wajib diisi.').max(150),
+  description: z.string().max(1000).optional().nullable(),
+  pointsWeight: z.number().int().min(5).max(100).default(10),
+  completionTierLevel: z.nativeEnum(CompletionTierLevel).default(CompletionTierLevel.ANY_TIER),
+});
+
+const setMonthlyTargetsSchema = z.object({
+  generationId: z.string().uuid('ID jenjang generasi tidak valid.'),
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  materialIds: z.array(z.string().uuid('ID materi tidak valid.')),
+  organizationId: z.string().uuid('ID organisasi tidak valid.').optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
+});
+
+const addMonthlyTargetSchema = z.object({
+  generationId: z.string().uuid('ID jenjang generasi tidak valid.'),
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  materialId: z.string().uuid('ID materi tidak valid.'),
+  organizationId: z.string().uuid('ID organisasi tidak valid.').optional().nullable(),
+});
 
 /**
  * Helper otentikasi & otorisasi khusus PJ / Admin:
@@ -18,28 +93,13 @@ import {
  * Pengajar, Wali Kelas, Santri, dan Orang Tua dibatasi dalam mode Read-Only.
  */
 async function assertPjOrAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { authUser: user, dbUser: userProfile } = await getEffectiveAuthUser();
 
-  if (!user) {
+  if (!user || !userProfile) {
     throw new Error('Sesi tidak valid. Silakan login kembali.');
   }
 
-  const userProfile = await prisma.user.findUnique({
-    where: { id: user.id },
-    include: {
-      roles: true,
-      organization: {
-        include: {
-          parent: true,
-        },
-      },
-    },
-  });
-
-  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const roleCodes = userProfile.roles.map((r) => r.role) || [];
   const isPjOrAdmin = roleCodes.some((r) =>
     ['PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(r)
   );
@@ -691,17 +751,22 @@ export async function createMaterial(formData: FormData) {
   try {
     const { user, userProfile, highestTier } = await assertPjOrAdmin();
 
-    const title = (formData.get('title') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    const fileUrl = (formData.get('fileUrl') as string)?.trim() || null;
-    const targetGenerationCode = (formData.get('targetGenerationCode') as string)?.trim();
-    const isMandatory = formData.get('isMandatory') === 'true';
+    const rawInput = {
+      title: (formData.get('title') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      fileUrl: (formData.get('fileUrl') as string)?.trim() || null,
+      targetGenerationCode: (formData.get('targetGenerationCode') as string)?.trim(),
+      isMandatory: formData.get('isMandatory') === 'true',
+    };
+
+    const validation = createMaterialSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
+    }
+
+    const { title, description, fileUrl, targetGenerationCode, isMandatory } = validation.data;
 
     const creatorTierLevel = highestTier; // DAERAH, DESA, atau KELOMPOK
-
-    if (!title || !targetGenerationCode) {
-      return { error: 'Judul materi dan jenjang generasi wajib diisi.' };
-    }
 
     const generation = await prisma.generation.findUnique({
       where: { code: targetGenerationCode },
@@ -742,17 +807,30 @@ export async function updateMaterial(formData: FormData) {
   try {
     const { userProfile, highestTier } = await assertPjOrAdmin();
 
-    const materialId = formData.get('materialId') as string;
-    const title = (formData.get('title') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    const fileUrl = (formData.get('fileUrl') as string)?.trim() || null;
-    const targetGenerationCode = (formData.get('targetGenerationCode') as string)?.trim();
-    const isMandatory = formData.get('isMandatory') === 'true';
-    const upgradeTierLevel = (formData.get('upgradeTierLevel') as TierLevel) || null;
+    const rawInput = {
+      materialId: formData.get('materialId') as string,
+      title: (formData.get('title') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      fileUrl: (formData.get('fileUrl') as string)?.trim() || null,
+      targetGenerationCode: (formData.get('targetGenerationCode') as string)?.trim() || null,
+      isMandatory: formData.get('isMandatory') === 'true',
+      upgradeTierLevel: (formData.get('upgradeTierLevel') as TierLevel) || null,
+    };
 
-    if (!materialId || !title) {
-      return { error: 'ID Materi dan judul materi wajib diisi.' };
+    const validation = updateMaterialSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const {
+      materialId,
+      title,
+      description,
+      fileUrl,
+      targetGenerationCode,
+      isMandatory,
+      upgradeTierLevel,
+    } = validation.data;
 
     const existing = await prisma.material.findUnique({
       where: { id: materialId },
@@ -880,8 +958,15 @@ export async function deleteMaterial(materialId: string) {
   try {
     const { highestTier } = await assertPjOrAdmin();
 
+    const parsedMaterialId = materialIdSchema.safeParse(materialId);
+    if (!parsedMaterialId.success) {
+      return { error: 'ID materi tidak valid.' };
+    }
+
+    const validatedMaterialId = parsedMaterialId.data;
+
     const existing = await prisma.material.findUnique({
-      where: { id: materialId },
+      where: { id: validatedMaterialId },
     });
 
     if (!existing) {
@@ -902,7 +987,7 @@ export async function deleteMaterial(materialId: string) {
     }
 
     await prisma.material.delete({
-      where: { id: materialId },
+      where: { id: validatedMaterialId },
     });
 
     revalidatePath('/kurikulum');
@@ -931,14 +1016,19 @@ export async function saveMaterialCustomization(formData: FormData) {
       return { error: 'Anda belum terdaftar di unit organisasi wilayah mana pun.' };
     }
 
-    const materialId = formData.get('materialId') as string;
-    const customTitle = (formData.get('customTitle') as string)?.trim() || null;
-    const customDescription = (formData.get('customDescription') as string)?.trim() || null;
-    const customFileUrl = (formData.get('customFileUrl') as string)?.trim() || null;
+    const rawInput = {
+      materialId: formData.get('materialId') as string,
+      customTitle: (formData.get('customTitle') as string)?.trim() || null,
+      customDescription: (formData.get('customDescription') as string)?.trim() || null,
+      customFileUrl: (formData.get('customFileUrl') as string)?.trim() || null,
+    };
 
-    if (!materialId) {
-      return { error: 'ID Materi wajib disertakan.' };
+    const validation = customMaterialSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const { materialId, customTitle, customDescription, customFileUrl } = validation.data;
 
     const material = await prisma.material.findUnique({
       where: { id: materialId },
@@ -1018,6 +1108,13 @@ export async function deleteMaterialVersion(materialId: string) {
   try {
     const { userProfile } = await assertPjOrAdmin();
 
+    const parsedMaterialId = materialIdSchema.safeParse(materialId);
+    if (!parsedMaterialId.success) {
+      return { error: 'ID materi tidak valid.' };
+    }
+
+    const validatedMaterialId = parsedMaterialId.data;
+
     if (!userProfile?.organizationId) {
       return { error: 'Anda belum terdaftar di unit organisasi wilayah mana pun.' };
     }
@@ -1025,7 +1122,7 @@ export async function deleteMaterialVersion(materialId: string) {
     // 1. Hapus record kustomisasi (judul, deskripsi, dan override butir)
     await prisma.materialCustomization.deleteMany({
       where: {
-        materialId,
+        materialId: validatedMaterialId,
         organizationId: userProfile.organizationId,
       },
     });
@@ -1033,7 +1130,7 @@ export async function deleteMaterialVersion(materialId: string) {
     // 2. Hapus seluruh butir sub-capaian tambahan lokal yang dibuat oleh organisasi ini untuk materi ini
     await prisma.materialChecklistItem.deleteMany({
       where: {
-        materialId,
+        materialId: validatedMaterialId,
         organizationId: userProfile.organizationId,
       },
     });
@@ -1058,6 +1155,19 @@ export async function resetChecklistItemOverride(materialId: string, itemId: str
   try {
     const { userProfile } = await assertPjOrAdmin();
 
+    const parsedMaterialId = materialIdSchema.safeParse(materialId);
+    if (!parsedMaterialId.success) {
+      return { error: 'ID materi tidak valid.' };
+    }
+
+    const parsedItemId = checklistItemIdSchema.safeParse(itemId);
+    if (!parsedItemId.success) {
+      return { error: 'ID butir capaian tidak valid.' };
+    }
+
+    const validatedMaterialId = parsedMaterialId.data;
+    const validatedItemId = parsedItemId.data;
+
     if (!userProfile?.organizationId) {
       return { error: 'Anda belum terdaftar di unit organisasi wilayah mana pun.' };
     }
@@ -1065,7 +1175,7 @@ export async function resetChecklistItemOverride(materialId: string, itemId: str
     const existingCust = await prisma.materialCustomization.findUnique({
       where: {
         materialId_organizationId: {
-          materialId,
+          materialId: validatedMaterialId,
           organizationId: userProfile.organizationId,
         },
       },
@@ -1073,7 +1183,7 @@ export async function resetChecklistItemOverride(materialId: string, itemId: str
 
     if (existingCust && existingCust.itemOverrides) {
       const currentOverrides = { ...(existingCust.itemOverrides as Record<string, any>) };
-      delete currentOverrides[itemId];
+      delete currentOverrides[validatedItemId];
 
       await prisma.materialCustomization.update({
         where: { id: existingCust.id },
@@ -1103,17 +1213,29 @@ export async function overrideChecklistItem(formData: FormData) {
       return { error: 'Anda belum terdaftar di unit organisasi wilayah mana pun.' };
     }
 
-    const materialId = formData.get('materialId') as string;
-    const itemId = formData.get('itemId') as string;
-    const itemTitle = (formData.get('itemTitle') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    const pointsWeight = parseInt((formData.get('pointsWeight') as string) || '10', 10);
-    const completionTierLevel =
-      (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER;
+    const rawInput = {
+      materialId: formData.get('materialId') as string,
+      itemId: formData.get('itemId') as string,
+      itemTitle: (formData.get('itemTitle') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      pointsWeight: parseInt((formData.get('pointsWeight') as string) || '10', 10),
+      completionTierLevel:
+        (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER,
+    };
 
-    if (!materialId || !itemId || !itemTitle) {
-      return { error: 'ID Materi, ID Butir, dan judul capaian wajib diisi.' };
+    const validation = overrideChecklistItemSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const {
+      materialId,
+      itemId,
+      itemTitle,
+      description,
+      pointsWeight,
+      completionTierLevel,
+    } = validation.data;
 
     // Validasi otoritas pengujian
     if (completionTierLevel === CompletionTierLevel.DAERAH_ONLY && highestTier !== TierLevel.DAERAH) {
@@ -1185,16 +1307,27 @@ export async function createChecklistItem(formData: FormData) {
   try {
     const { userProfile, highestTier } = await assertPjOrAdmin();
 
-    const materialId = formData.get('materialId') as string;
-    const itemTitle = (formData.get('itemTitle') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    let completionTierLevel =
-      (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER;
-    const pointsWeight = parseInt((formData.get('pointsWeight') as string) || '10', 10);
+    const rawInput = {
+      materialId: formData.get('materialId') as string,
+      itemTitle: (formData.get('itemTitle') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      completionTierLevel:
+        (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER,
+      pointsWeight: parseInt((formData.get('pointsWeight') as string) || '10', 10),
+    };
 
-    if (!materialId || !itemTitle) {
-      return { error: 'ID Materi dan judul sub-capaian wajib diisi.' };
+    const validation = createChecklistItemSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const {
+      materialId,
+      itemTitle,
+      description,
+      completionTierLevel,
+      pointsWeight,
+    } = validation.data;
 
     const parentMaterial = await prisma.material.findUnique({
       where: { id: materialId },
@@ -1264,17 +1397,28 @@ export async function updateChecklistItem(formData: FormData) {
   try {
     const { userProfile, highestTier } = await assertPjOrAdmin();
 
-    const itemId = formData.get('itemId') as string;
-    const materialId = formData.get('materialId') as string;
-    const itemTitle = (formData.get('itemTitle') as string)?.trim();
-    const description = (formData.get('description') as string)?.trim() || null;
-    let completionTierLevel =
-      (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER;
-    const pointsWeight = parseInt((formData.get('pointsWeight') as string) || '10', 10);
+    const rawInput = {
+      itemId: formData.get('itemId') as string,
+      materialId: (formData.get('materialId') as string) || null,
+      itemTitle: (formData.get('itemTitle') as string)?.trim(),
+      description: (formData.get('description') as string)?.trim() || null,
+      completionTierLevel:
+        (formData.get('completionTierLevel') as CompletionTierLevel) || CompletionTierLevel.ANY_TIER,
+      pointsWeight: parseInt((formData.get('pointsWeight') as string) || '10', 10),
+    };
 
-    if (!itemId || !itemTitle) {
-      return { error: 'ID Sub-Capaian dan judul wajib diisi.' };
+    const validation = updateChecklistItemSchema.safeParse(rawInput);
+    if (!validation.success) {
+      return { error: formatZodError(validation.error) };
     }
+
+    const {
+      itemId,
+      itemTitle,
+      description,
+      completionTierLevel,
+      pointsWeight,
+    } = validation.data;
 
     const existingItem = await prisma.materialChecklistItem.findUnique({
       where: { id: itemId },
@@ -1341,8 +1485,15 @@ export async function deleteChecklistItem(itemId: string) {
   try {
     const { userProfile, highestTier } = await assertPjOrAdmin();
 
+    const parsedItemId = checklistItemIdSchema.safeParse(itemId);
+    if (!parsedItemId.success) {
+      return { error: 'ID butir capaian tidak valid.' };
+    }
+
+    const validatedItemId = parsedItemId.data;
+
     const existingItem = await prisma.materialChecklistItem.findUnique({
-      where: { id: itemId },
+      where: { id: validatedItemId },
       include: {
         material: true,
       },
@@ -1367,7 +1518,7 @@ export async function deleteChecklistItem(itemId: string) {
     }
 
     await prisma.materialChecklistItem.delete({
-      where: { id: itemId },
+      where: { id: validatedItemId },
     });
 
     revalidatePath('/kurikulum');
@@ -1669,6 +1820,19 @@ export async function setMonthlyCurriculumTargets({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { highestTier, userProfile } = await assertPjOrAdmin();
+
+    const validation = setMonthlyTargetsSchema.safeParse({
+      generationId,
+      year,
+      month,
+      materialIds,
+      organizationId,
+      notes,
+    });
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const effectiveOrgId = organizationId ?? userProfile?.organizationId ?? null;
 
     await prisma.$transaction(async (tx) => {
@@ -1727,6 +1891,18 @@ export async function addMaterialToMonthlyTarget({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { highestTier, userProfile } = await assertPjOrAdmin();
+
+    const validation = addMonthlyTargetSchema.safeParse({
+      generationId,
+      year,
+      month,
+      materialId,
+      organizationId,
+    });
+    if (!validation.success) {
+      return { success: false, error: formatZodError(validation.error) };
+    }
+
     const effectiveOrgId = organizationId ?? userProfile?.organizationId ?? null;
 
     // Hitung orderIndex tertinggi saat ini
@@ -1789,8 +1965,14 @@ export async function removeMaterialFromMonthlyTarget(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await assertPjOrAdmin();
+
+    const parsedTargetId = targetIdSchema.safeParse(targetId);
+    if (!parsedTargetId.success) {
+      return { success: false, error: 'ID target tidak valid.' };
+    }
+
     await prisma.materialMonthlyTarget.delete({
-      where: { id: targetId },
+      where: { id: parsedTargetId.data },
     });
 
     revalidatePath('/kurikulum');

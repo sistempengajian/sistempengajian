@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getEffectiveAuthUser } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { TierLevel, Prisma } from '@prisma/client';
 import { resolveMaterialsForSchedule } from '@/lib/curriculumVersionResolver';
@@ -26,12 +26,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
+    const { authUser, dbUser } = await getEffectiveAuthUser();
 
-    if (!authUser) {
+    if (!authUser || !dbUser) {
       return NextResponse.json(
         { success: false, message: 'Tidak terautentikasi' },
         { status: 401 }

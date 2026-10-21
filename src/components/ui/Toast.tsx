@@ -17,6 +17,7 @@ import {
   Info,
   X,
 } from 'lucide-react';
+import { triggerHapticSuccess, triggerHapticWarning } from '@/lib/haptics';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -309,10 +310,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback((options: ToastOptions) => {
     const id = `toast-${++toastIdCounter}-${Date.now()}`;
+    const variant = options.variant ?? 'info';
+    if (variant === 'success') {
+      triggerHapticSuccess();
+    } else if (variant === 'error' || variant === 'warning') {
+      triggerHapticWarning();
+    }
+
     const newToast: ToastItem = {
       id,
       message: options.message,
-      variant: options.variant ?? 'info',
+      variant,
       duration: options.duration ?? DEFAULT_DURATION,
       createdAt: Date.now(),
     };
