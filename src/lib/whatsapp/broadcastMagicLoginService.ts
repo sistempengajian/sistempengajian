@@ -94,11 +94,15 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
       },
     });
 
-    // 3. Preload riwayat broadcast sebelumnya untuk proteksi anti-spam
+    // 3. Preload riwayat broadcast sebelumnya untuk proteksi anti-spam (TTL 14 hari terakhir)
     const existingLogs = await prisma.whatsAppMessageLog.findMany({
       where: {
         magicToken: {
           startsWith: 'BROADCAST_MAGIC_LOGIN_',
+        },
+        status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+        createdAt: {
+          gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
         },
       },
       select: {

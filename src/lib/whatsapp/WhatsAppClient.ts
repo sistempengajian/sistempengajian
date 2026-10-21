@@ -5,7 +5,7 @@ import { BaileysProvider } from './providers/BaileysProvider';
 import { WahaProvider } from './providers/WahaProvider';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from './types';
 import { renderTemplate, DEFAULT_TEMPLATES } from './templateEngine';
-import { normalizePhoneNumber, sanitizeUuid, isWhatsAppGroupJid, isWhatsAppLidJid } from './utils';
+import { normalizePhoneNumber, sanitizeUuid, isWhatsAppGroupJid, isWhatsAppLidJid, ensureWhatsAppGroupJid } from './utils';
 
 export class WhatsAppClient {
   private static instance: WhatsAppClient;
@@ -49,7 +49,9 @@ export class WhatsAppClient {
     const isLid = isWhatsAppLidJid(options.to);
     const isExplicitChat = typeof options.to === 'string' && options.to.includes('@');
 
-    const targetDestination = (isGroup || isLid || isExplicitChat)
+    const targetDestination = isGroup
+      ? ensureWhatsAppGroupJid(options.to)
+      : (isLid || isExplicitChat)
       ? options.to.trim()
       : normalizePhoneNumber(options.to);
 
@@ -278,9 +280,15 @@ export class WhatsAppClient {
       return { success: false, error: 'Provider does not support deleteMessage' };
     }
 
+    const isGroup = isWhatsAppGroupJid(to);
+    const isLid = isWhatsAppLidJid(to);
     const overridePhoneRaw = process.env.WA_TEST_OVERRIDE_PHONE;
     const overridePhone = overridePhoneRaw ? normalizePhoneNumber(overridePhoneRaw) : null;
-    const targetPhone = overridePhone || normalizePhoneNumber(to) || to;
+    const targetPhone = (!isGroup && !isLid && overridePhone)
+      ? overridePhone
+      : isGroup
+      ? ensureWhatsAppGroupJid(to)
+      : normalizePhoneNumber(to) || to;
 
     if (overridePhone) {
       console.log(`[WhatsAppClient] 🔀 Penarikan pesan dialihkan dari ${to} ke Nomor Testing: ${overridePhone}`);

@@ -968,6 +968,7 @@ export async function sendScheduleChangeEmergencyAlert(params: {
   notes?: string | null;
   scheduleId: string;
   recipientUserId?: string;
+  magicToken?: string;
 }): Promise<SendMessageResult> {
   const baseUrl = getBaseAppUrl();
   const scheduleDetailUrl = `${baseUrl}/jadwal/${params.scheduleId}`;
@@ -999,6 +1000,7 @@ export async function sendScheduleChangeEmergencyAlert(params: {
       catatan_tambahan: formatScheduleNotesBlock(params.notes),
       url_jadwal: scheduleDetailUrl,
     },
+    magicToken: params.magicToken,
     referenceId: params.scheduleId,
   });
 }

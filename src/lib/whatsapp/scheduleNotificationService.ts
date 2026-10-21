@@ -346,9 +346,23 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
               templateCode: {
                 in: [
                   'SCHEDULE_REMINDER_H1_STUDENT',
+                  'STUDENT_ACTION_LINK_H1',
                   'SCHEDULE_REMINDER_H1_TEACHER',
+                  'TEACHER_ACTION_LINKS_H1',
+                  'SCHEDULE_REMINDER_COUNTDOWN_TEACHER',
+                  'TEACHER_PRESENSI_LINK_2H',
+                  'TEACHER_MULTI_SCHEDULE_DIGEST_H1',
+                  'TEACHER_MULTI_SCHEDULE_ACTIONS_H1',
                   'SCHEDULE_REMINDER_COUNTDOWN',
+                  'STUDENT_ACTION_LINKS_2H',
+                  'SCHEDULE_REMINDER_FAMILY_DIGEST',
+                  'FAMILY_ACTION_LINK_H1',
+                  'SCHEDULE_REMINDER_FAMILY_COUNTDOWN',
+                  'FAMILY_ACTION_LINKS_2H',
+                  'SCHEDULE_REMINDER_UNIFIED_TEACHER_PARENT',
+                  'SCHEDULE_REMINDER_TEACHER_WITH_DISPENSATION',
                   'SCHEDULE_REMINDER',
+                  'GROUP_SCHEDULE_REMINDER_H1',
                 ],
               },
             },
@@ -380,6 +394,21 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
     list.push(oldLog);
     oldRemindersByPhone.set(norm, list);
   }
+
+  const updateTimestamp = schedule.updatedAt instanceof Date
+    ? schedule.updatedAt.getTime()
+    : new Date(schedule.updatedAt || Date.now()).getTime();
+
+  // 1.5 Preload log pesan perubahan darurat yang sudah dikirim untuk jadwal & revisi ini guna mencegah duplikasi (Idempotency Guard)
+  const existingEmergencyLogs = await prisma.whatsAppMessageLog.findMany({
+    where: {
+      referenceId: schedule.id,
+      magicToken: { startsWith: `SCHED_CHANGE_${schedule.id}_` },
+      status: { in: ['SENT', 'DELIVERED', 'READ', 'SENDING', 'QUEUED'] },
+    },
+    select: { magicToken: true },
+  });
+  const sentEmergencyTokens = new Set(existingEmergencyLogs.map((l) => l.magicToken).filter(Boolean));
 
   const dayDateStr = formatIndonesianDate(schedule.startTime);
   const startTimeStr = formatTime(schedule.startTime);
@@ -423,6 +452,12 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
 
     contactedPhones.add(normPhone);
 
+    const magicToken = `SCHED_CHANGE_${schedule.id}_${normPhone}_${updateTimestamp}`;
+    if (sentEmergencyTokens.has(magicToken)) {
+      console.log(`[ScheduleChangeConfirm] 🛑 Pesan darurat untuk ${normPhone} sudah pernah dikirim (${magicToken}). Dilewati.`);
+      continue;
+    }
+
     // Langkah 1: Tarik pesan lama jika ada
     const revoked = await revokeOldMessagesForPhone(normPhone);
     revokedCount += revoked;
@@ -442,9 +477,13 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
       notes: schedule.notes,
       scheduleId: schedule.id,
       recipientUserId: teacher.id,
+      magicToken,
     });
 
-    if (res.success) sentCount++;
+    if (res.success) {
+      sentEmergencyTokens.add(magicToken);
+      sentCount++;
+    }
   }
 
   // B. Kirim ke Orang Tua dan Santri Target
@@ -459,6 +498,12 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
       if (contactedPhones.has(normPhone)) continue;
 
       contactedPhones.add(normPhone);
+
+      const magicToken = `SCHED_CHANGE_${schedule.id}_${normPhone}_${updateTimestamp}`;
+      if (sentEmergencyTokens.has(magicToken)) {
+        console.log(`[ScheduleChangeConfirm] 🛑 Pesan darurat untuk ${normPhone} sudah pernah dikirim (${magicToken}). Dilewati.`);
+        continue;
+      }
 
       // Langkah 1: Tarik pesan lama jika ada
       const revoked = await revokeOldMessagesForPhone(normPhone);
@@ -482,9 +527,13 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
         notes: schedule.notes,
         scheduleId: schedule.id,
         recipientUserId: parent.id,
+        magicToken,
       });
 
-      if (res.success) sentCount++;
+      if (res.success) {
+        sentEmergencyTokens.add(magicToken);
+        sentCount++;
+      }
     }
 
     // 2. Santri langsung jika memiliki nomor WA sendiri
@@ -492,6 +541,12 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
       const normPhone = normalizePhoneNumber(student.phoneNumber) || student.phoneNumber;
       if (!contactedPhones.has(normPhone)) {
         contactedPhones.add(normPhone);
+
+        const magicToken = `SCHED_CHANGE_${schedule.id}_${normPhone}_${updateTimestamp}`;
+        if (sentEmergencyTokens.has(magicToken)) {
+          console.log(`[ScheduleChangeConfirm] 🛑 Pesan darurat untuk ${normPhone} sudah pernah dikirim (${magicToken}). Dilewati.`);
+          continue;
+        }
 
         // Langkah 1: Tarik pesan lama jika ada
         const revoked = await revokeOldMessagesForPhone(normPhone);
@@ -514,9 +569,13 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
           notes: schedule.notes,
           scheduleId: schedule.id,
           recipientUserId: student.id,
+          magicToken,
         });
 
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentEmergencyTokens.add(magicToken);
+          sentCount++;
+        }
       }
     }
   }

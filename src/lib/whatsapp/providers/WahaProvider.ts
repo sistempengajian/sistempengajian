@@ -1,6 +1,6 @@
 import { IWhatsAppGateway } from './IWhatsAppGateway';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from '../types';
-import { normalizePhoneNumber, isWhatsAppGroupJid, isWhatsAppLidJid } from '../utils';
+import { normalizePhoneNumber, isWhatsAppGroupJid, isWhatsAppLidJid, ensureWhatsAppGroupJid } from '../utils';
 
 export class WahaProvider implements IWhatsAppGateway {
   readonly providerName = 'waha';
@@ -20,7 +20,9 @@ export class WahaProvider implements IWhatsAppGateway {
     const isExplicitChat = typeof options.to === 'string' && options.to.includes('@');
 
     let targetChatId: string | null = null;
-    if (isGroup || isLid || isExplicitChat) {
+    if (isGroup) {
+      targetChatId = ensureWhatsAppGroupJid(options.to);
+    } else if (isLid || isExplicitChat) {
       targetChatId = options.to.trim();
     } else {
       const normalizedPhone = normalizePhoneNumber(options.to);
@@ -162,9 +164,11 @@ export class WahaProvider implements IWhatsAppGateway {
       return { success: true };
     }
 
-    // Pastikan format chatId sesuai dengan standar WAHA (nomor@c.us)
+    // Pastikan format chatId sesuai dengan standar WAHA (nomor@c.us atau grup@g.us)
     let formattedChatId = chatId;
-    if (!formattedChatId.includes('@')) {
+    if (isWhatsAppGroupJid(chatId)) {
+      formattedChatId = ensureWhatsAppGroupJid(chatId);
+    } else if (!formattedChatId.includes('@')) {
       const normalized = normalizePhoneNumber(chatId) || chatId;
       formattedChatId = `${normalized}@c.us`;
     }
@@ -292,7 +296,9 @@ export class WahaProvider implements IWhatsAppGateway {
     const isGroup = isWhatsAppGroupJid(chatId);
     const isLid = isWhatsAppLidJid(chatId);
     const isExplicit = chatId.includes('@');
-    const targetChatId = (isGroup || isLid || isExplicit)
+    const targetChatId = isGroup
+      ? ensureWhatsAppGroupJid(chatId)
+      : (isLid || isExplicit)
       ? chatId.trim()
       : `${normalizePhoneNumber(chatId)}@c.us`;
 
@@ -326,7 +332,9 @@ export class WahaProvider implements IWhatsAppGateway {
     const isGroup = isWhatsAppGroupJid(chatId);
     const isLid = isWhatsAppLidJid(chatId);
     const isExplicit = chatId.includes('@');
-    const targetChatId = (isGroup || isLid || isExplicit)
+    const targetChatId = isGroup
+      ? ensureWhatsAppGroupJid(chatId)
+      : (isLid || isExplicit)
       ? chatId.trim()
       : `${normalizePhoneNumber(chatId)}@c.us`;
 

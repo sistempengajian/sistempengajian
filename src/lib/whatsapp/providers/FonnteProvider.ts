@@ -1,6 +1,6 @@
 import { IWhatsAppGateway } from './IWhatsAppGateway';
 import { SendMessageOptions, SendMessageResult, DeviceStatusResult } from '../types';
-import { normalizePhoneNumber } from '../utils';
+import { normalizePhoneNumber, isWhatsAppGroupJid, ensureWhatsAppGroupJid } from '../utils';
 
 export class FonnteProvider implements IWhatsAppGateway {
   readonly providerName = 'fonnte';
@@ -13,7 +13,11 @@ export class FonnteProvider implements IWhatsAppGateway {
   }
 
   async sendMessage(options: SendMessageOptions): Promise<SendMessageResult> {
-    const normalizedTo = normalizePhoneNumber(options.to);
+    const isGroup = isWhatsAppGroupJid(options.to);
+    const normalizedTo = isGroup
+      ? ensureWhatsAppGroupJid(options.to)
+      : normalizePhoneNumber(options.to);
+
     if (!normalizedTo) {
       return {
         success: false,

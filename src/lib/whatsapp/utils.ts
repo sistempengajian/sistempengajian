@@ -1,10 +1,37 @@
 /**
- * Memeriksa apakah tujuan merupakan ID / JID Grup WhatsApp (akhiran @g.us)
+ * Memeriksa apakah tujuan merupakan ID / JID Grup WhatsApp
+ * Mendukung:
+ * - Akhiran @g.us atau @temp
+ * - Format numerik modern grup WA tanpa domain: diawali '120363' (panjang >= 15 digit)
+ * - Format legacy grup WA: menggunakan hyphen pemisah (contoh: '628123456789-1612345678')
  */
 export function isWhatsAppGroupJid(target: string | null | undefined): boolean {
   if (!target) return false;
   const trimmed = target.trim();
-  return trimmed.endsWith('@g.us') || trimmed.endsWith('@temp');
+  if (trimmed.endsWith('@g.us') || trimmed.endsWith('@temp')) {
+    return true;
+  }
+  // Format numerik modern WhatsApp Group tanpa suffix: diawali '120363' (panjang >= 15 digit)
+  if (/^120363\d{9,}$/.test(trimmed)) {
+    return true;
+  }
+  // Format legacy WhatsApp Group: <nomor>-<timestamp> tanpa suffix (contoh: 628xxx-1234567890)
+  if (/^\d{8,18}-\d{8,18}$/.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Memastikan ID grup WhatsApp memiliki akhiran '@g.us' (standar WAHA, Baileys, dll.)
+ */
+export function ensureWhatsAppGroupJid(target: string | null | undefined): string {
+  if (!target) return '';
+  const trimmed = target.trim();
+  if (trimmed.endsWith('@g.us')) return trimmed;
+  if (trimmed.endsWith('@temp')) return trimmed;
+  if (trimmed.includes('@')) return trimmed;
+  return `${trimmed}@g.us`;
 }
 
 /**
@@ -22,7 +49,10 @@ export function isWhatsAppLidJid(target: string | null | undefined): boolean {
 export function normalizeRecipientDestination(rawTarget: string | null | undefined): string | null {
   if (!rawTarget) return null;
   const trimmed = rawTarget.trim();
-  if (isWhatsAppGroupJid(trimmed) || isWhatsAppLidJid(trimmed) || trimmed.endsWith('@c.us') || trimmed.endsWith('@s.whatsapp.net')) {
+  if (isWhatsAppGroupJid(trimmed)) {
+    return ensureWhatsAppGroupJid(trimmed);
+  }
+  if (isWhatsAppLidJid(trimmed) || trimmed.endsWith('@c.us') || trimmed.endsWith('@s.whatsapp.net')) {
     return trimmed;
   }
   return normalizePhoneNumber(trimmed);
