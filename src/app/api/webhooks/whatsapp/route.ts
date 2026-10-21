@@ -213,6 +213,15 @@ export async function POST(req: NextRequest) {
           fromMe: Boolean(fromMe),
         });
 
+        if (groupResult.action === 'DUPLICATE_MESSAGE') {
+          return NextResponse.json({
+            status: 'duplicate_message_id',
+            event: 'GROUP_INBOUND_DUPLICATE_SKIPPED',
+            message: 'Pesan grup duplikat diabaikan (anti double-reply)',
+            ...groupResult,
+          });
+        }
+
         return NextResponse.json({
           status: 'success',
           event: 'GROUP_INBOUND_PROCESSED',
@@ -233,6 +242,15 @@ export async function POST(req: NextRequest) {
         authorPhone,
         quotedMessageId,
       });
+
+      if (result.intent === 'DUPLICATE_MESSAGE') {
+        return NextResponse.json({
+          status: 'duplicate_message_id',
+          event: 'INBOUND_DUPLICATE_SKIPPED',
+          message: 'Pesan pribadi duplikat diabaikan (anti double-reply)',
+          ...result,
+        });
+      }
 
       return NextResponse.json({
         status: 'success',

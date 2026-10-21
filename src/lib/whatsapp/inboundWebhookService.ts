@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { whatsAppClient } from './WhatsAppClient';
 import { SendMessageOptions } from './types';
+import { isDuplicateInboundMessage } from './inboundDeduplication';
 import {
   normalizePhoneNumber,
   extractCleanPhoneFromJid,
@@ -127,15 +129,37 @@ export async function findMatchingScheduleForStudent(
   return matched || null;
 }
 
-// In-memory rate limiter: mencegah bot membalas lebih dari 1x per 15 detik ke nomor yang sama
+// In-memory + Redis distributed rate limiter: mencegah bot membalas lebih dari 1x per 15 detik ke nomor yang sama
 const recentAutoReplies = new Map<string, number>();
 
-function isRateLimited(phone: string): boolean {
+async function isRateLimited(phone: string): Promise<boolean> {
+  const cleanPhone = phone.replace(/[^a-zA-Z0-9]/g, '');
   const now = Date.now();
+
+  // 1. Cek Lapis 1 (In-Memory Map)
   const lastTime = recentAutoReplies.get(phone);
   if (lastTime && now - lastTime < 15000) {
     return true;
   }
+
+  // 2. Cek Lapis 2 (Upstash Redis Distributed Lock dengan TTL 15 detik)
+  if (redis && cleanPhone) {
+    try {
+      const setResult = await redis.set(`wa:ratelimit:direct:${cleanPhone}`, '1', {
+        ex: 15,
+        nx: true,
+      });
+
+      if (setResult === null) {
+        recentAutoReplies.set(phone, now);
+        return true;
+      }
+    } catch (redisErr) {
+      console.warn('[WhatsApp RateLimit] Peringatan saat akses Redis rate limit:', redisErr);
+      // Fallback tenang ke Lapis 1
+    }
+  }
+
   recentAutoReplies.set(phone, now);
 
   // Bersihkan cache lama berkala (> 5 menit)
@@ -302,7 +326,7 @@ export interface InboundMessagePayload {
 
 export interface InboundProcessResult {
   handled: boolean;
-  intent: 'ABSENCE' | 'CLOSING_PRAYER' | 'AFFIRMATION' | 'GREETING' | 'THANKS' | 'OTHER' | 'IGNORED_SELF' | 'RATE_LIMITED';
+  intent: 'ABSENCE' | 'CLOSING_PRAYER' | 'AFFIRMATION' | 'GREETING' | 'THANKS' | 'OTHER' | 'IGNORED_SELF' | 'RATE_LIMITED' | 'DUPLICATE_MESSAGE';
   replySent?: boolean;
   replyMessage?: string;
   recipientPhone?: string;
@@ -315,6 +339,17 @@ export interface InboundProcessResult {
 export async function processInboundWhatsAppMessage(
   payload: InboundMessagePayload
 ): Promise<InboundProcessResult> {
+  // 0. Proteksi Deduplikasi Pesan Masuk (Anti Double-Reply dari WAHA / Gateway Re-delivery)
+  if (payload.messageId && (await isDuplicateInboundMessage(payload.messageId))) {
+    console.log(`[WhatsApp Inbound] 🛑 Pesan pribadi diabaikan karena messageId duplikat: ${payload.messageId}`);
+    return {
+      handled: false,
+      intent: 'DUPLICATE_MESSAGE',
+      replySent: false,
+      recipientPhone: payload.from,
+    };
+  }
+
   // 1. Proteksi Anti-Loop: Abaikan pesan dari akun bot sendiri
   if (payload.fromMe === true) {
     return { handled: false, intent: 'IGNORED_SELF' };
@@ -339,7 +374,7 @@ export async function processInboundWhatsAppMessage(
   const replyDestination = payload.from.trim();
 
   // Proteksi Rate Limiting
-  if (isRateLimited(replyDestination)) {
+  if (await isRateLimited(replyDestination)) {
     return {
       handled: true,
       intent: 'RATE_LIMITED',

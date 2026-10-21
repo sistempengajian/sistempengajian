@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { whatsAppClient } from './WhatsAppClient';
+import { isDuplicateInboundMessage } from './inboundDeduplication';
 import {
   getUpcomingWeekRangeWIB,
   getGroupOrganizationScope,
@@ -34,21 +36,44 @@ export interface GroupInboundResult {
     | 'COOLDOWN_ACTIVE'
     | 'IGNORED_NOT_MENTIONED'
     | 'IGNORED_UNREGISTERED'
-    | 'RATE_LIMITED';
+    | 'RATE_LIMITED'
+    | 'DUPLICATE_MESSAGE';
   replySent?: boolean;
   replyMessage?: string;
   groupId?: string;
 }
 
-// In-memory rate limiter spam ketukan cepat per grup (maksimal 1 balasan bot per 4 detik di grup yang sama)
+// In-memory + Redis distributed rate limiter spam ketukan cepat per grup (maksimal 1 balasan bot per 4 detik di grup yang sama)
 const recentGroupReplies = new Map<string, number>();
 
-function isGroupRateLimited(groupId: string): boolean {
+async function isGroupRateLimited(groupId: string): Promise<boolean> {
+  const cleanGroupId = groupId.replace(/[^a-zA-Z0-9_-]/g, '');
   const now = Date.now();
+
+  // 1. Cek Lapis 1 (In-Memory Map)
   const lastTime = recentGroupReplies.get(groupId);
   if (lastTime && now - lastTime < 4000) {
     return true;
   }
+
+  // 2. Cek Lapis 2 (Upstash Redis Distributed Lock dengan TTL 4s)
+  if (redis && cleanGroupId) {
+    try {
+      const setResult = await redis.set(`wa:ratelimit:group:${cleanGroupId}`, '1', {
+        ex: 4, // 4 detik
+        nx: true,
+      });
+
+      if (setResult === null) {
+        recentGroupReplies.set(groupId, now);
+        return true;
+      }
+    } catch (redisErr) {
+      console.warn('[WhatsApp Group RateLimit] Peringatan saat akses Redis rate limit:', redisErr);
+      // Fallback tenang ke Lapis 1
+    }
+  }
+
   recentGroupReplies.set(groupId, now);
 
   if (recentGroupReplies.size > 200) {
@@ -248,7 +273,18 @@ export function cleanGroupQuery(text: string): string {
 export async function processGroupInboundWhatsAppMessage(
   payload: GroupInboundPayload
 ): Promise<GroupInboundResult> {
-  // 0. Proteksi Anti-Loop: Abaikan pesan dari akun bot sendiri
+  // 0a. Proteksi Deduplikasi Pesan Masuk Grup (Anti Double-Reply dari WAHA / Gateway Re-delivery)
+  if (payload.messageId && (await isDuplicateInboundMessage(payload.messageId))) {
+    console.log(`[WhatsApp Group Inbound] 🛑 Pesan grup diabaikan karena messageId duplikat: ${payload.messageId}`);
+    return {
+      handled: false,
+      action: 'DUPLICATE_MESSAGE',
+      replySent: false,
+      groupId: payload.groupId,
+    };
+  }
+
+  // 0b. Proteksi Anti-Loop: Abaikan pesan dari akun bot sendiri
   if (payload.fromMe === true) {
     return { handled: false, action: 'IGNORED_NOT_MENTIONED' };
   }
@@ -321,7 +357,7 @@ export async function processGroupInboundWhatsAppMessage(
   }
 
   // 3. Proteksi Rate Limit Cepat per Grup (Maksimal 1 respons per 4 detik per grup)
-  if (isGroupRateLimited(groupId)) {
+  if (await isGroupRateLimited(groupId)) {
     return { handled: true, action: 'RATE_LIMITED', replySent: false, groupId };
   }
 
@@ -452,9 +488,29 @@ export async function processGroupInboundWhatsAppMessage(
   // Agar setiap user tidak dapat melakukan perintah yang sama berulang kali
   // jika sebelumnya sudah diminta oleh anggota lain dalam rentang 1 jam terakhir.
   // =========================================================================
+  const recordCommandCooldown = (key: string) => {
+    const executedAt = Date.now();
+    groupCommandCooldowns.set(key, executedAt);
+    if (redis) {
+      redis.set(`wa:cooldown:cmd:${key}`, String(executedAt), { ex: 3600 }).catch(() => {});
+    }
+  };
+
   const cooldownKey = `${groupId}:${targetAction}`;
   const now = Date.now();
-  const lastExecuted = groupCommandCooldowns.get(cooldownKey);
+  let lastExecuted = groupCommandCooldowns.get(cooldownKey);
+
+  if (!lastExecuted && redis) {
+    try {
+      const redisVal = await redis.get<string | number>(`wa:cooldown:cmd:${cooldownKey}`);
+      if (redisVal) {
+        lastExecuted = Number(redisVal);
+        groupCommandCooldowns.set(cooldownKey, lastExecuted);
+      }
+    } catch {
+      // Fallback tenang ke memory
+    }
+  }
 
   if (lastExecuted && now - lastExecuted < GROUP_COMMAND_COOLDOWN_MS) {
     const remainingMs = GROUP_COMMAND_COOLDOWN_MS - (now - lastExecuted);
@@ -576,7 +632,7 @@ export async function processGroupInboundWhatsAppMessage(
       `${orgSignature}`;
 
     await sendGroupReply(replyMessage, qrisImageUrl);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -615,7 +671,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -655,7 +711,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -695,7 +751,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -760,7 +816,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -807,7 +863,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -855,7 +911,7 @@ export async function processGroupInboundWhatsAppMessage(
     }
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -881,7 +937,7 @@ export async function processGroupInboundWhatsAppMessage(
       `— *Pengurus Pengajian ${orgName}*`;
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -906,7 +962,7 @@ export async function processGroupInboundWhatsAppMessage(
       `${orgSignature}`;
 
     await sendGroupReply(replyMessage);
-    groupCommandCooldowns.set(cooldownKey, Date.now());
+    recordCommandCooldown(cooldownKey);
 
     return {
       handled: true,
@@ -939,7 +995,7 @@ export async function processGroupInboundWhatsAppMessage(
     `— *Pengurus Pengajian ${orgName}*`;
 
   await sendGroupReply(helpMessage);
-  groupCommandCooldowns.set(cooldownKey, Date.now());
+  recordCommandCooldown(cooldownKey);
 
   return {
     handled: true,

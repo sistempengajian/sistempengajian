@@ -3,6 +3,7 @@ export * from './utils';
 export * from './templateEngine';
 export * from './WhatsAppClient';
 export * from './triggers';
+export * from './inboundDeduplication';
 export { FonnteProvider } from './providers/FonnteProvider';
 export { BaileysProvider } from './providers/BaileysProvider';
 export { WahaProvider } from './providers/WahaProvider';
