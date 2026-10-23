@@ -53,15 +53,15 @@ export default function ClassManagementView({ initialData }: ClassManagementView
   }, [initialData]);
 
   // ─── Filter state ────────────────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [searchQuery, setSearchQuery] = useState(searchParams?.get('search') || '');
   const [selectedGenerationId, setSelectedGenerationId] = useState(
-    searchParams.get('generationId') || 'ALL'
+    searchParams?.get('generationId') || 'ALL'
   );
   const [selectedTierLevel, setSelectedTierLevel] = useState(
-    searchParams.get('tierLevel') || 'ALL'
+    searchParams?.get('tierLevel') || 'ALL'
   );
   const [selectedAcademicYear, setSelectedAcademicYear] = useState(
-    searchParams.get('academicYear') || 'ALL'
+    searchParams?.get('academicYear') || 'ALL'
   );
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 

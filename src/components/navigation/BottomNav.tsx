@@ -22,7 +22,7 @@ interface BottomNavProps {
 }
 
 export default function BottomNav({ roleCodes = [] }: BottomNavProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
 
   const isAdmin = roleCodes.includes('ADMIN_MASTER');
   const isPj =

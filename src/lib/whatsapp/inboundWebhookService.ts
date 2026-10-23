@@ -45,11 +45,11 @@ async function sendReplyWithTyping(
 
 // Regex Intent Classifiers
 export const INTENT_REGEX = {
-  ABSENCE: /\b(izin|ijin|sakit|demam|panas|meriang|pusing|batuk|pilek|flu|berhalangan|halangan|keperluan|acara|kondangan|hajat|hajatan|dinas|tugas|tidak bisa hadir|tidak hadir|tidak masuk|tidak bisa ikut|ga bisa hadir|ga bisa masuk|ga bisa ikut|gak bisa hadir|gak bisa masuk|gak bisa ikut|gk bisa hadir|gk bisa masuk|gk bisa ikut|nggak bisa hadir|nggak bisa masuk|nggak bisa ikut|absen|rawat|dirawat|opname|bedrest|keluar kota|ke luar kota|pulang kampung|mudik)\b/i,
+  ABSENCE: /\b(izin|ijin|sakit|demam|panas|meriang|pusing|batuk|pilek|flu|berhalangan|halangan|keperluan|acara|kondangan|hajat|hajatan|dinas|tugas|tidak bisa hadir|tidak hadir|tidak masuk|tidak bisa ikut|ga bisa hadir|ga bisa masuk|ga bisa ikut|gak bisa hadir|gak bisa masuk|gak bisa ikut|gk bisa hadir|gk bisa masuk|gk bisa ikut|nggak bisa hadir|nggak bisa masuk|nggak bisa ikut|rawat|dirawat|opname|bedrest|keluar kota|ke luar kota|pulang kampung|mudik)\b/i,
   CLOSING_PRAYER: /^\s*(aamiin|amiin|amin|aamin)\b/i,
   AFFIRMATION: /\b(siap|oke|ok|baik|noted|insyaallah|insya allah|bismillah|inggih|siap hadir|bisa hadir|hadir ustadz|siap ustadz|siap ustadzah|siap kak|siap laksanakan)\b/i,
   GREETING: /\b(assalamu|assalamualaikum|assalamu'alaikum|waalaikumsalam|wa'alaikumsalam|samlikum|halo|hai|selamat pagi|selamat siang|selamat sore|selamat malam)\b/i,
-  THANKS: /\b(alhamdulillah|syukron|syukran|terima kasih|terimakasih|makasih|jazakallah|jazakillah|jazakumullah)\b/i,
+  THANKS: /\b(alhamdulillah|syukron|syukran|terima kasih|terimakasih|makasih|jazakallah|jazakillah|jazakumullah|jaza|jazza)\b/i,
   MENU: /\b(menu|bantuan|help|panduan|fitur|perintah|layanan|info|informasi|tes|test|ping)\b|^[/!](menu|bantuan|help|panduan|fitur|info)\b/i,
 };
 
@@ -953,7 +953,7 @@ export async function processInboundWhatsAppMessage(
   // =========================================================================
   if (isThanks) {
     const thanksReply =
-      `Alhamdulillah Jazakumullahu Khairan Katsiran atas perhatian dan kerja sama Bapak/Ibu/Saudara sekalian.\n\n` +
+      `Alhamdulillah Jazakumullahu Khairan atas perhatian dan kerja sama Bapak/Ibu/Saudara sekalian.\n\n` +
       `Semoga Allah SWT senantiasa memberikan kemudahan, keberkahan, dan kelancaran dalam setiap aktivitas bimbingan generasi penerus.\n\n` +
       `— *Pengurus Pengajian*`;
 

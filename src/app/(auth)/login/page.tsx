@@ -44,8 +44,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
-  const authError = searchParams.get('auth_error');
+  const redirectTo = searchParams?.get('redirectTo') || '/dashboard';
+  const authError = searchParams?.get('auth_error');
 
   // Login Mode: 'whatsapp' (default) | 'password' (fallback)
   const [loginMode, setLoginMode] = useState<'whatsapp' | 'password'>('whatsapp');

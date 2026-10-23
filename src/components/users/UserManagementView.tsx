@@ -52,22 +52,22 @@ export default function UserManagementView({
 
   // Filter States
   const [activeRoleTab, setActiveRoleTab] = useState<string>(
-    searchParams.get('role') || 'ALL'
+    searchParams?.get('role') || 'ALL'
   );
   const [searchQuery, setSearchQuery] = useState<string>(
-    searchParams.get('search') || ''
+    searchParams?.get('search') || ''
   );
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>(
-    searchParams.get('search') || ''
+    searchParams?.get('search') || ''
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string>(
-    searchParams.get('organizationId') || ''
+    searchParams?.get('organizationId') || ''
   );
   const [selectedGenId, setSelectedGenId] = useState<string>(
-    searchParams.get('generationId') || ''
+    searchParams?.get('generationId') || ''
   );
   const [selectedStatus, setSelectedStatus] = useState<string>(
-    searchParams.get('status') || 'ALL'
+    searchParams?.get('status') || 'ALL'
   );
   const [viewMode, setViewMode] = useState<'CARD' | 'TABLE'>('CARD');
 

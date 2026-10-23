@@ -6,6 +6,7 @@ import {
 } from './triggers';
 import { formatIndonesianDate, formatTime } from './scheduleNotificationService';
 import { ScheduleStatus } from '@prisma/client';
+import { sleepWithJitter } from './pacingUtils';
 
 /**
  * Menghitung rentang hari Senin s/d Ahad dalam Waktu Indonesia Barat (WIB / UTC+7)
@@ -433,7 +434,11 @@ export async function dispatchGroupScheduleReminderH1(scheduleId: string): Promi
   const startTimeText = formatTime(schedule.startTime);
   const endTimeText = formatTime(schedule.endTime);
 
+  let groupIndex = 0;
+  const totalGroups = groupByMap.size;
+
   for (const [groupId, gensInGroupForSchedule] of groupByMap.entries()) {
+    groupIndex++;
     // 4. Periksa seluruh jenjang yang terdaftar di grup ini pada sistem (untuk deteksi grup gabungan)
     const allGenerationsInGroup = await prisma.generation.findMany({
       where: {
@@ -560,6 +565,11 @@ export async function dispatchGroupScheduleReminderH1(scheduleId: string): Promi
         status: 'FAILED',
         error: sendResult.error,
       });
+    }
+
+    // Jeda sejenak antar pengiriman grup WhatsApp (anti-spam WAHA rate limiting)
+    if (groupIndex < totalGroups) {
+      await sleepWithJitter(2000, 3500);
     }
   }
 
@@ -902,7 +912,7 @@ export async function dispatchAllWeeklyScheduleDigests(options?: { force?: boole
     });
 
     // Jeda sejenak antar pengiriman grup (anti-spam WAHA rate limiting)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await sleepWithJitter(2500, 4000);
   }
 
   return {
