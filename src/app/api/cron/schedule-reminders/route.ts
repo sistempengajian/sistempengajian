@@ -38,6 +38,7 @@ import {
   generateFamilyActionHubToken,
 } from '@/lib/studentAbsenceToken';
 import { handleBroadcastMagicLogin } from '@/lib/whatsapp/broadcastMagicLoginService';
+import { microDelayBetweenPairedMessages } from '@/lib/whatsapp/pacingUtils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Max 60s execution limit (Vercel)
@@ -1163,6 +1164,7 @@ async function handleScheduleReminders(request: NextRequest) {
               }
 
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 const actRes = await sendTeacherMultiScheduleActionsH1({
                   teacherPhone: bucket.phone,
                   teacherName: bucket.name,
@@ -1235,6 +1237,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
               // Pesan 2 Terpisah: Aksi Materi & Badal (H-1) atau Akses Presensi (-2 Jam)
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isH1Reminder) {
                   actRes = await sendTeacherActionLinksH1({
@@ -1299,6 +1302,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
               // Pesan 2 Terpisah: Aksi Materi & Badal (H-1) atau Akses Presensi (-2 Jam)
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isH1Reminder) {
                   actRes = await sendTeacherActionLinksH1({
@@ -1386,6 +1390,7 @@ async function handleScheduleReminders(request: NextRequest) {
 
               // Pesan 2: Akses Cepat Presensi (-2 Jam) atau Link Persiapan Materi & Badal (H-1)
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isCountdownReminder) {
                   actRes = await sendTeacherPresensiLink2h({
@@ -1471,6 +1476,7 @@ async function handleScheduleReminders(request: NextRequest) {
               }
 
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isH1Reminder) {
                   // Pesan 2 (H-1 Terpisah): Tautan Khusus Konfirmasi Izin Keluarga
@@ -1566,6 +1572,7 @@ async function handleScheduleReminders(request: NextRequest) {
               }
 
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isH1Reminder) {
                   // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit
@@ -1663,6 +1670,7 @@ async function handleScheduleReminders(request: NextRequest) {
               }
 
               if (!exactSentTokensSet.has(secondaryToken)) {
+                if (res?.success) await microDelayBetweenPairedMessages();
                 let actRes;
                 if (isH1Reminder) {
                   // Pesan 2 (H-1 Terpisah): Tautan Khusus Pengajuan Izin / Sakit

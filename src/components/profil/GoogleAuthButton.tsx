@@ -42,8 +42,8 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
   }, []);
 
   useEffect(() => {
-    const authStatus = searchParams.get('auth_status');
-    const authError = searchParams.get('auth_error');
+    const authStatus = searchParams?.get('auth_status');
+    const authError = searchParams?.get('auth_error');
 
     if (authStatus === 'success') {
       setFeedback({

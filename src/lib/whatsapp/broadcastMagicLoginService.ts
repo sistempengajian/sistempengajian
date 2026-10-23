@@ -9,6 +9,7 @@ import {
   formatTeacherSalutation,
   formatStudentSalutation,
 } from '@/lib/whatsapp/utils';
+import { sleepWithJitter } from '@/lib/whatsapp/pacingUtils';
 
 function getBaseAppUrl(): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -287,9 +288,9 @@ export async function handleBroadcastMagicLogin(request: NextRequest) {
         processLogs.push(`[Error] Eksekusi pesan gagal: ${err?.message || 'Error'}`);
       }
 
-      // Jeda 350ms antar pesan agar antrean socket WAHA tetap stabil
+      // Jeda dinamis aman antar pesan pengguna (anti-spam pacing)
       if (i < dispatchQueue.length - 1) {
-        await new Promise((r) => setTimeout(r, 350));
+        await sleepWithJitter(1800, 3000);
       }
     }
 

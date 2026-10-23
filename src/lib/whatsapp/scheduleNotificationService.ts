@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+
 import {
   sendScheduleReminderH1ToStudent,
   sendStudentActionLinkH1,
@@ -27,6 +28,11 @@ import { ScheduleStatus } from '@prisma/client';
 import { whatsAppClient } from './WhatsAppClient';
 import { normalizePhoneNumber, getBaseAppUrl } from './utils';
 import { DEFAULT_TEMPLATES, renderTemplate } from './templateEngine';
+import {
+  sleepWithJitter,
+  microDelayBetweenPairedMessages,
+  isApproachingTimeout,
+} from './pacingUtils';
 
 export function isScheduleToday(date: Date): boolean {
   const scheduleDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
@@ -333,6 +339,8 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
     return { success: false, message: 'Jadwal tidak ditemukan' };
   }
 
+  const startTimeMs = Date.now();
+
   // 1. Ambil seluruh log pesan pengingat jadwal terdahulu untuk ditarik jika ada
   const allPreviousReminders = await prisma.whatsAppMessageLog.findMany({
     where: {
@@ -483,6 +491,11 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
     if (res.success) {
       sentEmergencyTokens.add(magicToken);
       sentCount++;
+      if (isApproachingTimeout(startTimeMs, 12000, 2500)) {
+        console.warn(`[ScheduleChangeConfirm] ⏱️ Batas waktu aman Server Action (12s) tercapai saat mengirim ke pengajar.`);
+        break;
+      }
+      await sleepWithJitter(1500, 2500);
     }
   }
 
@@ -533,6 +546,11 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
       if (res.success) {
         sentEmergencyTokens.add(magicToken);
         sentCount++;
+        if (isApproachingTimeout(startTimeMs, 12000, 2500)) {
+          console.warn(`[ScheduleChangeConfirm] ⏱️ Batas waktu aman Server Action (12s) tercapai.`);
+          break;
+        }
+        await sleepWithJitter(1500, 2500);
       }
     }
 
@@ -575,6 +593,11 @@ export async function dispatchConfirmedScheduleChangeNotification(params: {
         if (res.success) {
           sentEmergencyTokens.add(magicToken);
           sentCount++;
+          if (isApproachingTimeout(startTimeMs, 12000, 2500)) {
+            console.warn(`[ScheduleChangeConfirm] ⏱️ Batas waktu aman Server Action (12s) tercapai.`);
+            break;
+          }
+          await sleepWithJitter(1500, 2500);
         }
       }
     }
@@ -1012,10 +1035,37 @@ export async function broadcastScheduleReminder(scheduleId: string) {
     }
   }
 
+  const startTimeMs = Date.now();
   let sentCount = 0;
+  const totalRecipients = recipientMap.size;
+  let processedRecipients = 0;
+
+  if (totalRecipients === 0) {
+    return {
+      success: true,
+      sentCount: 0,
+      totalEligible: 0,
+      message: 'Tidak ada nomor telepon dewan pengajar atau santri yang terdaftar untuk sesi ini.',
+    };
+  }
+
+  const waitBeforeNextRecipient = async (): Promise<boolean> => {
+    processedRecipients++;
+    if (processedRecipients < totalRecipients) {
+      if (isApproachingTimeout(startTimeMs, 12000, 2500)) {
+        console.warn(
+          `[broadcastScheduleReminder] ⏱️ Batas waktu aman Server Action (12s) tercapai. Selesai memproses ${sentCount} dari ${totalRecipients} penerima.`
+        );
+        return false;
+      }
+      await sleepWithJitter(1500, 2500);
+    }
+    return true;
+  };
 
   for (const [normPhone, bucket] of recipientMap.entries()) {
-    const magicToken = `SCHED_BROADCAST_${schedule.id}_${normPhone}_${Date.now()}`;
+    const batchWindow = Math.floor(Date.now() / (10 * 60 * 1000));
+    const magicToken = `SCHED_BROADCAST_${schedule.id}_${normPhone}_${batchWindow}`;
 
     // Skenario 1: Ustadz merangkap Orang Tua
     if (bucket.isTeacher && bucket.studentsAsParent.length > 0) {
@@ -1042,31 +1092,35 @@ export async function broadcastScheduleReminder(scheduleId: string) {
         students: bucket.studentsAsParent,
       });
 
-      if (isCountdown) {
-        await sendTeacherPresensiLink2h({
-          teacherPhone: bucket.phone,
-          teacherName: bucket.name,
-          teacherGender: bucket.gender,
-          scheduleTitle: displayScheduleTitle,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          teacherUserId: bucket.userId,
-          magicToken: `${magicToken}_PRESENSI`,
-        });
-      } else {
-        await sendTeacherActionLinksH1({
-          teacherPhone: bucket.phone,
-          teacherName: bucket.name,
-          teacherGender: bucket.gender,
-          scheduleTitle: displayScheduleTitle,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          teacherUserId: bucket.userId,
-          magicToken: `${magicToken}_ACTION`,
-        });
+      if (res.success) {
+        sentCount++;
+        await microDelayBetweenPairedMessages();
+        if (isCountdown) {
+          await sendTeacherPresensiLink2h({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            scheduleTitle: displayScheduleTitle,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            teacherUserId: bucket.userId,
+            magicToken: `${magicToken}_PRESENSI`,
+          });
+        } else {
+          await sendTeacherActionLinksH1({
+            teacherPhone: bucket.phone,
+            teacherName: bucket.name,
+            teacherGender: bucket.gender,
+            scheduleTitle: displayScheduleTitle,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            teacherUserId: bucket.userId,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       }
 
-      if (res.success) sentCount++;
+      if (!(await waitBeforeNextRecipient())) break;
       continue;
     }
 
@@ -1225,15 +1279,19 @@ export async function broadcastScheduleReminder(scheduleId: string) {
             teacherUserId: bucket.userId,
           });
 
-          await sendTeacherMultiScheduleActionsH1({
-            teacherPhone: bucket.phone,
-            teacherName: bucket.name,
-            teacherGender: bucket.gender,
-            dayDate: dayDateStr,
-            items: multiSessionItems,
-            magicToken: `${magicToken}_ACTION`,
-            teacherUserId: bucket.userId,
-          });
+          if (res.success) {
+            sentCount++;
+            await microDelayBetweenPairedMessages();
+            await sendTeacherMultiScheduleActionsH1({
+              teacherPhone: bucket.phone,
+              teacherName: bucket.name,
+              teacherGender: bucket.gender,
+              dayDate: dayDateStr,
+              items: multiSessionItems,
+              magicToken: `${magicToken}_ACTION`,
+              teacherUserId: bucket.userId,
+            });
+          }
         } else {
           res = await sendScheduleReminderH1ToTeacher({
             teacherPhone: bucket.phone,
@@ -1256,20 +1314,24 @@ export async function broadcastScheduleReminder(scheduleId: string) {
             magicToken: `${magicToken}_MAIN`,
           });
 
-          await sendTeacherActionLinksH1({
-            teacherPhone: bucket.phone,
-            teacherName: bucket.name,
-            teacherGender: bucket.gender,
-            scheduleTitle: displayScheduleTitle,
-            dayDate: dayDateStr,
-            scheduleId: schedule.id,
-            teacherUserId: bucket.userId,
-            magicToken: `${magicToken}_ACTION`,
-          });
+          if (res.success) {
+            sentCount++;
+            await microDelayBetweenPairedMessages();
+            await sendTeacherActionLinksH1({
+              teacherPhone: bucket.phone,
+              teacherName: bucket.name,
+              teacherGender: bucket.gender,
+              scheduleTitle: displayScheduleTitle,
+              dayDate: dayDateStr,
+              scheduleId: schedule.id,
+              teacherUserId: bucket.userId,
+              magicToken: `${magicToken}_ACTION`,
+            });
+          }
         }
       }
 
-      if (res.success) sentCount++;
+      if (!(await waitBeforeNextRecipient())) break;
       continue;
     }
 
@@ -1302,18 +1364,20 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           parentUserId: bucket.userId,
         });
 
-        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin Keluarga
-        await sendFamilyActionLinks2h({
-          parentPhone: bucket.phone,
-          parentName: bucket.name,
-          dayDate: dayDateStr,
-          primaryScheduleId: schedule.id,
-          familyActionUrl,
-          magicToken: `${magicToken}_ACTION`,
-          parentUserId: bucket.userId,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin Keluarga
+          await sendFamilyActionLinks2h({
+            parentPhone: bucket.phone,
+            parentName: bucket.name,
+            dayDate: dayDateStr,
+            primaryScheduleId: schedule.id,
+            familyActionUrl,
+            magicToken: `${magicToken}_ACTION`,
+            parentUserId: bucket.userId,
+          });
+        }
       } else {
         // Pesan 1 (H-1): Ringkasan Jadwal Pengajian Keluarga
         const res = await sendFamilyScheduleReminderH1({
@@ -1332,19 +1396,23 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           parentUserId: bucket.userId,
         });
 
-        // Pesan 2 (H-1 Terpisah): Tautan Konfirmasi Izin Keluarga
-        await sendFamilyActionLinkH1({
-          parentPhone: bucket.phone,
-          parentName: bucket.name,
-          dayDate: dayDateStr,
-          primaryScheduleId: schedule.id,
-          familyActionUrl,
-          magicToken: `${magicToken}_ACTION`,
-          parentUserId: bucket.userId,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (H-1 Terpisah): Tautan Konfirmasi Izin Keluarga
+          await sendFamilyActionLinkH1({
+            parentPhone: bucket.phone,
+            parentName: bucket.name,
+            dayDate: dayDateStr,
+            primaryScheduleId: schedule.id,
+            familyActionUrl,
+            magicToken: `${magicToken}_ACTION`,
+            parentUserId: bucket.userId,
+          });
+        }
       }
+
+      if (!(await waitBeforeNextRecipient())) break;
       continue;
     }
 
@@ -1378,20 +1446,22 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           studentUserId: single.studentId,
         });
 
-        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
-        await sendStudentActionLinks2h({
-          recipientPhone: bucket.phone,
-          recipientName: `Bpk/Ibu ${bucket.name}`,
-          recipientUserId: bucket.userId,
-          scheduleTitle: schedule.title,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          studentUserId: single.studentId,
-          isParent: true,
-          magicToken: `${magicToken}_ACTION`,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
+          await sendStudentActionLinks2h({
+            recipientPhone: bucket.phone,
+            recipientName: `Bpk/Ibu ${bucket.name}`,
+            recipientUserId: bucket.userId,
+            scheduleTitle: schedule.title,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            studentUserId: single.studentId,
+            isParent: true,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       } else {
         // Pesan 1 (H-1): Detail Jadwal Santri
         const res = await sendScheduleReminderH1ToStudent({
@@ -1419,21 +1489,25 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           studentUserId: single.studentId,
         });
 
-        // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
-        await sendStudentActionLinkH1({
-          recipientPhone: bucket.phone,
-          recipientName: `Bpk/Ibu ${bucket.name}`,
-          recipientUserId: bucket.userId,
-          scheduleTitle: schedule.title,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          studentUserId: single.studentId,
-          isParent: true,
-          magicToken: `${magicToken}_ACTION`,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
+          await sendStudentActionLinkH1({
+            recipientPhone: bucket.phone,
+            recipientName: `Bpk/Ibu ${bucket.name}`,
+            recipientUserId: bucket.userId,
+            scheduleTitle: schedule.title,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            studentUserId: single.studentId,
+            isParent: true,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       }
+
+      if (!(await waitBeforeNextRecipient())) break;
       continue;
     }
 
@@ -1466,20 +1540,22 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           studentUserId: direct.studentId,
         });
 
-        // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
-        await sendStudentActionLinks2h({
-          recipientPhone: bucket.phone,
-          recipientName: direct.studentName,
-          recipientUserId: bucket.userId,
-          scheduleTitle: schedule.title,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          studentUserId: direct.studentId,
-          isParent: false,
-          magicToken: `${magicToken}_ACTION`,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (-2 Jam Terpisah): Tautan Presensi & Izin/Sakit
+          await sendStudentActionLinks2h({
+            recipientPhone: bucket.phone,
+            recipientName: direct.studentName,
+            recipientUserId: bucket.userId,
+            scheduleTitle: schedule.title,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            studentUserId: direct.studentId,
+            isParent: false,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       } else {
         // Pesan 1 (H-1): Detail Jadwal Santri
         const res = await sendScheduleReminderH1ToStudent({
@@ -1506,27 +1582,35 @@ export async function broadcastScheduleReminder(scheduleId: string) {
           studentUserId: direct.studentId,
         });
 
-        // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
-        await sendStudentActionLinkH1({
-          recipientPhone: bucket.phone,
-          recipientName: direct.studentName,
-          recipientUserId: bucket.userId,
-          scheduleTitle: schedule.title,
-          dayDate: dayDateStr,
-          scheduleId: schedule.id,
-          studentUserId: direct.studentId,
-          isParent: false,
-          magicToken: `${magicToken}_ACTION`,
-        });
-
-        if (res.success) sentCount++;
+        if (res.success) {
+          sentCount++;
+          await microDelayBetweenPairedMessages();
+          // Pesan 2 (H-1 Terpisah): Tautan Pengajuan Izin / Sakit
+          await sendStudentActionLinkH1({
+            recipientPhone: bucket.phone,
+            recipientName: direct.studentName,
+            recipientUserId: bucket.userId,
+            scheduleTitle: schedule.title,
+            dayDate: dayDateStr,
+            scheduleId: schedule.id,
+            studentUserId: direct.studentId,
+            isParent: false,
+            magicToken: `${magicToken}_ACTION`,
+          });
+        }
       }
+
+      if (!(await waitBeforeNextRecipient())) break;
     }
   }
 
+  const isPartial = sentCount < totalRecipients;
   return {
-    success: true,
+    success: sentCount > 0,
     sentCount,
-    message: `Siaran pengingat WhatsApp berhasil dikirimkan ke ${sentCount} penerima unik (Dewan Pengajar, Orang Tua, & Santri).`,
+    totalEligible: totalRecipients,
+    message: isPartial
+      ? `Gelombang pertama (${sentCount} dari ${totalRecipients} penerima) berhasil dikirimkan dengan jeda aman anti-spam. Sisa penerima dilanjutkan oleh cron otomatis atau klik kirim kembali.`
+      : `Siaran pengingat WhatsApp berhasil dikirimkan ke seluruh ${sentCount} penerima unik (Dewan Pengajar, Orang Tua, & Santri) dengan jeda aman anti-spam.`,
   };
 }
