@@ -1,11 +1,13 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { X, Download, ExternalLink, Sparkles } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import PwaInstallModal from './PwaInstallModal';
 
 export default function PwaFloatingBanner() {
+  const pathname = usePathname();
   const {
     isStandalone,
     isInstalled,
@@ -16,6 +18,11 @@ export default function PwaFloatingBanner() {
     dismissBanner,
     closeModal,
   } = usePwaInstall();
+
+  // Jangan tampilkan banner di halaman tutorial / product tour
+  if (pathname?.startsWith('/tutorial')) {
+    return null;
+  }
 
   // Jika sudah di dalam mode PWA Standalone atau banner ditutup oleh user, jangan tampilkan banner
   if (isStandalone || isDismissed) {
