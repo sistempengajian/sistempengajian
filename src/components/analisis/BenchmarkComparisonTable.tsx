@@ -7,11 +7,15 @@ import { Layers, ArrowUpDown, Award, CheckCircle2, BarChart2, Table as TableIcon
 interface BenchmarkComparisonTableProps {
   benchmarks: BenchmarkComparisonItem[];
   onSelectUnit?: (unitId: string) => void;
+  scopeType?: string;
+  scopeName?: string;
 }
 
 export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> = ({
   benchmarks,
   onSelectUnit,
+  scopeType,
+  scopeName,
 }) => {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [sortField, setSortField] = useState<'attendance' | 'curriculum' | 'character' | 'students'>('attendance');
@@ -20,7 +24,9 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
   if (!benchmarks || benchmarks.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
-        Belum ada data pembanding untuk unit yang setara.
+        {scopeType && ['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
+          ? `Belum ada data rekaman presensi kelas/sub-unit pada ${scopeName || 'unit'} ini untuk diperbandingkan pada periode terpilih.`
+          : 'Pilih skop tingkat Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
       </div>
     );
   }

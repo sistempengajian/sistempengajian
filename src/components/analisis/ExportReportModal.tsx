@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AnalyticsDashboardData } from '@/app/(protected)/analisis/types';
 import {
   X,
@@ -8,19 +8,42 @@ import {
   FileSpreadsheet,
   Calendar,
   Building,
+  EyeOff,
 } from 'lucide-react';
+import { maskStudentName } from './privacyUtils';
 
 interface ExportReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: AnalyticsDashboardData;
+  isPrivacyMode?: boolean;
 }
 
 export const ExportReportModal: React.FC<ExportReportModalProps> = ({
   isOpen,
   onClose,
   data,
+  isPrivacyMode = false,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.classList.add('modal-open');
+    document.body.setAttribute('data-modal-open', 'true');
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.removeAttribute('data-modal-open');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
@@ -46,7 +69,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
 
     const rows = uniqueStudents.map((s, idx) => [
       idx + 1,
-      `"${s.fullName}"`,
+      `"${maskStudentName(s.fullName, Boolean(isPrivacyMode))}"`,
       `"${s.className || '-'}"`,
       `"${s.organizationName || '-'}"`,
       s.attendanceRate,
@@ -62,6 +85,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
         `"LAPORAN EKSEKUTIF ANALISIS PEMBINAAN SANTRI"`,
         `"Unit/Lingkup:","${data.scopeInfo.name} (${data.scopeInfo.subtitle || ''})"`,
         `"Periode:","${data.scopeInfo.periodLabel} (${data.scopeInfo.dateRangeLabel})"`,
+        `"Status Privasi:","${isPrivacyMode ? 'Sensor Nama Aktif' : 'Nama Lengkap Asli'}"`,
         `"Tanggal Unduh:","${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}"`,
         '',
         `"RINGKASAN KPI:"`,
@@ -88,7 +112,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs print:bg-white print:p-0 print:static">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs print:bg-white print:p-0 print:static">
       <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl text-slate-800 max-h-[90vh] flex flex-col print:border-none print:shadow-none print:max-h-none print:bg-white print:text-black">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 print:hidden">
@@ -97,14 +121,22 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
               <Printer className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Ekspor Laporan Eksekutif</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">Ekspor Laporan Eksekutif</h3>
+                {isPrivacyMode && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                    <EyeOff className="w-3 h-3 text-amber-600" />
+                    Sensor Nama Aktif
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">Unduh format spreadsheet (Excel) atau cetak ringkasan resmi A4</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -183,7 +215,9 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                 <tbody className="divide-y divide-slate-100 print:divide-slate-300 text-slate-700">
                   {data.topPerformers.slice(0, 3).map((s) => (
                     <tr key={s.studentId}>
-                      <td className="p-2.5 font-bold text-slate-900 print:text-black">⭐ {s.fullName}</td>
+                      <td className="p-2.5 font-bold text-slate-900 print:text-black">
+                        ⭐ {maskStudentName(s.fullName, Boolean(isPrivacyMode))}
+                      </td>
                       <td className="p-2.5 text-center text-emerald-700 font-bold">{s.attendanceRate}%</td>
                       <td className="p-2.5 text-center text-cyan-700 font-bold">{s.curriculumRate}%</td>
                       <td className="p-2.5 text-center text-purple-700 font-bold">{s.characterScore}</td>
@@ -192,7 +226,9 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                   ))}
                   {data.atRiskStudents.slice(0, 5).map((s) => (
                     <tr key={s.studentId}>
-                      <td className="p-2.5 font-bold text-slate-900 print:text-black">⚠️ {s.fullName}</td>
+                      <td className="p-2.5 font-bold text-slate-900 print:text-black">
+                        ⚠️ {maskStudentName(s.fullName, Boolean(isPrivacyMode))}
+                      </td>
                       <td className="p-2.5 text-center text-rose-700 font-bold">{s.attendanceRate}%</td>
                       <td className="p-2.5 text-center text-rose-700 font-bold">{s.curriculumRate}%</td>
                       <td className="p-2.5 text-center text-rose-700 font-bold">{s.characterScore}</td>

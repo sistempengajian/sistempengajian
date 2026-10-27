@@ -425,7 +425,7 @@ export async function verifyWhatsAppMagicToken(token: string): Promise<{
 /**
  * Server Action: Masuk Instan Akun Demo (1-Klik untuk Pengujian Sistem)
  */
-export async function loginAsDemoUser(identifier: string): Promise<{ success: boolean; error?: string }> {
+export async function loginAsDemoUser(identifier: string, roleHint?: string): Promise<{ success: boolean; error?: string }> {
   // Keamanan: Akses demo dinonaktifkan secara ketat pada versi rilis / production
   if (process.env.NODE_ENV === 'production') {
     return { success: false, error: 'Fitur akun demo dinonaktifkan pada versi rilis (production).' };
@@ -435,7 +435,7 @@ export async function loginAsDemoUser(identifier: string): Promise<{ success: bo
     const phoneVariants = getCanonicalPhoneVariants(identifier);
 
     // Cari pengguna demo di Prisma berdasarkan nomor HP, email, atau username
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: {
         OR: [
           ...(phoneVariants.length > 0 ? [{ phoneNumber: { in: phoneVariants } }] : []),
@@ -448,6 +448,72 @@ export async function loginAsDemoUser(identifier: string): Promise<{ success: bo
       },
     });
 
+    // Fallback cerdas: Jika tidak ditemukan via nomor HP/email statis, cari user aktif berdasarkan role
+    if (!user) {
+      const roleMap: Record<string, string> = {
+        'Admin Master': 'ADMIN_MASTER',
+        'ADMIN_MASTER': 'ADMIN_MASTER',
+        '081100000001': 'ADMIN_MASTER',
+        'admin@pengajian.app': 'ADMIN_MASTER',
+        'Wali Kelas': 'WALI_KELAS',
+        'WALI_KELAS': 'WALI_KELAS',
+        '081277778888': 'WALI_KELAS',
+        'walikelas@pengajian.app': 'WALI_KELAS',
+        'Pengajar (Ustadz)': 'PENGAJAR',
+        'PENGAJAR': 'PENGAJAR',
+        '081255556666': 'PENGAJAR',
+        'PJ Kelompok': 'PJ_KELOMPOK',
+        'PJ_KELOMPOK': 'PJ_KELOMPOK',
+        'pj.kelompok@pengajian.app': 'PJ_KELOMPOK',
+        'PJ Desa': 'PJ_DESA',
+        'PJ_DESA': 'PJ_DESA',
+        '081233334444': 'PJ_DESA',
+        'pj.desa@pengajian.app': 'PJ_DESA',
+        'PJ Daerah': 'PJ_DAERAH',
+        'PJ_DAERAH': 'PJ_DAERAH',
+        '081211112222': 'PJ_DAERAH',
+        'pj.daerah@pengajian.app': 'PJ_DAERAH',
+        'Orang Tua / Wali': 'ORANG_TUA',
+        'ORANG_TUA': 'ORANG_TUA',
+        '081299990001': 'ORANG_TUA',
+        'ayah.ahmad@gmail.com': 'ORANG_TUA',
+        'Santri (Caberawit)': 'SANTRI',
+        'Santri': 'SANTRI',
+        'SANTRI': 'SANTRI',
+        '081299990003': 'SANTRI',
+        'santri.farhan@pengajian.app': 'SANTRI',
+      };
+
+      const targetRole = roleHint ? (roleMap[roleHint] || roleHint) : roleMap[identifier];
+      if (targetRole) {
+        const assignment = await prisma.userRoleAssignment.findFirst({
+          where: {
+            role: targetRole as any,
+            user: { status: 'ACTIVE' },
+          },
+          include: {
+            user: {
+              include: { roles: true },
+            },
+          },
+        });
+
+        if (assignment?.user) {
+          user = assignment.user;
+        } else {
+          // Fallback aman untuk role hierarki yang belum terisi di DB lokal: gunakan user Admin Master aktif
+          const masterAdmin = await prisma.user.findFirst({
+            where: {
+              roles: { some: { role: 'ADMIN_MASTER' } },
+              status: 'ACTIVE',
+            },
+            include: { roles: true },
+          });
+          if (masterAdmin) user = masterAdmin;
+        }
+      }
+    }
+
     if (!user) {
       return { success: false, error: 'Akun demo tidak ditemukan di database.' };
     }
@@ -458,26 +524,15 @@ export async function loginAsDemoUser(identifier: string): Promise<{ success: bo
 
     const userEmail = user.email || (user.username ? `${user.username}@pengajian.app` : `${user.id}@pengajian.app`);
     const supabaseAdmin = createAdminClient();
-    const supabase = await createClient();
 
-    // 1. Coba login langsung via signInWithPassword (DemoPassword2026!)
-    const { error: pwdErr } = await supabase.auth.signInWithPassword({
-      email: userEmail,
-      password: 'DemoPassword2026!',
-    });
-
-    if (!pwdErr) {
-      revalidatePath('/', 'layout');
-      return { success: true };
-    }
-
-    // 2. Jika password gagal, gunakan OTP magiclink generator (admin)
+    // 1. Coba inisialisasi sesi via OTP Magic Link generator (Admin Supabase)
     const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: userEmail,
     });
 
     if (linkData?.properties?.hashed_token) {
+      const supabase = await createClient();
       const { error: otpErr } = await supabase.auth.verifyOtp({
         token_hash: linkData.properties.hashed_token,
         type: 'magiclink',
@@ -489,29 +544,53 @@ export async function loginAsDemoUser(identifier: string): Promise<{ success: bo
       }
     }
 
-    // 3. Jika belum terdaftar di Supabase Auth, buat akun baru dengan ID Prisma
-    await supabaseAdmin.auth.admin.createUser({
-      id: user.id,
-      email: userEmail,
-      password: 'DemoPassword2026!',
-      email_confirm: true,
-      user_metadata: {
-        full_name: user.fullName,
-        username: user.username,
-      },
-    });
+    // 2. Jika user belum ada di Supabase Auth, daftarkan akun baru dan hubungkan sesi
+    try {
+      await supabaseAdmin.auth.admin.createUser({
+        id: user.id,
+        email: userEmail,
+        password: 'DemoPassword2026!',
+        email_confirm: true,
+        user_metadata: {
+          full_name: user.fullName,
+          username: user.username,
+        },
+      });
 
-    const { error: finalSignInErr } = await supabase.auth.signInWithPassword({
-      email: userEmail,
-      password: 'DemoPassword2026!',
-    });
+      const { data: retryLink } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: userEmail,
+      });
 
-    if (finalSignInErr) {
-      return { success: false, error: finalSignInErr.message };
+      if (retryLink?.properties?.hashed_token) {
+        const supabase = await createClient();
+        const { error: otpErr } = await supabase.auth.verifyOtp({
+          token_hash: retryLink.properties.hashed_token,
+          type: 'magiclink',
+        });
+
+        if (!otpErr) {
+          revalidatePath('/', 'layout');
+          return { success: true };
+        }
+      }
+    } catch (createErr) {
+      console.warn('[loginAsDemoUser CreateUser Warn]:', createErr);
     }
 
-    revalidatePath('/', 'layout');
-    return { success: true };
+    // 3. Fallback: coba signInWithPassword jika password sudah cocok
+    const supabase = await createClient();
+    const { error: pwdErr } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: 'DemoPassword2026!',
+    });
+
+    if (!pwdErr) {
+      revalidatePath('/', 'layout');
+      return { success: true };
+    }
+
+    return { success: false, error: 'Gagal mengautentikasi sesi akun demo.' };
   } catch (err: any) {
     console.error('[loginAsDemoUser Error]:', err);
     return { success: false, error: err.message || 'Gagal masuk akun demo.' };

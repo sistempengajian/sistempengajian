@@ -31,14 +31,12 @@ interface DemoAccount {
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { role: 'Santri (Caberawit)', name: 'Farhan Fauzi', phone: '081299990003', email: 'santri.farhan@pengajian.app' },
-  { role: 'Orang Tua / Wali', name: 'H. Ahmad Syukron', phone: '081299990001', email: 'ayah.ahmad@gmail.com' },
-  { role: 'Pengajar (Ustadz)', name: 'Ustadz Abdullah S.Pd.I', phone: '081255556666', email: 'pj.kelompok@pengajian.app' },
-  { role: 'Wali Kelas', name: 'Ustadzah Khadijah', phone: '081277778888', email: 'walikelas@pengajian.app' },
-  { role: 'PJ Kelompok', name: 'Ustadz Abdullah (Klender)', phone: '081255556666', email: 'pj.kelompok@pengajian.app' },
-  { role: 'PJ Desa', name: 'Ustadz Ridwan (Duren Sawit)', phone: '081233334444', email: 'pj.desa@pengajian.app' },
-  { role: 'PJ Daerah', name: 'Drs. H. Mansur (Jaktim)', phone: '081211112222', email: 'pj.daerah@pengajian.app' },
-  { role: 'Admin Master', name: 'Admin Master Pusat', phone: '081100000001', email: 'admin@pengajian.app' },
+  { role: 'Admin Master', name: 'Muhammad Afin aditya', phone: '0882007730579', email: 'mafinaditya1606@gmail.com' },
+  { role: 'Wali Kelas', name: 'Moh. Rifki Arfa Ibadi', phone: '085848474073', email: 'sistempengajian@gmail.com' },
+  { role: 'Pengajar (Ustadz)', name: 'Irma Nurul Maghfiroh', phone: '081312879898', email: 'irmairma@gmail.com' },
+  { role: 'PJ Kelompok', name: 'Adi Hidayat', phone: '081326941260', email: 'adihidayat@gmail.com' },
+  { role: 'Orang Tua / Wali', name: 'Rosyid', phone: '085701949546', email: 'ayah.rosyid@gmail.com' },
+  { role: 'Santri (Caberawit)', name: 'Ahmad Niko Nur Huda', phone: '087726901073', email: 'santri.niko@gmail.com' },
 ];
 
 function LoginForm() {
@@ -320,13 +318,15 @@ function LoginForm() {
     setErrorMessage(null);
 
     startTransition(async () => {
-      const res = await loginAsDemoUser(account.phone);
+      console.log('[DemoLogin] Attempting demo login for:', account.role, account.phone);
+      const res = await loginAsDemoUser(account.phone, account.role);
+      console.log('[DemoLogin] Response from server:', JSON.stringify(res));
       if (!res.success) {
         setErrorMessage(res.error || 'Gagal masuk akun demo.');
         setInstantLoadingRole(null);
       } else {
-        router.push(redirectTo);
-        router.refresh();
+        console.log('[DemoLogin] Navigating to:', redirectTo);
+        window.location.href = redirectTo;
       }
     });
   };
