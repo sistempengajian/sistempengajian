@@ -1023,8 +1023,8 @@ export default function PengajarProductTour() {
     switch (currentStep) {
       case 'SCENE_1_WA_NOTIF_H1':
         if (subStep === 0) return { x: 50, y: -10, visible: false }; // Layar awal kosong
-        if (subStep === 1) return { x: 50, y: 22, visible: true }; // Bergerak ke banner notif yang baru muncul
-        return { x: 50, y: 22, visible: true }; // Klik banner notifikasi
+        if (subStep === 1) return { x: 60, y: 20, visible: true }; // Bergerak ke banner notif yang baru muncul
+        return { x: 50, y: 27, visible: true }; // Klik banner notifikasi
 
       case 'SCENE_1_WA_CHAT_H1':
         if (subStep === 0) return { x: 50, y: 32, visible: true };
@@ -1032,28 +1032,28 @@ export default function PengajarProductTour() {
 
       case 'SCENE_1_SELECT_CAPAIAN':
         if (subStep === 0) return { x: 50, y: 31, visible: true }; // Kursor tepat di atas Accordion Header Bab 1 saat tertutup
-        if (subStep === 1) return { x: 50, y: 31, visible: true }; // Klik Accordion Header Bab 1 untuk membuka
-        if (subStep === 2) return { x: 15, y: 38.5, visible: true }; // Bergerak ke checkbox 1
-        if (subStep === 3) return { x: 15, y: 38.5, visible: true }; // Centang checkbox 1 (Tajwid: Nun Mati) -> ⭐ Prioritas
-        if (subStep === 4) return { x: 15, y: 44.5, visible: true }; // Centang checkbox 2 (Tahfidz: An-Naba) -> ⭐ Prioritas
-        return { x: 50, y: 83, visible: true }; // Substep 5: Klik tombol Simpan Rencana Ajar & Catatan Siaran
+        if (subStep === 1) return { x: 90, y: 31, visible: true }; // Klik Accordion Header Bab 1 untuk membuka
+        if (subStep === 2) return { x: 15, y: 43, visible: true }; // Bergerak ke checkbox 1
+        if (subStep === 3) return { x: 15, y: 50, visible: true }; // Centang checkbox 1 (Tajwid: Nun Mati) -> Prioritas
+        if (subStep === 4) return { x: 15, y: 55, visible: true }; // Centang checkbox 2 (Tahfidz: An-Naba) -> Prioritas
+        return { x: 50, y: 95, visible: true }; // Substep 5: Klik tombol Simpan Rencana Ajar & Catatan Siaran
 
       case 'SCENE_2_WA_NOTIF_H2JAM':
         if (subStep === 0) return { x: 50, y: -10, visible: false }; // Layar jam 14:00 kosong awal
-        if (subStep === 1) return { x: 50, y: 22, visible: true }; // Bergerak ke banner notif H-2 Jam yang baru muncul
-        return { x: 50, y: 22, visible: true }; // Klik banner notifikasi H-2 Jam
+        if (subStep === 1) return { x: 60, y: 20, visible: true }; // Bergerak ke banner notif H-2 Jam yang baru muncul
+        return { x: 60, y: 27, visible: true }; // Klik banner notifikasi H-2 Jam
 
       case 'SCENE_2_WA_CHAT_H2JAM':
-        if (subStep === 0) return { x: 50, y: 22, visible: true };
+        if (subStep === 0) return { x: 50, y: 27, visible: true };
         if (subStep === 1) return { x: 50, y: 46, visible: true }; // Bergerak menuju tombol magic link
         return { x: 50, y: 46, visible: true }; // Tepat di tengah tombol 🚀 Buka Cockpit Presensi Sesi (1-Klik)
 
       case 'SCENE_3_BRANCH_MENU':
         if (subStep === 0 || isBranchModalOpen) return { x: 50, y: 50, visible: false };
-        if (targetBranchTab === 'QR_DINAMIS') return { x: 16, y: 19, visible: true }; // Tab 1 [QR]
-        if (targetBranchTab === 'MANUAL') return { x: 39, y: 19, visible: true }; // Tab 2 [Manual]
-        if (targetBranchTab === 'SCAN_KARTU') return { x: 62, y: 19, visible: true }; // Tab 3 [Kartu]
-        if (targetBranchTab === 'EVALUATION') return { x: 84, y: 19, visible: true }; // Tab 4 [Jurnal]
+        if (targetBranchTab === 'QR_DINAMIS') return { x: 16, y: 23, visible: true }; // Tab 1 [QR]
+        if (targetBranchTab === 'MANUAL') return { x: 39, y: 23, visible: true }; // Tab 2 [Manual]
+        if (targetBranchTab === 'SCAN_KARTU') return { x: 62, y: 23, visible: true }; // Tab 3 [Kartu]
+        if (targetBranchTab === 'EVALUATION') return { x: 84, y: 23, visible: true }; // Tab 4 [Jurnal]
         return { x: 50, y: 50, visible: false };
 
       case 'SCENE_3A_PRESENSI_QR':
@@ -1063,25 +1063,25 @@ export default function PengajarProductTour() {
         return { x: 50, y: 72, visible: true }; // Log kehadiran realtime
 
       case 'SCENE_3B_PRESENSI_MANUAL':
-        if (subStep === 0) return { x: 57, y: 29.5, visible: true }; // Kursor tepat di atas tombol [Hadir] santri 1 (Ahmad Fauzi)
-        if (subStep === 1) return { x: 57, y: 29.5, visible: true }; // Klik [Hadir] santri 1
-        if (subStep === 2) return { x: 67.5, y: 37.5, visible: true }; // Bergerak & klik tombol [Izin] santri 2 (Budi Santoso)
-        if (subStep === 3) return { x: 78, y: 45.5, visible: true }; // Bergerak & klik tombol [Sakit] santri 3 (Citra Lestari)
-        return { x: 50, y: 84, visible: true };
+        if (subStep === 0) return { x: 57, y: 30.5, visible: true }; // Kursor tepat di atas tombol [Hadir] santri 1 (Ahmad Fauzi)
+        if (subStep === 1) return { x: 57, y: 30.5, visible: true }; // Klik [Hadir] santri 1
+        if (subStep === 2) return { x: 67.5, y: 40.5, visible: true }; // Bergerak & klik tombol [Izin] santri 2 (Budi Santoso)
+        if (subStep === 3) return { x: 78, y: 48.5, visible: true }; // Bergerak & klik tombol [Sakit] santri 3 (Citra Lestari)
+        return { x: 50, y: 87, visible: true };
 
       case 'SCENE_3C_SCAN_KARTU':
-        if (subStep === 0) return { x: 50, y: 20, visible: true };
+        if (subStep === 0) return { x: 50, y: 46, visible: true };
         if (subStep === 1) return { x: 50, y: 46, visible: true }; // Kamera scanner aktif
         return { x: 50, y: 46, visible: true };
 
       case 'SCENE_4_JURNAL_PENILAIAN':
-        if (subStep === 0) return { x: 50, y: 32.5, visible: true }; // Kursor di atas Accordion Header Jurnal tertutup
-        if (subStep === 1) return { x: 50, y: 32.5, visible: true }; // Klik Accordion Header untuk membuka
-        if (subStep === 2) return { x: 75, y: 43.5, visible: true }; // Klik tombol status Capaian 1 (Belum Dinilai -> ⚡ Proses)
-        if (subStep === 3) return { x: 75, y: 43.5, visible: true }; // Klik tombol status Capaian 1 (Proses -> ✓ Tuntas)
-        if (subStep === 4) return { x: 52.5, y: 59.5, visible: true }; // Klik Skor Nilai [90] Capaian 1
-        if (subStep === 5) return { x: 75, y: 53, visible: true }; // Klik tombol status Capaian 2 (Belum Dinilai -> ⚡ Proses)
-        return { x: 50, y: 83, visible: true }; // Klik tombol Simpan Jurnal & Selesai Mengajar
+        if (subStep === 0) return { x: 80, y: 32.5, visible: true }; // Kursor di atas Accordion Header Jurnal tertutup
+        if (subStep === 1) return { x: 80, y: 32.5, visible: true }; // Klik Accordion Header untuk membuka
+        if (subStep === 2) return { x: 75, y: 40.5, visible: true }; // Klik tombol status Capaian 1 (Belum Dinilai -> ⚡ Proses)
+        if (subStep === 3) return { x: 75, y: 40.5, visible: true }; // Klik tombol status Capaian 1 (Proses -> ✓ Tuntas)
+        if (subStep === 4) return { x: 52.5, y: 54.5, visible: true }; // Klik Skor Nilai [90] Capaian 1
+        if (subStep === 5) return { x: 75, y: 63, visible: true }; // Klik tombol status Capaian 2 (Belum Dinilai -> ⚡ Proses)
+        return { x: 50, y: 86, visible: true }; // Klik tombol Simpan Jurnal & Selesai Mengajar
 
       default:
         return { x: 50, y: 50, visible: true };
@@ -1168,14 +1168,14 @@ export default function PengajarProductTour() {
             setSubStep(2);
           });
         } else if (subStep === 2) {
-          // Centang Capaian 1 (Tajwid) -> tandai ⭐ Prioritas
+          // Centang Capaian 1 (Tajwid) -> tandai Prioritas
           setIsClicking(true);
           soundFx.playClick();
           setTimeout(() => setIsClicking(false), 250);
           setSelectedCapaian([1]);
           setSubStep(3);
         } else if (subStep === 3) {
-          // Centang Capaian 2 (Tahfidz) -> tandai ⭐ Prioritas
+          // Centang Capaian 2 (Tahfidz) -> tandai Prioritas
           setIsClicking(true);
           soundFx.playClick();
           setTimeout(() => setIsClicking(false), 250);
@@ -1191,7 +1191,7 @@ export default function PengajarProductTour() {
           setIsClicking(true);
           soundFx.playActionComplete();
           setTimeout(() => setIsClicking(false), 250);
-          triggerToast('✅ Rencana Ajar & Catatan Siaran Tersimpan!');
+          triggerToast('Rencana Ajar Tersimpan!');
           executeOrWait(() => {
             setIsTimeLapseActive(true);
             setTimeLapseHours(24);
@@ -1595,11 +1595,6 @@ export default function PengajarProductTour() {
               <Sparkles className="w-7 h-7 animate-pulse" />
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-teal-50 text-teal-800 text-[10.5px] font-bold border border-teal-200/80 mb-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-              <span>Simulasi Interaktif Resmi Pengajar</span>
-            </div>
-
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               Panduan Interaktif Pengajar
             </h2>
@@ -1630,34 +1625,12 @@ export default function PengajarProductTour() {
               </div>
             </div>
 
-            {/* Quick Audio Preferences */}
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-around text-xs text-slate-600">
-              <label className="flex items-center gap-2 cursor-pointer hover:text-slate-900 select-none">
-                <input
-                  type="checkbox"
-                  checked={voiceOverEnabled}
-                  onChange={(e) => setVoiceOverEnabled(e.target.checked)}
-                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                />
-                <span className="font-semibold text-[11px]">🎙️ Voice Over</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer hover:text-slate-900 select-none">
-                <input
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={(e) => setSoundEnabled(e.target.checked)}
-                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
-                />
-                <span className="font-semibold text-[11px]">🔔 Efek Suara (SFX)</span>
-              </label>
-            </div>
-
             {/* CTA Button (Autoplay Unlocker) */}
             <button
               onClick={handleStartInteractiveTour}
               className="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-700/25 transition-all transform active:scale-98 cursor-pointer"
             >
-              <span>▶️ Mulai Panduan Interaktif</span>
+              <span>Mulai Panduan Interaktif</span>
             </button>
 
             <p className="text-[10px] text-slate-400 mt-2">
@@ -1678,7 +1651,7 @@ export default function PengajarProductTour() {
             </div>
 
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-300 bg-teal-950/80 px-3 py-1 rounded-full border border-teal-500/40 mb-2">
-              ⏩ Fast-Forward Waktu Berjalan
+              Fast-Forward Waktu Berjalan
             </span>
 
             {/* Glowing Big Countdown Number */}
@@ -1717,9 +1690,6 @@ export default function PengajarProductTour() {
         <div className="fixed inset-0 z-[100] backdrop-blur-md bg-slate-950/75 flex items-center justify-center p-4 animate-fade-in">
           <div className="max-w-md w-full bg-white rounded-3xl p-5 shadow-2xl border border-teal-200/80 animate-scale-up space-y-3.5">
             <div className="text-center">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-700 bg-teal-50 px-3 py-1 rounded-full border border-teal-200">
-                🎯 Titik Percabangan Cockpit
-              </span>
               <h3 className="text-base font-extrabold text-slate-900 mt-2">
                 Pilih Mode Presensi yang Ingin Dipelajari
               </h3>
@@ -1903,12 +1873,6 @@ export default function PengajarProductTour() {
               <Zap className="w-4 h-4 fill-current" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-100/90 text-teal-800 border border-teal-200">
-                  Panduan Interaktif
-                </span>
-                <span className="text-xs text-slate-400">• Pengajar</span>
-              </div>
               <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
                 Simulasi Alur Mengajar Pengajar
               </h1>
@@ -2248,7 +2212,7 @@ export default function PengajarProductTour() {
                                     </span>
                                     {isSelected && (
                                       <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500 text-white shadow-2xs animate-pulse">
-                                        ⭐ Prioritas
+                                        Prioritas
                                       </span>
                                     )}
                                   </div>
@@ -2337,7 +2301,7 @@ export default function PengajarProductTour() {
                                   </span>
                                   {isSelected && (
                                     <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500 text-white shadow-2xs animate-pulse">
-                                      ⭐ Prioritas
+                                      Prioritas
                                     </span>
                                   )}
                                 </div>
@@ -2369,7 +2333,7 @@ export default function PengajarProductTour() {
               <button
                 onClick={() => {
                   soundFx.playActionComplete();
-                  triggerToast('✅ Rencana Ajar & Catatan Siaran Tersimpan!');
+                  triggerToast('Rencana Ajar Tersimpan!');
                   setIsTimeLapseActive(true);
                   setTimeLapseHours(24);
                 }}
@@ -2380,7 +2344,7 @@ export default function PengajarProductTour() {
                 }`}
               >
                 <FileCheck className="w-4 h-4" />
-                <span>Simpan Rencana Ajar & Catatan Siaran</span>
+                <span>Simpan Rencana Ajar</span>
               </button>
             </div>
           )}
@@ -3030,7 +2994,7 @@ export default function PengajarProductTour() {
                             Materi: Bab 1 Tajwid & Tahfidz
                           </p>
                           <span className="text-[7px] font-extrabold uppercase px-1 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300 shrink-0 whitespace-nowrap">
-                            ⭐ Prioritas H-1
+                            Prioritas
                           </span>
                         </div>
                         <p className="text-[8.5px] text-slate-500">2 Capaian Target Sesi Mengajar</p>
@@ -3388,40 +3352,7 @@ export default function PengajarProductTour() {
             </div>
           )}
 
-          {/* ─────────────────────────────────────────────────────────
-              DOCKED SUBTITLE / NARRATOR BAR WITH DYNAMIC VOICE INDICATOR
-          ───────────────────────────────────────────────────────── */}
-          <div className="shrink-0 w-full p-2.5 sm:p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 z-20 text-slate-800 shadow-sm">
-            <div className="flex items-start gap-2.5">
-              <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5 border border-teal-200">
-                {voiceOverEnabled && isVoSpeaking ? (
-                  <Volume2 className="w-3.5 h-3.5 text-teal-700 animate-pulse" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-teal-800">
-                    Narasi Panduan
-                  </span>
-                  {voiceOverEnabled && isVoSpeaking && (
-                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold border border-emerald-200 animate-in fade-in duration-200">
-                      <span className="inline-flex items-end gap-0.5 h-2.5">
-                        <span className="w-0.5 h-2 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-0.5 h-2.5 bg-emerald-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-0.5 h-1.5 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </span>
-                      <span>Suara Aktif</span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-[10.5px] sm:text-[11.5px] text-slate-700 leading-snug font-medium">
-                  {getSubtitleText(currentStep, subStep)}
-                </p>
-              </div>
-            </div>
-          </div>
+
         </div>
       </main>
 
@@ -3516,23 +3447,7 @@ export default function PengajarProductTour() {
               <span className="text-[10px]">{soundEnabled ? 'ON' : 'OFF'}</span>
             </button>
 
-            <button
-              onClick={() => setIsDebugMode(!isDebugMode)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition ${
-                isDebugMode
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
-              }`}
-            >
-              🛠️ QA Debug
-            </button>
 
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 text-teal-800 font-semibold border border-teal-200 shadow-2xs transition"
-            >
-              Ke Dashboard
-            </Link>
           </div>
         </div>
       </footer>
