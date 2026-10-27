@@ -134,7 +134,7 @@ export default function LaporanClientWrapper({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-8xl mx-auto pb-16 ml-2 mr-2">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-16">
       {/* Switcher Role jika user memiliki multi-peran (menggunakan Bottom Sheet modal) */}
       {availableRoles && availableRoles.length > 1 && (
         <RoleNavTabs

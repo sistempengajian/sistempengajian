@@ -1,17 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CurriculumCategoryMastery } from '@/app/(protected)/analisis/types';
+import { CurriculumCategoryMastery, AnalyticsPeriod } from '@/app/(protected)/analisis/types';
 import { BookOpen, CheckCircle, Target, Info, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import CircularGauge from './CircularGauge';
 import { CURRICULUM_CATEGORIES } from '@/lib/curriculumClassification';
 
 interface CurriculumMasteryBreakdownProps {
   categories: CurriculumCategoryMastery[];
+  period?: AnalyticsPeriod;
+  periodLabel?: string;
 }
 
 export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProps> = ({
   categories,
+  period,
+  periodLabel,
 }) => {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showAllKeywordsModal, setShowAllKeywordsModal] = useState<boolean>(false);
@@ -46,6 +50,50 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
     setExpandedCategory((prev) => (prev === catName ? null : catName));
   };
 
+  const getPeriodBadge = () => {
+    switch (period) {
+      case 'THIS_MONTH':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/80 shadow-2xs">
+            Target Silabus Bulan Ini
+          </span>
+        );
+      case 'LAST_MONTH':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
+            Target Silabus Bulan Lalu
+          </span>
+        );
+      case 'THIS_SEMESTER':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+            Target Silabus Semester Ini
+          </span>
+        );
+      case 'ALL':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+            Progres Kumulatif Jenjang
+          </span>
+        );
+    }
+  };
+
+  const getSubtitle = () => {
+    switch (period) {
+      case 'THIS_MONTH':
+        return `Penguasaan materi & capaian bulanan per bidang studi terhadap silabus aktif ${periodLabel || ''}`;
+      case 'LAST_MONTH':
+        return `Evaluasi ketuntasan materi bulan lalu terhadap target silabus ${periodLabel || ''}`;
+      case 'THIS_SEMESTER':
+        return `Penguasaan materi semester berjalan terhadap target kurikulum semester ${periodLabel || ''}`;
+      case 'ALL':
+      default:
+        return `Penguasaan materi & deskripsi capaian kumulatif terhadap master kurikulum (standar ${targetBenchmark}%)`;
+    }
+  };
+
   if (!categories || categories.length === 0 || (totalCompleted === 0 && totalTarget === 0)) {
     return (
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
@@ -60,14 +108,15 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-200/70 shadow-2xs">
                 <BookOpen className="h-4 w-4" />
               </span>
               <h3 className="font-bold text-slate-900 text-base">Ketuntasan Kurikulum</h3>
+              {getPeriodBadge()}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Penguasaan materi & deskripsi capaian per bidang studi terhadap standar target {targetBenchmark}%
+            <p className="text-xs text-slate-500 mt-1">
+              {getSubtitle()}
             </p>
           </div>
 
@@ -97,7 +146,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                   Rerata Capaian
                 </span>
                 <span className="text-xs font-black text-cyan-950">
-                  {totalTarget > 0 ? `${totalCompleted}/${totalTarget} materi` : `${totalCompleted} materi`}
+                  {totalTarget > 0 ? `${totalCompleted}/${totalTarget} target` : `${totalCompleted} materi`}
                 </span>
               </div>
             </div>
@@ -138,7 +187,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                     <span className="font-bold text-slate-800">{cat.category}</span>
                     <span className="text-[11px] font-semibold text-slate-400">
                       {cat.totalItems > 0
-                        ? `(${cat.completedItems}/${cat.totalItems} tuntas)`
+                        ? `(${cat.completedItems}/${cat.totalItems} target)`
                         : `(${cat.completedItems} materi tuntas)`}
                     </span>
                   </div>
@@ -186,12 +235,12 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
       </div>
 
       {/* Footer Benchmark Note */}
-      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+      <div className="mt-5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 text-[11px] text-slate-500">
         <span className="flex items-center gap-1.5">
-          <Target className="h-3.5 w-3.5 text-cyan-600" />
-          Pencocokan kata kunci mencakup judul dan deskripsi capaian (Target 80%).
+          <Target className="h-3.5 w-3.5 text-cyan-600 shrink-0" />
+          Target kurikulum disesuaikan dengan silabus periode berjalan (Standar kelulusan {targetBenchmark}%).
         </span>
-        <span className="font-bold text-emerald-700">
+        <span className="font-bold text-emerald-700 whitespace-nowrap">
           {categories.filter((c) => c.masteryRate >= targetBenchmark).length} / {categories.length} Tuntas Target
         </span>
       </div>

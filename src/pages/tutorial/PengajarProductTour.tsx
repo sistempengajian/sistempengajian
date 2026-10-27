@@ -1341,7 +1341,7 @@ export default function PengajarProductTour() {
           setSubStep(1);
         } else if (subStep === 1) {
           soundFx.playScanBeep();
-          triggerToast('✅ Berhasil Scan: Muhammad Rizky (Hadir)');
+          triggerToast('Berhasil Scan: Muhammad Rizky (Hadir)');
           setSubStep(2);
         } else if (subStep === 2) {
           setSubStep(3);
@@ -1407,7 +1407,7 @@ export default function PengajarProductTour() {
           setIsClicking(true);
           soundFx.playActionComplete();
           setTimeout(() => setIsClicking(false), 250);
-          triggerToast('✅ Jurnal Mengajar Disimpan! Status: COMPLETED');
+          triggerToast('Jurnal Mengajar Disimpan! Status: COMPLETED');
           executeOrWait(() => {
             setCurrentStep('SCENE_5_COMPLETED');
             setSubStep(0);
@@ -2549,7 +2549,7 @@ export default function PengajarProductTour() {
                       className="w-full py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs border border-teal-300 transition flex items-center justify-center gap-1.5 shadow-2xs"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                      <span>🎯 Buka Modal Pilihan Mode Presensi</span>
+                      <span>Buka Modal Pilihan Mode Presensi</span>
                     </button>
                   </div>
                 </div>
@@ -3266,7 +3266,7 @@ export default function PengajarProductTour() {
               <button
                 onClick={() => {
                   soundFx.playActionComplete();
-                  triggerToast('✅ Jurnal Mengajar Disimpan! Status: COMPLETED');
+                  triggerToast('Jurnal Mengajar Disimpan! Status: COMPLETED');
                   setCurrentStep('SCENE_5_COMPLETED');
                   setSubStep(0);
                   soundFx.playFanfare();

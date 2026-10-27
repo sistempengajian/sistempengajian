@@ -147,6 +147,7 @@ export interface AnalyticsDashboardData {
     subtitle: string;
     periodLabel: string;
     dateRangeLabel: string;
+    period?: AnalyticsPeriod;
   };
   summary: AnalyticsSummaryKPI;
   attendanceTrends: AttendanceTrendItem[];

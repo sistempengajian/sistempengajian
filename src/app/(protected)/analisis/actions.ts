@@ -547,6 +547,7 @@ export async function getAnalyticsDashboardData(
         subtitle: scopeSubtitle || 'Belum ada santri terdaftar dalam cakupan ini',
         periodLabel,
         dateRangeLabel,
+        period,
       },
       summary: {
         totalStudents: 0,
@@ -653,6 +654,24 @@ export async function getAnalyticsDashboardData(
     filterMonths = monthNames;
   }
 
+  // Tentukan target periode kurikulum (bulan & tahun) untuk acuan denominator target bulanan
+  const currentYear = now.getFullYear();
+  const currentMonthZeroIndex = now.getMonth(); // 0 - 11
+  const currentMonth = currentMonthZeroIndex + 1; // 1 - 12
+
+  let targetPeriods: Array<{ year: number; month: number }> = [];
+  if (period === 'THIS_MONTH') {
+    targetPeriods = [{ year: currentYear, month: currentMonth }];
+  } else if (period === 'LAST_MONTH') {
+    const prevYear = currentMonthZeroIndex === 0 ? currentYear - 1 : currentYear;
+    const prevMonth = currentMonthZeroIndex === 0 ? 12 : currentMonthZeroIndex;
+    targetPeriods = [{ year: prevYear, month: prevMonth }];
+  } else if (period === 'THIS_SEMESTER') {
+    const isGenap = currentMonthZeroIndex < 6;
+    const semesterMonths = isGenap ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
+    targetPeriods = semesterMonths.map((m) => ({ year: currentYear, month: m }));
+  }
+
   const [
     studentsProfileRaw,
     attendanceRecordsRaw,
@@ -660,7 +679,8 @@ export async function getAnalyticsDashboardData(
     evaluationsRaw,
     totalChecklistItemsCount,
     assignmentsRaw,
-    targetMaterialsRaw,
+    allMasterMaterialsRaw,
+    monthlyTargetsRaw,
     completedSchedulesCountRaw,
   ] = await Promise.all([
     // A. Profil Santri
@@ -831,7 +851,7 @@ export async function getAnalyticsDashboardData(
       },
     }),
 
-    // G. Materi kurikulum target yang harus diselesaikan untuk santri dalam periode ini
+    // G1. Master seluruh materi kurikulum aktif (sebagai fallback pro-rata dan periode ALL)
     prisma.material.findMany({
       where: {
         isActive: true,
@@ -840,7 +860,27 @@ export async function getAnalyticsDashboardData(
       include: {
         checklistItems: true,
       },
+      orderBy: [{ createdAt: 'asc' }],
     }),
+
+    // G2. Target kurikulum silabus periodik (MaterialMonthlyTarget) jika bukan periode ALL
+    period !== 'ALL' && targetPeriods.length > 0
+      ? prisma.materialMonthlyTarget.findMany({
+          where: {
+            isActive: true,
+            ...(targetGenIds.length > 0 ? { generationId: { in: targetGenIds } } : {}),
+            OR: targetPeriods.map((p) => ({ year: p.year, month: p.month })),
+          },
+          include: {
+            material: {
+              include: {
+                checklistItems: true,
+              },
+            },
+          },
+          orderBy: [{ orderIndex: 'asc' }],
+        })
+      : Promise.resolve([]),
 
     // H. Total sesi pengajian yang statusnya selesai (COMPLETED)
     prisma.schedule.count({
@@ -856,6 +896,70 @@ export async function getAnalyticsDashboardData(
       },
     }),
   ]);
+
+  // Rekonstruksi targetMaterialsRaw berdasarkan periode yang dipilih:
+  // - Pada periode bulanan / semester: gunakan MaterialMonthlyTarget yang terpetakan untuk periode tersebut.
+  // - Jika suatu jenjang belum terpetakan pada target bulanan, gunakan Safe Pro-Rata Fallback.
+  // - Pada periode ALL: gunakan seluruh master kurikulum tahunan/jenjang.
+  let targetMaterialsRaw: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    targetGenerationId: string | null;
+    checklistItems: Array<{
+      id: string;
+      itemTitle: string;
+      description: string | null;
+    }>;
+  }> = [];
+
+  if (period === 'ALL') {
+    targetMaterialsRaw = allMasterMaterialsRaw;
+  } else {
+    // Kelompokkan target bulanan berdasarkan generationId dengan deduplikasi (generationId, materialId)
+    const monthlyMaterialsByGen = new Map<string, typeof allMasterMaterialsRaw>();
+    const seenByGen = new Set<string>();
+
+    monthlyTargetsRaw.forEach((t) => {
+      if (!t.material) return;
+      const key = `${t.generationId}:${t.materialId}`;
+      if (!seenByGen.has(key)) {
+        seenByGen.add(key);
+        const list = monthlyMaterialsByGen.get(t.generationId) || [];
+        list.push({
+          ...t.material,
+          targetGenerationId: t.generationId,
+        });
+        monthlyMaterialsByGen.set(t.generationId, list);
+      }
+    });
+
+    const divisor = period === 'THIS_SEMESTER' ? 2 : 12;
+    const allGensToCheck =
+      targetGenIds.length > 0
+        ? targetGenIds
+        : (Array.from(new Set(allMasterMaterialsRaw.map((m) => m.targetGenerationId).filter(Boolean))) as string[]);
+
+    allGensToCheck.forEach((gId) => {
+      const genMonthlyMats = monthlyMaterialsByGen.get(gId);
+      if (genMonthlyMats && genMonthlyMats.length > 0) {
+        targetMaterialsRaw.push(...genMonthlyMats);
+      } else {
+        // Safe Pro-Rata Fallback untuk jenjang yang belum terpetakan di target bulanan
+        const masterForGen = allMasterMaterialsRaw.filter((m) => m.targetGenerationId === gId);
+        if (masterForGen.length > 0) {
+          const quota = Math.max(1, Math.ceil(masterForGen.length / divisor));
+          targetMaterialsRaw.push(...masterForGen.slice(0, quota));
+        }
+      }
+    });
+
+    // Fallback umum jika targetMaterialsRaw masih kosong
+    if (targetMaterialsRaw.length === 0 && allMasterMaterialsRaw.length > 0) {
+      const quota = Math.max(1, Math.ceil(allMasterMaterialsRaw.length / divisor));
+      targetMaterialsRaw = allMasterMaterialsRaw.slice(0, quota);
+    }
+  }
 
   // 3. Kalkulasi Metrik Agregat Presensi
   const totalAttendances = attendanceRecordsRaw.length;
@@ -973,18 +1077,15 @@ export async function getAnalyticsDashboardData(
   Object.keys(categoryTargets).forEach((cat) => {
     if ((categoryTargets[cat] || 0) === 0 && (categoryCompleted[cat] || 0) > 0) {
       categoryTargets[cat] = categoryCompleted[cat];
-    } else if ((categoryTargets[cat] || 0) > 0 && (categoryCompleted[cat] || 0) > categoryTargets[cat]) {
-      categoryTargets[cat] = categoryCompleted[cat];
     }
   });
 
   const totalTargetAllCategories = Object.values(categoryTargets).reduce((a, b) => a + b, 0);
   const totalCompletedChecklist = checklistProgressRaw.length;
-  const maxPossibleCompleted = Math.max(totalTargetAllCategories, totalCompletedChecklist);
 
   const curriculumMasteryRate =
-    maxPossibleCompleted > 0 && totalCompletedChecklist > 0
-      ? Math.min(100, Math.round((totalCompletedChecklist / maxPossibleCompleted) * 100))
+    totalTargetAllCategories > 0
+      ? Math.min(100, Math.round((totalCompletedChecklist / totalTargetAllCategories) * 100))
       : (totalCompletedChecklist > 0 ? 100 : 0);
 
   // Hasilkan bidang materi secara dinamis sesuai checklist yang ada atau diselesaikan
@@ -1144,7 +1245,7 @@ export async function getAnalyticsDashboardData(
       (student.generation?.id && checklistCountPerGen[student.generation.id]) ||
       (targetGenIds.length === 1 && checklistCountPerGen[targetGenIds[0]]) ||
       Math.round(totalTargetAllCategories / (studentsProfileRaw.length || 1)) ||
-      20;
+      (period === 'THIS_MONTH' || period === 'LAST_MONTH' ? 5 : 20);
 
     const studentAttRate =
       sAtt.total > 0 ? Math.round(((sAtt.hadir + sAtt.terlambat) / sAtt.total) * 100) : 0;
@@ -1152,11 +1253,12 @@ export async function getAnalyticsDashboardData(
       sChecklist > 0 && studentTargetChecklist > 0
         ? Math.min(100, Math.round((sChecklist / studentTargetChecklist) * 100))
         : 0;
+    const clampedCurrRate = Math.min(100, Math.max(0, studentCurriculumRate));
     const studentCharScore = sScores.charScore;
 
     const hasActivity = sAtt.total > 0 || sChecklist > 0 || sEval.count > 0;
     const compositeScore = hasActivity
-      ? Math.round(studentAttRate * 0.4 + studentCurriculumRate * 0.35 + studentCharScore * 0.25)
+      ? Math.min(100, Math.round(studentAttRate * 0.4 + clampedCurrRate * 0.35 + studentCharScore * 0.25))
       : 0;
 
     const reasons: string[] = [];
@@ -1204,7 +1306,7 @@ export async function getAnalyticsDashboardData(
       generationName: student.generation?.name || '-',
       organizationName: student.organization?.name || '-',
       attendanceRate: studentAttRate,
-      curriculumRate: studentCurriculumRate,
+      curriculumRate: clampedCurrRate,
       characterScore: studentCharScore,
       compositeScore,
       reasons,
@@ -1453,6 +1555,7 @@ export async function getAnalyticsDashboardData(
       subtitle: scopeSubtitle,
       periodLabel,
       dateRangeLabel,
+      period,
     },
     summary,
     attendanceTrends,

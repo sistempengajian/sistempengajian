@@ -117,7 +117,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-16 ml-2 mr-2">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-16">
       {/* 1. Header Card */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-4 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -201,7 +201,11 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
           trends={data.attendanceTrends}
           completedSessionsCount={data.summary.completedSessionsCount}
         />
-        <CurriculumMasteryBreakdown categories={data.curriculumCategories} />
+        <CurriculumMasteryBreakdown
+          categories={data.curriculumCategories}
+          period={period}
+          periodLabel={data.scopeInfo.periodLabel}
+        />
       </div>
 
       {/* 5. Character Radar & Benchmark Comparison */}
