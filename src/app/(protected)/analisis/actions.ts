@@ -836,13 +836,6 @@ export async function getAnalyticsDashboardData(
       where: {
         isActive: true,
         ...(targetGenIds.length > 0 ? { targetGenerationId: { in: targetGenIds } } : {}),
-        ...(filterMonths.length < 12
-          ? {
-              OR: filterMonths.map((mName) => ({
-                title: { contains: mName, mode: 'insensitive' },
-              })),
-            }
-          : {}),
       },
       include: {
         checklistItems: true,
@@ -938,8 +931,10 @@ export async function getAnalyticsDashboardData(
 
   targetMaterialsRaw.forEach((m) => {
     const gId = m.targetGenerationId;
-    const genStudentCount = gId && studentsPerGen[gId] ? studentsPerGen[gId] : targetStudentIds.length;
-    checklistCountPerGen[gId] = (checklistCountPerGen[gId] || 0) + m.checklistItems.length;
+    const genStudentCount = gId && studentsPerGen[gId] ? studentsPerGen[gId] : (gId ? 0 : targetStudentIds.length);
+    if (gId) {
+      checklistCountPerGen[gId] = (checklistCountPerGen[gId] || 0) + m.checklistItems.length;
+    }
 
     m.checklistItems.forEach((item) => {
       const cat = classifyCurriculumCategory(
@@ -964,32 +959,41 @@ export async function getAnalyticsDashboardData(
   checklistProgressRaw.forEach((p) => {
     studentChecklistMap.set(p.studentId, (studentChecklistMap.get(p.studentId) || 0) + 1);
 
-    const itemTitle = p.checklistItem.itemTitle || '';
-    const itemDesc = p.checklistItem.description || '';
-    const matTitle = p.checklistItem.material.title || '';
-    const matDesc = p.checklistItem.material.description || '';
+    const itemTitle = p.checklistItem?.itemTitle || '';
+    const itemDesc = p.checklistItem?.description || '';
+    const matTitle = p.checklistItem?.material?.title || '';
+    const matDesc = p.checklistItem?.material?.description || '';
     const catKey = classifyCurriculumCategory(itemTitle, matTitle, itemDesc, matDesc);
 
     categoryCompleted[catKey] = (categoryCompleted[catKey] || 0) + 1;
   });
 
+  // Fallback aman: jika santri sudah menyelesaikan materi di suatu kategori namun target belum terpetakan,
+  // set target minimal setara dengan yang diselesaikan agar tidak membagi dengan nol atau menghasilkan 0% palsu.
+  Object.keys(categoryTargets).forEach((cat) => {
+    if ((categoryTargets[cat] || 0) === 0 && (categoryCompleted[cat] || 0) > 0) {
+      categoryTargets[cat] = categoryCompleted[cat];
+    } else if ((categoryTargets[cat] || 0) > 0 && (categoryCompleted[cat] || 0) > categoryTargets[cat]) {
+      categoryTargets[cat] = categoryCompleted[cat];
+    }
+  });
+
   const totalTargetAllCategories = Object.values(categoryTargets).reduce((a, b) => a + b, 0);
   const totalCompletedChecklist = checklistProgressRaw.length;
-  const maxPossibleCompleted =
-    totalTargetAllCategories > 0 ? totalTargetAllCategories : targetStudentIds.length * 20;
+  const maxPossibleCompleted = Math.max(totalTargetAllCategories, totalCompletedChecklist);
 
   const curriculumMasteryRate =
     maxPossibleCompleted > 0 && totalCompletedChecklist > 0
       ? Math.min(100, Math.round((totalCompletedChecklist / maxPossibleCompleted) * 100))
-      : 0;
+      : (totalCompletedChecklist > 0 ? 100 : 0);
 
   // Hasilkan bidang materi secara dinamis sesuai checklist yang ada atau diselesaikan
   const curriculumCategories: CurriculumCategoryMastery[] = standardCategories
-    .filter((cat) => categoryTargets[cat.key] > 0 || categoryCompleted[cat.key] > 0)
+    .filter((cat) => (categoryTargets[cat.key] || 0) > 0 || (categoryCompleted[cat.key] || 0) > 0)
     .map((cat) => {
       const target = categoryTargets[cat.key] || 0;
       const completed = categoryCompleted[cat.key] || 0;
-      const rate = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : 0;
+      const rate = target > 0 ? Math.min(100, Math.round((completed / target) * 100)) : (completed > 0 ? 100 : 0);
       return {
         category: cat.key,
         masteryRate: rate,

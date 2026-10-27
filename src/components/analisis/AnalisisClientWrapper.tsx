@@ -144,15 +144,20 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
           <div className="flex items-center gap-2 self-stretch sm:self-auto flex-wrap">
             <Link
               href="/laporan"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              aria-label="Buka Halaman Rapor Santri"
+              title="Buka Halaman Rapor Santri"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
               <GraduationCap className="h-4 w-4 text-teal-600" />
+              <span className="sm:hidden text-xs">Rapor</span>
               <span className="hidden sm:inline">Rapor Santri</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setIsExportModalOpen(true)}
+              aria-label="Cetak dan Ekspor Laporan"
+              title="Cetak dan Ekspor Laporan"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
               <Printer className="h-4 w-4 text-slate-600" />
@@ -162,6 +167,8 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
             <button
               type="button"
               onClick={() => setIsPresentationOpen(true)}
+              aria-label="Buka Mode Rapat Musyawarah 16:9"
+              title="Buka Mode Rapat Musyawarah 16:9"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
             >
               <Presentation className="h-4 w-4" />
@@ -182,8 +189,6 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
         onScopeChange={handleScopeChange}
         onPeriodChange={handlePeriodChange}
         onTogglePrivacyMode={() => setIsPrivacyMode(!isPrivacyMode)}
-        onOpenPresentation={() => setIsPresentationOpen(true)}
-        onOpenExportModal={() => setIsExportModalOpen(true)}
         isPending={isPending}
       />
 
@@ -205,6 +210,8 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
         {data.benchmarkComparison && data.benchmarkComparison.length > 0 ? (
           <BenchmarkComparisonTable
             benchmarks={data.benchmarkComparison}
+            scopeType={scopeType}
+            scopeName={data.scopeInfo.name}
             onSelectUnit={(unitId) => {
               const foundClass = filterOptions.classes.find((c) => c.id === unitId);
               if (foundClass) {
@@ -220,12 +227,14 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
           />
         ) : (
           <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-center items-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 mb-3 border border-teal-200/70 shadow-2xs">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3 border border-indigo-200/70 shadow-2xs">
               <Sparkles className="h-6 w-6" />
             </div>
             <h4 className="font-bold text-slate-900 text-base">Benchmark Perbandingan Unit</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-md">
-              Pilih skop tingkat Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.
+              {['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
+                ? `Belum ada data rekaman presensi kelas/sub-unit pada ${data.scopeInfo.name || 'unit'} ini untuk diperbandingkan pada periode terpilih.`
+                : 'Pilih skop tingkat Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
             </p>
           </div>
         )}
@@ -262,6 +271,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         data={data}
+        isPrivacyMode={isPrivacyMode}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CurriculumCategoryMastery } from '@/app/(protected)/analisis/types';
 import { BookOpen, CheckCircle, Target, Info, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import CircularGauge from './CircularGauge';
@@ -16,6 +16,16 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showAllKeywordsModal, setShowAllKeywordsModal] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (!showAllKeywordsModal) return;
+    document.body.classList.add('modal-open');
+    document.body.setAttribute('data-modal-open', 'true');
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.removeAttribute('data-modal-open');
+    };
+  }, [showAllKeywordsModal]);
+
   if (!categories || categories.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
@@ -25,14 +35,24 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
   }
 
   // Calculate overall average
-  const totalCompleted = categories.reduce((acc, c) => acc + c.completedItems, 0);
-  const totalTarget = categories.reduce((acc, c) => acc + c.totalItems, 0);
-  const averageRate = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
+  const totalCompleted = categories?.reduce((acc, c) => acc + c.completedItems, 0) || 0;
+  const totalTarget = categories?.reduce((acc, c) => acc + c.totalItems, 0) || 0;
+  const averageRate = totalTarget > 0 
+    ? Math.min(100, Math.round((totalCompleted / totalTarget) * 100)) 
+    : (totalCompleted > 0 ? 100 : 0);
   const targetBenchmark = 80; // Standar target 80%
 
   const toggleCategoryExpand = (catName: string) => {
     setExpandedCategory((prev) => (prev === catName ? null : catName));
   };
+
+  if (!categories || categories.length === 0 || (totalCompleted === 0 && totalTarget === 0)) {
+    return (
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
+        Belum ada data capaian kurikulum pada unit ini.
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs flex flex-col justify-between">
@@ -77,7 +97,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                   Rerata Capaian
                 </span>
                 <span className="text-xs font-black text-cyan-950">
-                  {totalCompleted}/{totalTarget} materi
+                  {totalTarget > 0 ? `${totalCompleted}/${totalTarget} materi` : `${totalCompleted} materi`}
                 </span>
               </div>
             </div>
@@ -117,7 +137,9 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800">{cat.category}</span>
                     <span className="text-[11px] font-semibold text-slate-400">
-                      ({cat.completedItems}/{cat.totalItems} tuntas)
+                      {cat.totalItems > 0
+                        ? `(${cat.completedItems}/${cat.totalItems} tuntas)`
+                        : `(${cat.completedItems} materi tuntas)`}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -176,7 +198,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
 
       {/* Modal View for All Keywords */}
       {showAllKeywordsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleIn">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AnalyticsFilterOptions,
   AnalyticsPeriod,
@@ -23,6 +23,7 @@ import {
   X,
   Building2,
   GraduationCap,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -37,8 +38,8 @@ interface AnalyticsFilterBarProps {
   onScopeChange: (type: AnalyticsScopeType, id?: string, studentIds?: string[]) => void;
   onPeriodChange: (period: AnalyticsPeriod) => void;
   onTogglePrivacyMode: () => void;
-  onOpenPresentation: () => void;
-  onOpenExportModal: () => void;
+  onOpenPresentation?: () => void;
+  onOpenExportModal?: () => void;
   isPending?: boolean;
 }
 
@@ -76,6 +77,17 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   const [isCustomStudentModalOpen, setIsCustomStudentModalOpen] = useState(false);
   const [customSearchQuery, setCustomSearchQuery] = useState('');
   const [tempSelectedStudentIds, setTempSelectedStudentIds] = useState<string[]>(selectedStudentIds);
+
+  // Sync body modal-open class for PWA / BottomNav isolation
+  useEffect(() => {
+    if (!isCustomStudentModalOpen) return;
+    document.body.classList.add('modal-open');
+    document.body.setAttribute('data-modal-open', 'true');
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.removeAttribute('data-modal-open');
+    };
+  }, [isCustomStudentModalOpen]);
 
   // Get active items according to selected scope type
   const getScopeItems = (): ScopeFilterOption[] => {
@@ -142,48 +154,56 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   );
 
   return (
-    <div className="rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-md p-4 sm:p-5 shadow-xs sticky top-0 z-20 transition-shadow">
-      <div className="flex flex-col gap-4">
+    <div
+      className={`rounded-3xl border border-slate-200/80 bg-white/95 backdrop-blur-md p-2.5 sm:p-4 shadow-xs sticky top-0 z-20 transition-all ${
+        isPending ? 'opacity-90' : ''
+      }`}
+    >
+      <div className="flex flex-col gap-2.5 sm:gap-3.5">
         {/* Row 1: Scope Tabs & Entity Selector */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          {/* Scope Type Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 lg:pb-0 scrollbar-none">
-            <span className="text-xs font-bold text-slate-400 mr-1 hidden sm:inline-flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5 text-teal-600" />
-              Lingkup:
-            </span>
-            {filterOptions.allowedScopeTypes.map((scopeType) => {
-              const meta = SCOPE_TYPE_LABELS[scopeType] || { label: scopeType, icon: Filter };
-              const Icon = meta.icon;
-              const isActive = currentScopeType === scopeType;
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+          {/* Scope Type Tabs with Scroll Fade Indicator */}
+          <div className="relative min-w-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 no-scrollbar snap-x snap-mandatory">
+              <span className="text-xs font-bold text-slate-400 mr-1 hidden sm:inline-flex items-center gap-1 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-teal-600" />
+                Lingkup:
+              </span>
+              {filterOptions.allowedScopeTypes.map((scopeType) => {
+                const meta = SCOPE_TYPE_LABELS[scopeType] || { label: scopeType, icon: Filter };
+                const Icon = meta.icon;
+                const isActive = currentScopeType === scopeType;
 
-              return (
-                <button
-                  key={scopeType}
-                  type="button"
-                  onClick={() => handleScopeTypeSelect(scopeType)}
-                  disabled={isPending}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${isActive
-                    ? 'bg-teal-600 text-white shadow-2xs ring-1 ring-teal-500'
-                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                return (
+                  <button
+                    key={scopeType}
+                    type="button"
+                    onClick={() => handleScopeTypeSelect(scopeType)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all shrink-0 snap-start cursor-pointer ${
+                      isActive
+                        ? 'bg-teal-600 text-white shadow-2xs ring-1 ring-teal-500'
+                        : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
                     }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  <span>{meta.label}</span>
-                  {scopeType === 'CUSTOM' && selectedStudentIds.length > 0 && (
-                    <span className="ml-0.5 rounded-full bg-teal-800 px-1.5 py-0.2 text-[10px] text-teal-100 font-mono">
-                      {selectedStudentIds.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                    <span>{meta.label}</span>
+                    {scopeType === 'CUSTOM' && selectedStudentIds.length > 0 && (
+                      <span className="ml-0.5 rounded-full bg-teal-800 px-1.5 py-0.2 text-[10px] text-teal-100 font-mono">
+                        {selectedStudentIds.length}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Scroll hint gradient indicator for horizontal scroll on mobile */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent sm:hidden" />
           </div>
 
           {/* Entity Dropdown Selector (if not custom) */}
           {currentScopeType !== 'CUSTOM' && currentItems.length > 0 && (
             <div className="flex items-center gap-2">
-              <div className="min-w-[200px] sm:min-w-[260px]">
+              <div className="min-w-[190px] sm:min-w-[260px] w-full sm:w-auto">
                 <CustomSelect
                   value={currentScopeId || activeItem?.id || ''}
                   onChange={(val) => handleEntitySelect(val as string)}
@@ -209,7 +229,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                 setTempSelectedStudentIds(selectedStudentIds);
                 setIsCustomStudentModalOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition cursor-pointer self-start sm:self-auto"
             >
               <Users className="w-3.5 h-3.5 text-teal-600" />
               <span>Pilih Ulang Santri ({selectedStudentIds.length})</span>
@@ -217,44 +237,56 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           )}
         </div>
 
-        {/* Row 2: Period & Action Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Period Selector Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            <span className="text-xs font-bold text-slate-400 mr-1 hidden md:inline-flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-teal-600" />
-              Periode:
-            </span>
-            {PERIOD_OPTIONS.map((periodOpt) => {
-              const isSelected = currentPeriod === periodOpt.id;
-              return (
-                <button
-                  key={periodOpt.id}
-                  type="button"
-                  onClick={() => onPeriodChange(periodOpt.id)}
-                  disabled={isPending}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${isSelected
-                    ? 'bg-teal-50 text-teal-800 border border-teal-300 shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600'
+        {/* Row 2: Period Pills & Privacy Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          {/* Period Selector Pills with Scroll Fade */}
+          <div className="relative min-w-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-0.5 sm:pb-0 no-scrollbar snap-x">
+              <span className="text-xs font-bold text-slate-400 mr-1 hidden md:inline-flex items-center gap-1 shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                Periode:
+              </span>
+              {PERIOD_OPTIONS.map((periodOpt) => {
+                const isSelected = currentPeriod === periodOpt.id;
+                return (
+                  <button
+                    key={periodOpt.id}
+                    type="button"
+                    onClick={() => onPeriodChange(periodOpt.id)}
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 snap-start whitespace-nowrap cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-50 text-teal-800 border border-teal-300 shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600'
                     }`}
-                >
-                  {periodOpt.label}
-                </button>
-              );
-            })}
+                  >
+                    {periodOpt.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Scroll hint gradient indicator for horizontal scroll on mobile */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent sm:hidden" />
           </div>
 
-          {/* Action Tools: Privacy Mode, Fullscreen Presentation, Export Modal */}
+          {/* Action Tools: Server Transition Feedback & Privacy Mode */}
           <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            {isPending && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 text-teal-700 text-[11px] font-bold border border-teal-200/80 animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin text-teal-600" />
+                <span>Memperbarui...</span>
+              </span>
+            )}
+
             {/* Privacy Mode Toggle */}
             <button
               type="button"
               onClick={onTogglePrivacyMode}
               title={isPrivacyMode ? 'Matikan Sensor Privasi' : 'Aktifkan Sensor Privasi (Samarkan Nama Santri)'}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${isPrivacyMode
-                ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs ring-1 ring-amber-200'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
-                }`}
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition border cursor-pointer ${
+                isPrivacyMode
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs ring-1 ring-amber-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
+              }`}
             >
               {isPrivacyMode ? (
                 <>
@@ -268,33 +300,13 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                 </>
               )}
             </button>
-
-            {/* Mode Presentasi / Rapat */}
-            <button
-              type="button"
-              onClick={onOpenPresentation}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer"
-            >
-              <Presentation className="w-3.5 h-3.5" />
-              <span>Mode Rapat</span>
-            </button>
-
-            {/* Ekspor & Cetak Ringkasan */}
-            <button
-              type="button"
-              onClick={onOpenExportModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
-              <span>Ekspor &amp; Cetak</span>
-            </button>
           </div>
         </div>
       </div>
 
       {/* Custom Multi-Student Selector Modal */}
       {isCustomStudentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
