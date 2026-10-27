@@ -15,6 +15,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { PerformerStudentItem } from '@/app/(protected)/analisis/types';
+import { maskStudentName } from './privacyUtils';
 
 interface StudentCohortTableProps {
   students: PerformerStudentItem[];
@@ -36,14 +37,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
   const pageSize = 10;
 
   // Mask name helper for privacy mode
-  const formatName = (name: string) => {
-    if (!isPrivacyMode) return name;
-    const parts = name.trim().split(' ');
-    if (parts.length === 1) {
-      return parts[0].slice(0, 3) + '***';
-    }
-    return `${parts[0]} ${parts.slice(1).map((p) => p[0] + '***').join(' ')}`;
-  };
+  const formatName = (name: string) => maskStudentName(name, isPrivacyMode);
 
   const handleWhatsApp = (student: PerformerStudentItem) => {
     if (!student.parentPhone) return;

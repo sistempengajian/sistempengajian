@@ -214,3 +214,14 @@ body {
 #batch-reader #qr-shaded-region, #student-camera-reader #qr-shaded-region {
   border-radius: 0.875rem !important;
 }
+
+/* Modal Stacking & Floating Overlay Isolation (TSK-03) */
+body.modal-open aside[aria-label="Pemasangan Aplikasi SiPanji"],
+body.modal-open nav.safe-area-bottom,
+body[data-modal-open="true"] aside[aria-label="Pemasangan Aplikasi SiPanji"],
+body[data-modal-open="true"] nav.safe-area-bottom {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+

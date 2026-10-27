@@ -31,6 +31,7 @@ import {
   Target,
 } from 'lucide-react';
 import { AnalyticsDashboardData } from '@/app/(protected)/analisis/types';
+import { maskStudentName } from './privacyUtils';
 
 interface PresentationModeModalProps {
   isOpen: boolean;
@@ -49,6 +50,17 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 }) => {
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Sync body modal-open class for complete PWA/BottomNav isolation
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.classList.add('modal-open');
+    document.body.setAttribute('data-modal-open', 'true');
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.removeAttribute('data-modal-open');
+    };
+  }, [isOpen]);
 
   const totalSlides = 7;
 
@@ -117,12 +129,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
   if (!isOpen) return null;
 
   // Mask name helper
-  const formatName = (name: string) => {
-    if (!isPrivacyMode) return name;
-    const parts = name.trim().split(' ');
-    if (parts.length === 1) return parts[0].slice(0, 3) + '***';
-    return `${parts[0]} ${parts.slice(1).map((p) => p[0] + '***').join(' ')}`;
-  };
+  const formatName = (name: string) => maskStudentName(name, isPrivacyMode);
 
   const {
     summary,
@@ -147,9 +154,9 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/60 backdrop-blur-md select-none overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900 select-none overflow-hidden animate-in fade-in duration-200">
       {/* Top Header Bar */}
-      <div className="flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 shadow-xs backdrop-blur-md shrink-0">
+      <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 shadow-xs shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-xs">
             <Sparkles className="h-5 w-5" />
@@ -207,7 +214,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
       </div>
 
       {/* Main Slide Canvas (16:9 Aspect Ratio Focus) */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 flex items-center justify-center bg-slate-100/80">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 flex items-center justify-center bg-slate-100">
         <div className="w-full max-w-6xl aspect-[16/9] min-h-[540px] flex flex-col justify-between rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 lg:p-10 shadow-xl relative overflow-hidden text-slate-800">
           {/* Subtle Ambient Decorative Gradients */}
           <div className="pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full bg-teal-500/5 blur-3xl" />
@@ -870,7 +877,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
       </div>
 
       {/* Bottom Navigation & Controls */}
-      <div className="flex h-16 items-center justify-between border-t border-slate-200/80 bg-white/95 px-4 sm:px-6 shadow-xs backdrop-blur-md shrink-0">
+      <div className="flex h-16 items-center justify-between border-t border-slate-200 bg-white px-4 sm:px-6 shadow-xs shrink-0">
         {/* Previous Button */}
         <button
           type="button"
