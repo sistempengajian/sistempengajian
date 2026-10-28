@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { PerformerStudentItem } from '@/app/(protected)/analisis/types';
 import { maskStudentName } from './privacyUtils';
+import ShareEvaluationModal from './ShareEvaluationModal';
 
 interface StudentCohortTableProps {
   students: PerformerStudentItem[];
@@ -34,21 +35,14 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
   const [sortField, setSortField] = useState<SortField>('compositeScore');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
+  const [selectedShareStudent, setSelectedShareStudent] = useState<PerformerStudentItem | null>(null);
   const pageSize = 10;
 
   // Mask name helper for privacy mode
   const formatName = (name: string) => maskStudentName(name, isPrivacyMode);
 
   const handleWhatsApp = (student: PerformerStudentItem) => {
-    if (!student.parentPhone) return;
-    const cleanPhone = student.parentPhone.replace(/[^0-9]/g, '');
-    const formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
-
-    const message = encodeURIComponent(
-      `Assalamu'alaikum Wr. Wb. Bapak/Ibu ${student.parentName || 'Wali Santri'} dari ${formatName(student.fullName)}. Kami menginformasikan rekapitulasi evaluasi pembinaan pengajian ananda saat ini: Presensi: ${student.attendanceRate}%, Capaian Kurikulum: ${student.curriculumRate}%, dan Karakter: ${student.characterScore}/100. Terima kasih atas dukungan dan kerja samanya. Jazakumullahu khaira.`
-    );
-
-    window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank');
+    setSelectedShareStudent(student);
   };
 
   const filteredAndSortedStudents = useMemo(() => {
@@ -458,6 +452,14 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Bagikan Lembar Evaluasi via WhatsApp & WAHA */}
+      <ShareEvaluationModal
+        isOpen={Boolean(selectedShareStudent)}
+        onClose={() => setSelectedShareStudent(null)}
+        student={selectedShareStudent}
+        isPrivacyMode={isPrivacyMode}
+      />
     </div>
   );
 };

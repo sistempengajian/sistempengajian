@@ -192,6 +192,67 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
         isPending={isPending}
       />
 
+      {/* 2b. Quick-Switch Homeroom Tabs (Khusus Pengajar / Wali Kelas Multi-Kelas) */}
+      {filterOptions.homeroomClasses && filterOptions.homeroomClasses.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-2 sm:p-2.5 shadow-2xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar snap-x py-0.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 pl-1 hidden sm:inline-flex items-center gap-1">
+              <GraduationCap className="w-3.5 h-3.5 text-teal-600" />
+              Pintas Kelas:
+            </span>
+
+            {/* Tab 1: Semua Kelas Binaan (Aktifkan HOMEROOM_ALL) */}
+            <button
+              type="button"
+              onClick={() => handleScopeChange('HOMEROOM_ALL', 'homeroom_all')}
+              disabled={isPending}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 snap-start cursor-pointer active:scale-95 ${
+                scopeType === 'HOMEROOM_ALL'
+                  ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-2xs ring-2 ring-teal-500/20'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+              }`}
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${scopeType === 'HOMEROOM_ALL' ? 'text-amber-300' : 'text-teal-600'}`} />
+              <span>Semua Kelas Binaan</span>
+              <span
+                className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  scopeType === 'HOMEROOM_ALL' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {filterOptions.homeroomClasses.reduce((acc, c) => acc + c.studentCount, 0)}
+              </span>
+            </button>
+
+            {/* Tab 2..N: Tiap Kelas Binaan (Hanya yang studentCount > 0) */}
+            {filterOptions.homeroomClasses.map((cls) => {
+              const isSelected = scopeType === 'CLASS' && scopeId === cls.id;
+              return (
+                <button
+                  key={cls.id}
+                  type="button"
+                  onClick={() => handleScopeChange('CLASS', cls.id)}
+                  disabled={isPending}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 snap-start cursor-pointer active:scale-95 ${
+                    isSelected
+                      ? 'bg-teal-600 text-white shadow-2xs ring-2 ring-teal-500/20'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                  }`}
+                >
+                  <span>{cls.name}</span>
+                  <span
+                    className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                    }`}
+                  >
+                    {cls.studentCount}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 3. Executive KPI Summary Cards */}
       <ExecutiveKPIBanner summary={data.summary} scopeInfo={data.scopeInfo} />
 
@@ -217,7 +278,9 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
             scopeType={scopeType}
             scopeName={data.scopeInfo.name}
             onSelectUnit={(unitId) => {
-              const foundClass = filterOptions.classes.find((c) => c.id === unitId);
+              const foundClass =
+                filterOptions.classes.find((c) => c.id === unitId) ||
+                filterOptions.homeroomClasses?.find((c) => c.id === unitId);
               if (foundClass) {
                 handleScopeChange('CLASS', unitId);
                 return;
@@ -225,6 +288,16 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
               const foundKelompok = filterOptions.kelompoks.find((k) => k.id === unitId);
               if (foundKelompok) {
                 handleScopeChange('KELOMPOK', unitId);
+                return;
+              }
+              const foundDesa = filterOptions.desas.find((d) => d.id === unitId);
+              if (foundDesa) {
+                handleScopeChange('DESA', unitId);
+                return;
+              }
+              const foundGen = filterOptions.generations.find((g) => g.id === unitId);
+              if (foundGen) {
+                handleScopeChange('GENERATION', unitId);
                 return;
               }
             }}
@@ -236,9 +309,11 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
             </div>
             <h4 className="font-bold text-slate-900 text-base">Benchmark Perbandingan Unit</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-md">
-              {['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
+              {scopeType === 'HOMEROOM_ALL'
+                ? 'Belum ada data rekaman presensi kelas binaan untuk diperbandingkan pada periode ini.'
+                : ['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
                 ? `Belum ada data rekaman presensi kelas/sub-unit pada ${data.scopeInfo.name || 'unit'} ini untuk diperbandingkan pada periode terpilih.`
-                : 'Pilih skop tingkat Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
+                : 'Pilih skop Semua Kelas Binaan, Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
             </p>
           </div>
         )}

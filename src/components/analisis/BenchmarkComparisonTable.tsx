@@ -21,17 +21,23 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
   const [sortField, setSortField] = useState<'attendance' | 'curriculum' | 'character' | 'students'>('attendance');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
-  if (!benchmarks || benchmarks.length === 0) {
+  // Aturan mutlak: eliminasi entitas yang memiliki 0 santri
+  const validBenchmarks = (benchmarks || []).filter((u) => u.studentCount > 0);
+  const isHomeroomAll = scopeType === 'HOMEROOM_ALL';
+
+  if (!validBenchmarks || validBenchmarks.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-xs">
-        {scopeType && ['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
+        {isHomeroomAll
+          ? 'Belum ada kelas binaan aktif yang memiliki data santri untuk diperbandingkan pada periode terpilih.'
+          : scopeType && ['KELOMPOK', 'DESA', 'DAERAH'].includes(scopeType)
           ? `Belum ada data rekaman presensi kelas/sub-unit pada ${scopeName || 'unit'} ini untuk diperbandingkan pada periode terpilih.`
-          : 'Pilih skop tingkat Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
+          : 'Pilih skop Semua Kelas Binaan, Kelompok, Desa, atau Daerah pada bilah filter di atas untuk melihat tabel komparasi performa presensi dan kurikulum antar sub-unit.'}
       </div>
     );
   }
 
-  const sortedList = [...benchmarks].sort((a, b) => {
+  const sortedList = [...validBenchmarks].sort((a, b) => {
     let diff = 0;
     if (sortField === 'attendance') diff = a.attendanceRate - b.attendanceRate;
     else if (sortField === 'curriculum') diff = a.curriculumRate - b.curriculumRate;
@@ -59,9 +65,15 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200/70 shadow-2xs">
                 <Layers className="h-4 w-4" />
               </span>
-              <h3 className="font-bold text-slate-900 text-base">Benchmark Komparasi Antar Unit</h3>
+              <h3 className="font-bold text-slate-900 text-base">
+                {isHomeroomAll ? 'Benchmark Perbandingan Kelas / Jenjang Binaan' : 'Benchmark Komparasi Antar Unit'}
+              </h3>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">Perbandingan performa multi-unit pembinaan dalam naungan</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isHomeroomAll
+                ? 'Komparasi langsung presensi, ketuntasan kurikulum, dan karakter antar kelas binaan Anda (hanya menampilkan kelas aktif)'
+                : 'Perbandingan performa multi-unit pembinaan dalam naungan'}
+            </p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -201,7 +213,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3.5 pl-4">Unit / Kelas</th>
+                  <th className="py-3.5 pl-4">{isHomeroomAll ? 'Kelas / Jenjang Binaan' : 'Unit / Kelas'}</th>
                   <th
                     className="py-3.5 text-center cursor-pointer hover:text-slate-900 transition-colors"
                     onClick={() => toggleSort('students')}
@@ -320,9 +332,15 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-        <span>Klik pada kolom / baris untuk menganalisis unit secara spesifik</span>
-        <span className="font-bold text-slate-700">{benchmarks.length} unit terkomparasi</span>
+      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-slate-400">
+        <span>
+          {isHomeroomAll
+            ? 'Klik pada kolom / baris untuk fokus menganalisis detail kelas binaan tersebut'
+            : 'Klik pada kolom / baris untuk menganalisis unit secara spesifik'}
+        </span>
+        <span className="font-bold text-slate-700 whitespace-nowrap">
+          {validBenchmarks.length} {isHomeroomAll ? 'kelas binaan terkomparasi' : 'unit terkomparasi'}
+        </span>
       </div>
     </div>
   );

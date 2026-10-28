@@ -44,6 +44,7 @@ interface AnalyticsFilterBarProps {
 }
 
 const SCOPE_TYPE_LABELS: Record<AnalyticsScopeType, { label: string; icon: React.FC<{ className?: string }> }> = {
+  HOMEROOM_ALL: { label: 'Kelas Binaan', icon: GraduationCap },
   CLASS: { label: 'Kelas', icon: GraduationCap },
   GENERATION: { label: 'Jenjang Generasi', icon: Layers },
   KELOMPOK: { label: 'Kelompok Pengajian', icon: Users },
@@ -92,6 +93,16 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
   // Get active items according to selected scope type
   const getScopeItems = (): ScopeFilterOption[] => {
     switch (currentScopeType) {
+      case 'HOMEROOM_ALL':
+        return [
+          {
+            id: 'homeroom_all',
+            name: 'Semua Kelas Binaan',
+            type: 'HOMEROOM_ALL',
+            subtitle: `${filterOptions.homeroomClasses?.length || 0} Kelas Binaan Aktif`,
+            count: filterOptions.homeroomClasses?.reduce((acc, c) => acc + c.studentCount, 0) || 0,
+          },
+        ];
       case 'CLASS':
         return filterOptions.classes;
       case 'GENERATION':
@@ -118,7 +129,8 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
     }
 
     let defaultId: string | undefined;
-    if (type === 'CLASS' && filterOptions.classes[0]) defaultId = filterOptions.classes[0].id;
+    if (type === 'HOMEROOM_ALL') defaultId = 'homeroom_all';
+    else if (type === 'CLASS' && filterOptions.classes[0]) defaultId = filterOptions.classes[0].id;
     else if (type === 'GENERATION' && filterOptions.generations[0]) defaultId = filterOptions.generations[0].id;
     else if (type === 'KELOMPOK' && filterOptions.kelompoks[0]) defaultId = filterOptions.kelompoks[0].id;
     else if (type === 'DESA' && filterOptions.desas[0]) defaultId = filterOptions.desas[0].id;
@@ -200,8 +212,19 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
             <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent sm:hidden" />
           </div>
 
-          {/* Entity Dropdown Selector (if not custom) */}
-          {currentScopeType !== 'CUSTOM' && currentItems.length > 0 && (
+          {/* Badge ringkas jika HOMEROOM_ALL */}
+          {currentScopeType === 'HOMEROOM_ALL' && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-semibold self-start sm:self-auto shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              <span>
+                Semua Kelas Binaan Aktif ({filterOptions.homeroomClasses?.length || 0} Kelas •{' '}
+                {filterOptions.homeroomClasses?.reduce((acc, c) => acc + c.studentCount, 0) || 0} Santri)
+              </span>
+            </div>
+          )}
+
+          {/* Entity Dropdown Selector (if not custom & not HOMEROOM_ALL) */}
+          {currentScopeType !== 'CUSTOM' && currentScopeType !== 'HOMEROOM_ALL' && currentItems.length > 0 && (
             <div className="flex items-center gap-2">
               <div className="min-w-[190px] sm:min-w-[260px] w-full sm:w-auto">
                 <CustomSelect

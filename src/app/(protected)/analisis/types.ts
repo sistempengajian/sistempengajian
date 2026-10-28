@@ -1,5 +1,6 @@
 export type AnalyticsScopeType =
   | 'CLASS'
+  | 'HOMEROOM_ALL'
   | 'GENERATION'
   | 'KELOMPOK'
   | 'DESA'
@@ -20,6 +21,14 @@ export interface ScopeFilterOption {
   count?: number;
 }
 
+export interface HomeroomClassOption {
+  id: string;
+  name: string;
+  generationName?: string;
+  organizationName?: string;
+  studentCount: number;
+}
+
 export interface StudentSelectorItem {
   id: string;
   fullName: string;
@@ -32,6 +41,7 @@ export interface StudentSelectorItem {
 export interface AnalyticsFilterOptions {
   allowedScopeTypes: AnalyticsScopeType[];
   classes: ScopeFilterOption[];
+  homeroomClasses?: HomeroomClassOption[];
   generations: ScopeFilterOption[];
   kelompoks: ScopeFilterOption[];
   desas: ScopeFilterOption[];
