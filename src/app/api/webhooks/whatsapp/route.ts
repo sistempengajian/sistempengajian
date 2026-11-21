@@ -131,6 +131,15 @@ export async function POST(req: NextRequest) {
     // Deteksi nomor telepon riil pengirim jika payload menyediakan metadata PN (senderPn / participantPn / author)
     let authorPhone: string | undefined;
     const authorCandidates = [
+      body.payload?._data?.key?.remoteJidAlt,
+      body.payload?.remoteJidAlt,
+      body.payload?._data?.remoteJidAlt,
+      body.payload?._data?.key?.participantAlt,
+      body.payload?.participantAlt,
+      body.payload?.senderAlt,
+      body.payload?._data?.senderAlt,
+      body.payload?._data?.key?.senderAlt,
+      body.payload?._data?.Info?.SenderAlt,
       body.payload?.senderPn,
       body.payload?._data?.senderPn,
       body.payload?._data?.key?.senderPn,
