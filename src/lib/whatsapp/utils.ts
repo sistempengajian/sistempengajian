@@ -35,12 +35,25 @@ export function ensureWhatsAppGroupJid(target: string | null | undefined): strin
 }
 
 /**
- * Memeriksa apakah tujuan merupakan ID / JID WhatsApp bertipe LID (akhiran @lid)
+ * Memeriksa apakah tujuan merupakan ID / JID WhatsApp bertipe LID (akhiran @lid atau mengandung @lid)
  */
 export function isWhatsAppLidJid(target: string | null | undefined): boolean {
   if (!target) return false;
   const trimmed = target.trim();
-  return trimmed.endsWith('@lid');
+  return trimmed.endsWith('@lid') || trimmed.includes('@lid');
+}
+
+/**
+ * Membersihkan format WhatsApp LID dari suffix multi-device (contoh: 222788627513504:1@lid -> 222788627513504@lid)
+ */
+export function cleanLidJid(rawLid: string | null | undefined): string | null {
+  if (!rawLid) return null;
+  const trimmed = rawLid.trim();
+  if (!trimmed.includes('@lid')) return null;
+
+  const userPart = trimmed.split('@')[0].split(':')[0];
+  if (!userPart) return null;
+  return `${userPart}@lid`;
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   formatStudentSalutation,
   getBaseAppUrl,
   isWhatsAppLidJid,
+  cleanLidJid,
 } from './utils';
 import { generateStudentAbsenceRequestToken } from '@/lib/studentAbsenceToken';
 
@@ -227,19 +228,33 @@ async function resolveInboundUser(params: {
 }) {
   const { replyDestination, normalizedPhone, quotedMessageId, rawText } = params;
 
-  // 1. Cari berdasarkan whatsappLid atau normalizedPhone
-  const userConditions: any[] = [{ whatsappLid: replyDestination }];
+  // 1. Cari berdasarkan whatsappLid (termasuk variasi canonical bersih tanpa device index :1@lid) atau normalizedPhone
+  const cleanedLid = cleanLidJid(replyDestination);
+  const lidVariants: string[] = [];
+  if (cleanedLid) {
+    lidVariants.push(cleanedLid);
+  }
+  if (replyDestination && !lidVariants.includes(replyDestination)) {
+    lidVariants.push(replyDestination);
+  }
+
+  const userConditions: any[] = [];
+  if (lidVariants.length > 0) {
+    userConditions.push({ whatsappLid: { in: lidVariants } });
+  }
   if (normalizedPhone) {
     userConditions.push({ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } });
   }
 
-  let user = await prisma.user.findFirst({
-    where: {
-      OR: userConditions,
-      status: 'ACTIVE',
-    },
-    include: INBOUND_USER_INCLUDE,
-  });
+  let user = userConditions.length > 0
+    ? await prisma.user.findFirst({
+        where: {
+          OR: userConditions,
+          status: 'ACTIVE',
+        },
+        include: INBOUND_USER_INCLUDE,
+      })
+    : null;
 
   // 2. Jika belum ditemukan dan ada quotedMessageId, cari dari riwayat pengiriman pesan keluar (whatsAppMessageLog)
   if (!user && quotedMessageId) {
@@ -249,6 +264,7 @@ async function resolveInboundUser(params: {
         OR: [
           { gatewayMessageId: cleanQuotedId },
           { gatewayMessageId: { endsWith: cleanQuotedId } },
+          { gatewayMessageId: { contains: cleanQuotedId } },
         ],
       },
       select: {
@@ -303,12 +319,13 @@ async function resolveInboundUser(params: {
   }
 
   // 4. Auto-link whatsappLid jika user berhasil ditemukan dan kanal masuk adalah @lid
-  if (user && isWhatsAppLidJid(replyDestination) && user.whatsappLid !== replyDestination) {
+  const canonicalLidToSave = cleanedLid || (isWhatsAppLidJid(replyDestination) ? replyDestination : null);
+  if (user && canonicalLidToSave && user.whatsappLid !== canonicalLidToSave) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { whatsappLid: replyDestination },
+      data: { whatsappLid: canonicalLidToSave },
     }).catch((err) => {
-      console.error(`[WhatsApp Inbound] Gagal auto-link whatsappLid ${replyDestination} ke user ${user.id}:`, err);
+      console.error(`[WhatsApp Inbound] Gagal auto-link whatsappLid ${canonicalLidToSave} ke user ${user.id}:`, err);
     });
   }
 
@@ -426,9 +443,10 @@ export async function processInboundWhatsAppMessage(
       });
 
       if (linkedUser) {
+        const canonicalLidToSave = cleanLidJid(replyDestination) || replyDestination;
         await prisma.user.update({
           where: { id: linkedUser.id },
-          data: { whatsappLid: replyDestination },
+          data: { whatsappLid: canonicalLidToSave },
         });
 
         const rolesList = linkedUser.roles.map((r) => r.role).join(', ') || 'Santri/Wali';
@@ -769,7 +787,7 @@ export async function processInboundWhatsAppMessage(
       `Terima kasih telah menghubungi Layanan Notifikasi Pengajian.\n\n` +
       `Nomor atau identitas WhatsApp Anda belum tertaut dengan data santri atau pengajar pada sistem kami.\n\n` +
       `💡 *Petunjuk Penautan Akun:*\n` +
-      `Silakan kirimkan balasan berisi *nomor HP* Anda yang terdaftar pada sistem (contoh: *0882007730579*).\n` +
+      `Silakan kirimkan balasan berisi *nomor HP* Anda yang terdaftar pada sistem (contoh: *081234567890*).\n` +
       `Sistem akan langsung memverifikasi dan menghubungkan WhatsApp Anda secara otomatis.\n\n` +
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Layanan Notifikasi Sistem Pengajian*`;
