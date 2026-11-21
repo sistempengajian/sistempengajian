@@ -49,7 +49,7 @@ export const INTENT_REGEX = {
   ABSENCE: /\b(izin|ijin|sakit|demam|panas|meriang|pusing|batuk|pilek|flu|berhalangan|halangan|keperluan|acara|kondangan|hajat|hajatan|dinas|tugas|tidak bisa hadir|tidak hadir|tidak masuk|tidak bisa ikut|ga bisa hadir|ga bisa masuk|ga bisa ikut|gak bisa hadir|gak bisa masuk|gak bisa ikut|gk bisa hadir|gk bisa masuk|gk bisa ikut|nggak bisa hadir|nggak bisa masuk|nggak bisa ikut|rawat|dirawat|opname|bedrest|keluar kota|ke luar kota|pulang kampung|mudik)\b/i,
   CLOSING_PRAYER: /^\s*(aamiin|amiin|amin|aamin)\b/i,
   AFFIRMATION: /\b(siap|oke|ok|baik|noted|insyaallah|insya allah|bismillah|inggih|siap hadir|bisa hadir|hadir ustadz|siap ustadz|siap ustadzah|siap kak|siap laksanakan)\b/i,
-  GREETING: /\b(assalamu|assalamualaikum|assalamu'alaikum|waalaikumsalam|wa'alaikumsalam|samlikum|halo|hai|selamat pagi|selamat siang|selamat sore|selamat malam)\b/i,
+  GREETING: /\b(assalamu\w*|waalaikumsalam|wa'alaikumsalam|samlikum|halo+|hai+|helo+|hello+|hi+|selamat\s+(pagi|siang|sore|malam))\b|^p\b|^ping\b/i,
   THANKS: /\b(alhamdulillah|syukron|syukran|terima kasih|terimakasih|makasih|jazakallah|jazakillah|jazakumullah|jaza|jazza)\b/i,
   MENU: /\b(menu|bantuan|help|panduan|fitur|perintah|layanan|info|informasi|tes|test|ping)\b|^[/!](menu|bantuan|help|panduan|fitur|info)\b/i,
 };
@@ -225,25 +225,54 @@ async function resolveInboundUser(params: {
   normalizedPhone: string | null;
   quotedMessageId?: string;
   rawText?: string;
+  remoteJid?: string;
+  remoteJidAlt?: string;
 }) {
-  const { replyDestination, normalizedPhone, quotedMessageId, rawText } = params;
+  const { replyDestination, normalizedPhone, quotedMessageId, rawText, remoteJid, remoteJidAlt } = params;
 
-  // 1. Cari berdasarkan whatsappLid (termasuk variasi canonical bersih tanpa device index :1@lid) atau normalizedPhone
-  const cleanedLid = cleanLidJid(replyDestination);
-  const lidVariants: string[] = [];
-  if (cleanedLid) {
-    lidVariants.push(cleanedLid);
+  // 1. Kumpulkan semua kandidat nomor HP dari remoteJidAlt, remoteJid, dan normalizedPhone
+  const phoneCandidates: string[] = [];
+  if (remoteJidAlt) {
+    const p = extractCleanPhoneFromJid(remoteJidAlt) || normalizePhoneNumber(remoteJidAlt);
+    if (p) phoneCandidates.push(p);
   }
-  if (replyDestination && !lidVariants.includes(replyDestination)) {
-    lidVariants.push(replyDestination);
+  if (remoteJid && !remoteJid.includes('@lid') && !remoteJid.includes('@g.us')) {
+    const p = extractCleanPhoneFromJid(remoteJid) || normalizePhoneNumber(remoteJid);
+    if (p) phoneCandidates.push(p);
+  }
+  if (normalizedPhone) {
+    phoneCandidates.push(normalizedPhone);
+  }
+
+  // 2. Kumpulkan semua kandidat LID dari remoteJid, replyDestination, dan remoteJidAlt
+  const lidVariants: string[] = [];
+  const addLidVariant = (lidStr?: string | null) => {
+    if (!lidStr) return;
+    const clean = cleanLidJid(lidStr);
+    if (clean && !lidVariants.includes(clean)) lidVariants.push(clean);
+    if (lidStr.includes('@lid') && !lidVariants.includes(lidStr)) lidVariants.push(lidStr);
+  };
+
+  addLidVariant(remoteJid);
+  addLidVariant(replyDestination);
+  if (remoteJidAlt && remoteJidAlt.includes('@lid')) {
+    addLidVariant(remoteJidAlt);
   }
 
   const userConditions: any[] = [];
   if (lidVariants.length > 0) {
     userConditions.push({ whatsappLid: { in: lidVariants } });
   }
-  if (normalizedPhone) {
-    userConditions.push({ phoneNumber: { in: getCanonicalPhoneVariants(normalizedPhone) } });
+
+  const allPhoneVariants = new Set<string>();
+  for (const pc of phoneCandidates) {
+    for (const v of getCanonicalPhoneVariants(pc)) {
+      allPhoneVariants.add(v);
+    }
+  }
+
+  if (allPhoneVariants.size > 0) {
+    userConditions.push({ phoneNumber: { in: Array.from(allPhoneVariants) } });
   }
 
   let user = userConditions.length > 0
@@ -319,7 +348,7 @@ async function resolveInboundUser(params: {
   }
 
   // 4. Auto-link whatsappLid jika user berhasil ditemukan dan kanal masuk adalah @lid
-  const canonicalLidToSave = cleanedLid || (isWhatsAppLidJid(replyDestination) ? replyDestination : null);
+  const canonicalLidToSave = cleanLidJid(remoteJid) || cleanLidJid(replyDestination) || (isWhatsAppLidJid(replyDestination) ? replyDestination : null);
   if (user && canonicalLidToSave && user.whatsappLid !== canonicalLidToSave) {
     await prisma.user.update({
       where: { id: user.id },
@@ -340,6 +369,8 @@ export interface InboundMessagePayload {
   timestamp?: number;
   authorPhone?: string;
   quotedMessageId?: string;
+  remoteJid?: string;
+  remoteJidAlt?: string;
 }
 
 export interface InboundProcessResult {
@@ -478,17 +509,21 @@ export async function processInboundWhatsAppMessage(
     }
   }
 
+  // Resolusi data pengguna pengirim melalui strategi multi-lapisan (remoteJidAlt, remoteJid, WhatsApp LID, Phone Kanonikal, Quoted Log, dsb.)
+  const resolvedUser = await resolveInboundUser({
+    replyDestination,
+    normalizedPhone,
+    quotedMessageId: payload.quotedMessageId,
+    rawText,
+    remoteJid: payload.remoteJid,
+    remoteJidAlt: payload.remoteJidAlt,
+  });
+
   // =========================================================================
   // KASUS A: INTENT IZIN / SAKIT (SMART ABSENCE AUTO-RESPONDER)
   // =========================================================================
   if (isAbsence) {
-    // Resolusi User melalui strategi 4 lapisan (Phone Kanonikal, WhatsApp LID, Quoted Reminder Log, atau Input Nomor Teks)
-    const user = await resolveInboundUser({
-      replyDestination,
-      normalizedPhone,
-      quotedMessageId: payload.quotedMessageId,
-      rawText,
-    });
+    const user = resolvedUser;
 
     const now = new Date();
     const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 jam ke belakang
@@ -826,12 +861,7 @@ export async function processInboundWhatsAppMessage(
   // Pengguna membalas pengingat jadwal dengan kesiapan hadir
   // =========================================================================
   if (isAffirmation) {
-    const userSender = await resolveInboundUser({
-      replyDestination,
-      normalizedPhone,
-      quotedMessageId: payload.quotedMessageId,
-      rawText,
-    });
+    const userSender = resolvedUser;
 
     const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
     const affirmationReply = isTeacher
@@ -861,12 +891,7 @@ export async function processInboundWhatsAppMessage(
   // Pengguna meminta bantuan, menu, fitur, info layanan, atau mengetes bot
   // =========================================================================
   if (isMenu) {
-    const userSender = await resolveInboundUser({
-      replyDestination,
-      normalizedPhone,
-      quotedMessageId: payload.quotedMessageId,
-      rawText,
-    });
+    const userSender = resolvedUser;
 
     const orgName = userSender?.organization?.name || 'Sistem Pengajian';
     const isTeacher = userSender?.roles?.some((r) => r.role === 'PENGAJAR' || r.role === 'WALI_KELAS');
@@ -941,18 +966,23 @@ export async function processInboundWhatsAppMessage(
   // KASUS D: INTENT SALAM / SAPAAN
   // =========================================================================
   if (isGreeting) {
+    const sapaanNama = resolvedUser?.fullName ? `*Kak ${resolvedUser.fullName}*` : 'Bapak/Ibu/Saudara';
+    const orgName = resolvedUser?.organization?.name || 'Sistem Pengajian';
+
     const greetingReply =
-      `Wa'alaikumussalam Warahmatullahi Wabarakatuh,\n\n` +
-      `Terima kasih telah menghubungi Layanan Notifikasi Sistem Pengajian.\n\n` +
-      `Pemberitahuan:\n` +
-      `*• Saluran Otomatis* _Nomor ini adalah bot pengingat dan notifikasi pengajian otomatis_\n` +
-      `*• Pengajuan Izin* _Ketik pesan memuat kata izin atau sakit untuk mendapatkan tautan instan_\n` +
-      `*• Menu Bantuan* _Ketik 'menu' atau 'bantuan' untuk panduan layanan lengkap_\n` +
-      `*• Administrasi & Info* _Silakan hubungi Wali Kelas atau Pengurus Wilayah setempat_\n\n` +
+      `Wa'alaikumussalam Warahmatullahi Wabarakatuh,\n` +
+      `Halo ${sapaanNama}! 👋\n\n` +
+      `Terima kasih telah menghubungi Layanan Notifikasi ${orgName}.\n\n` +
+      `Panduan Cepat:\n` +
+      `*• Konfirmasi Izin/Sakit:* Ketik *'izin'* atau *'sakit'* untuk formulir instan\n` +
+      `*• Konfirmasi Kehadiran:* Ketik *'siap'* atau *'hadir'*\n` +
+      `*• Menu Layanan:* Ketik *'menu'* atau *'bantuan'*\n\n` +
       `Alhamdulillah Jazakumullahu Khairan.\n` +
       `— *Pengurus Pengajian*`;
 
     await sendReplyWithTyping(replyDestination, {
+      recipientName: resolvedUser?.fullName,
+      recipientUserId: resolvedUser?.id,
       messageType: 'CUSTOM_DIRECT',
       message: greetingReply,
     });
@@ -990,12 +1020,41 @@ export async function processInboundWhatsAppMessage(
   }
 
   // =========================================================================
-  // KASUS F: PESAN TANPA KATA KUNCI (SILENT / TIDAK MERESPON DEMI MENCEGAH SPAM)
+  // KASUS F: PESAN TANPA KATA KUNCI TERTENTU
   // =========================================================================
-  // Jika pesan pengguna tidak mengandung kata kunci yang dikenali (misal: stiker, reaksi,
-  // atau percakapan acak), bot tetap diam tanpa mengirimkan balasan otomatis.
+  // Jika pengirim adalah user yang telah terdaftar di database, berikan respon sopan dan sapa namanya
+  if (resolvedUser) {
+    const sapaan = `*Kak ${resolvedUser.fullName}*`;
+    const orgName = resolvedUser.organization?.name || 'Sistem Pengajian';
+    const fallbackReply =
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh, ${sapaan}! 👋\n\n` +
+      `Pesan Anda telah kami terima di Layanan Otomatis ${orgName}.\n\n` +
+      `Silakan gunakan kata kunci perintah berikut agar sistem dapat memproses otomatis:\n` +
+      `• Ketik *'izin'* atau *'sakit'* → Formulir konfirmasi izin santri & pengajar instan\n` +
+      `• Ketik *'siap'* → Konfirmasi kesiapan hadir pada pengajian\n` +
+      `• Ketik *'menu'* → Panduan layanan & tautan portal web pengajian\n\n` +
+      `Alhamdulillah Jazakumullahu Khairan.\n` +
+      `— *Pengurus Pengajian*`;
+
+    await sendReplyWithTyping(replyDestination, {
+      recipientName: resolvedUser.fullName,
+      recipientUserId: resolvedUser.id,
+      messageType: 'CUSTOM_DIRECT',
+      message: fallbackReply,
+    });
+
+    return {
+      handled: true,
+      intent: 'OTHER',
+      replySent: true,
+      replyMessage: fallbackReply,
+      recipientPhone: replyDestination,
+    };
+  }
+
+  // Jika pengirim sama sekali belum terdaftar dan pesannya acak, bot tetap diam (silent) demi mencegah spam
   console.log(
-    `[Inbound WhatsApp] Pesan dari ${replyDestination} tidak memuat kata kunci ("${rawText}"). Bot tetap diam (silent / no-reply).`
+    `[Inbound WhatsApp] Pesan dari ${replyDestination} tidak memuat kata kunci ("${rawText}") dan belum terdaftar. Bot tetap diam (silent / no-reply).`
   );
 
   return {

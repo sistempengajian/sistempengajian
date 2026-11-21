@@ -251,6 +251,19 @@ export async function POST(req: NextRequest) {
         `[WhatsApp Webhook] Pesan pribadi masuk dari ${sender} (authorPhone: ${authorPhone || '-'}, quotedMessageId: ${quotedMessageId || '-'}): "${incomingText}"`
       );
 
+      const remoteJid =
+        body.payload?._data?.key?.remoteJid ||
+        body.payload?.remoteJid ||
+        body.payload?.key?.remoteJid ||
+        body.payload?.chatId ||
+        body.payload?.from ||
+        sender;
+
+      const remoteJidAlt =
+        body.payload?._data?.key?.remoteJidAlt ||
+        body.payload?.remoteJidAlt ||
+        body.payload?.key?.remoteJidAlt;
+
       // Delegasikan ke Smart Webhook Auto-Responder Service (1-on-1 direct chat)
       const result = await processInboundWhatsAppMessage({
         from: String(sender),
@@ -259,6 +272,8 @@ export async function POST(req: NextRequest) {
         messageId: msgId ? String(msgId) : undefined,
         authorPhone,
         quotedMessageId,
+        remoteJid: remoteJid ? String(remoteJid) : undefined,
+        remoteJidAlt: remoteJidAlt ? String(remoteJidAlt) : undefined,
       });
 
       if (result.intent === 'DUPLICATE_MESSAGE') {
