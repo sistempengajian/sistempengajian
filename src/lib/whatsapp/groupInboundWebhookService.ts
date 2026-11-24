@@ -184,7 +184,13 @@ export function extractMentionedJids(payload: any): string[] {
   add(payload?.payload?._data?.mentionedJidList);
   add(payload?.payload?._data?.message?.extendedTextMessage?.contextInfo?.mentionedJid);
   add(payload?.payload?.contextInfo?.mentionedJid);
+  add(payload?.payload?.mentionedJids);
+  add(payload?.payload?.mentionedIds);
+  add(payload?.payload?._data?.mentionedIds);
+  add(payload?.payload?._data?.message?.extendedTextMessage?.contextInfo?.mentionedJids);
   add(payload?.mentionedJidList);
+  add(payload?.mentionedJids);
+  add(payload?.mentionedIds);
   add(payload?.contextInfo?.mentionedJid);
 
   return Array.from(result);
@@ -194,9 +200,9 @@ export function extractMentionedJids(payload: any): string[] {
  * Memeriksa apakah bot di-tag/mention secara valid di pesan grup WhatsApp.
  * Aturan Anti-Spam: Bot HANYA akan merespon jika ditag secara eksplisit:
  * 1. Melalui fitur tag WhatsApp native (mentionedJidList berisi nomor / LID bot)
- * 2. Menyertakan tag nomor bot (@6285165868482 / @085165868482)
- * 3. Menyertakan tag keyword resmi (@no_bot / @bot / @asisten / @pengajian)
- * 4. Awalan slash command grup (/bot, /jadwal, /kas, /menu)
+ * 2. Menyertakan tag nomor bot (@6285165868482 / @085165868482 atau WHATSAPP_BOT_NUMBER)
+ * 3. Menyertakan tag keyword resmi (@no_bot / @bot / @asisten / @pengajian / @sipanji)
+ * 4. Awalan slash / dot / bang command grup (/bot, /jadwal, /kas, /menu, .jadwal, !bot)
  */
 export function isBotMentionedInGroup(
   text: string,
@@ -204,17 +210,29 @@ export function isBotMentionedInGroup(
   customBotIdentifiers: string[] = []
 ): boolean {
   const envBotNumber = process.env.WHATSAPP_BOT_NUMBER || '';
-  const botIdentifiers = [
+  const initialIdentifiers = [
     '6285165868482',
     '214006056919268',
     envBotNumber,
     ...customBotIdentifiers,
   ].filter(Boolean);
 
+  const botIdentifiers = new Set<string>(initialIdentifiers);
+  if (envBotNumber) {
+    const digits = envBotNumber.replace(/\D/g, '');
+    if (digits) {
+      botIdentifiers.add(digits);
+      if (digits.startsWith('0')) botIdentifiers.add('62' + digits.slice(1));
+      if (digits.startsWith('62')) botIdentifiers.add('0' + digits.slice(2));
+    }
+  }
+
+  const botIdArray = Array.from(botIdentifiers);
+
   // 1. Cek dari daftar JID yang di-tag resmi oleh WhatsApp (mentionedJidList)
   if (Array.isArray(mentionedJids) && mentionedJids.length > 0) {
     const isTag = mentionedJids.some((jid) =>
-      botIdentifiers.some((botId) => {
+      botIdArray.some((botId) => {
         const cleanId = botId.replace(/\D/g, '');
         return jid.includes(botId) || (cleanId && jid.includes(cleanId));
       })
@@ -225,7 +243,7 @@ export function isBotMentionedInGroup(
   const clean = text.toLowerCase();
 
   // 2. Cek mention nomor telepon bot dalam teks (misal: @6285165868482, @085165868482, @85165868482)
-  const mentionsBotNumber = botIdentifiers.some((botId) => {
+  const mentionsBotNumber = botIdArray.some((botId) => {
     const digits = botId.replace(/\D/g, '');
     if (digits.length < 8) return false;
     const localFormat = digits.startsWith('62') ? '0' + digits.slice(2) : digits;
@@ -239,14 +257,14 @@ export function isBotMentionedInGroup(
   });
   if (mentionsBotNumber) return true;
 
-  // 3. Cek mention keyword bot resmi: @no_bot, @bot, @nobot, @asisten, @pengajian, @sistem, @admin
-  const botKeywordRegex = /@\b(bot|no_bot|nobot|asisten|pengajian|sistem|admin)\b/i;
+  // 3. Cek mention keyword bot resmi: @no_bot, @bot, @nobot, @asisten, @pengajian, @sistem, @admin, @sipanji
+  const botKeywordRegex = /@\b(bot|no_bot|nobot|asisten|pengajian|sistem|admin|sipanji)\b/i;
   if (botKeywordRegex.test(clean)) {
     return true;
   }
 
-  // 4. Perintah awalan slash / bang di grup: /bot, /jadwal, /kas, /menu, !bot, !jadwal, !kas
-  const commandPrefixRegex = /^[/!](bot|jadwal|kas|bayar|qris|menu|bantuan)\b/i;
+  // 4. Perintah awalan slash / bang / dot di grup: /bot, /jadwal, /kas, /menu, .jadwal, !bot
+  const commandPrefixRegex = /^[/!.](bot|jadwal|kas|bayar|qris|menu|bantuan|info|lokasi|pengajar|ustadz|materi|kurikulum)\b/i;
   if (commandPrefixRegex.test(clean.trim())) {
     return true;
   }
@@ -260,8 +278,8 @@ export function isBotMentionedInGroup(
 export function cleanGroupQuery(text: string): string {
   return text
     .replace(/@\S+/g, ' ')
-    .replace(/^[/!]\S+/g, ' ')
-    .replace(/\b(asisten|bot|no_bot|nobot|pengajian|sistem|admin)\b/gi, ' ')
+    .replace(/^[/!.]\S+/g, ' ')
+    .replace(/\b(asisten|bot|no_bot|nobot|pengajian|sistem|admin|sipanji)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
@@ -332,7 +350,7 @@ export async function processGroupInboundWhatsAppMessage(
       : null;
 
   if (relevantGenerations.length === 0 && !registeredClass) {
-    // Abaikan grup yang tidak terdaftar di sistem pengajian (Anti-Spam)
+    console.warn(`[WhatsApp Group Inbound] 🛑 Grup ${groupId} diabaikan: ID grup belum ditautkan pada Jenjang Generasi maupun Kelas di database.`);
     return { handled: false, action: 'IGNORED_UNREGISTERED' };
   }
 
@@ -353,11 +371,13 @@ export async function processGroupInboundWhatsAppMessage(
   const mentionedJids = payload.mentionedJids || [];
 
   if (!isBotMentionedInGroup(rawText, mentionedJids)) {
+    console.log(`[WhatsApp Group Inbound] ℹ️ Pesan di grup "${groupTargetName}" diabaikan karena tidak men-tag bot atau bukan perintah awalan (/!.)`);
     return { handled: false, action: 'IGNORED_NOT_MENTIONED' };
   }
 
   // 3. Proteksi Rate Limit Cepat per Grup (Maksimal 1 respons per 4 detik per grup)
   if (await isGroupRateLimited(groupId)) {
+    console.warn(`[WhatsApp Group Inbound] ⏳ Grup ${groupId} terkena rate-limit pesan cepat (4s).`);
     return { handled: true, action: 'RATE_LIMITED', replySent: false, groupId };
   }
 
