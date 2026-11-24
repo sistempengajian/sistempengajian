@@ -13,6 +13,7 @@
 data_santri_dan_orangtua.csv
 data_*.csv
 !template_data_santri_dan_orangtua.csv
+template_data_santri_dan_orangtua.csv
 
 # next.js build
 /.next/
@@ -138,4 +139,14 @@ prisma/client/
 .claude/config.toml
 
 # Scripts
-/scripts/
+/scripts
+
+#planing
+/planing
+
+# templates
+/template
+
+#docs
+/docs
+
