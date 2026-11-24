@@ -60,3 +60,82 @@ docs/AI_HANDOVER_RULES.md
 docs/rancangan_notifikasi_jadwal_wa_otomatis.md
 docs/whatsapp_gateway_integration_blueprint.md
 docs/Master_Prompt.md
+
+# Supabase
+.supabase
+.surreal
+.wrangler
+.npm
+
+
+# Next.js
+.next/
+
+# Supabase (PENTING - agar tidak upload database)
+.supabase/
+.surreal/
+
+# Cloudflare (jika deploy via Wrangler)
+.wrangler/
+
+# Environment variables (INI PALING PENTING)
+.env
+.env.production
+.env.development
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log
+.pnpm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+*.orig
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Tests
+coverage/
+test-results/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+
+# Prisma
+prisma/client/
+*.db
+*.db-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Vercel
+.vercel/
+
+# Ignore specific files from .env.example
+!src/lib/.env.example
+.env.production.local
+.env.development.local
+
+.claude
+.gemini
+.gemini/antigravity
+.gemini/config.yaml
+.gemini/config
+.claude/config.toml
+
+# Scripts
+/scripts/
