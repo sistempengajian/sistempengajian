@@ -6,6 +6,7 @@ import { getMaterialsPaginated } from './actions';
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { resolveGlobalActiveRole } from '@/lib/role-context-server';
 
 export default async function KurikulumPage({
   searchParams,
@@ -17,6 +18,7 @@ export default async function KurikulumPage({
     view?: string;
     classId?: string;
     filterOrgId?: string;
+    materialId?: string;
   }>;
 }) {
   const resolvedParams = await searchParams;
@@ -194,10 +196,11 @@ export default async function KurikulumPage({
     });
   }
 
-  // 3. Tentukan Role Tab yang Sedang Aktif
-  const roleQuery = (resolvedParams.role || resolvedParams.view || '').toLowerCase();
-  const matchedRole = availableRoles.find((r) => r.id === roleQuery);
-  const initialActiveRole: RoleTabId = matchedRole ? matchedRole.id : availableRoles[0].id;
+  // 3. Tentukan Role Tab yang Sedang Aktif (prioritas: ?role= eksplisit -> cookie global -> default)
+  const { activeRole: initialActiveRole } = await resolveGlobalActiveRole({
+    searchParamRole: resolvedParams.role || resolvedParams.view,
+    availableRoleIds: availableRoles.map((r) => r.id),
+  });
 
   // 4. Siapkan data fallback santri jika pengguna adalah Pengajar tanpa kelas binaan
   let teacherStudentsFallback: {
@@ -387,6 +390,7 @@ export default async function KurikulumPage({
         studentId: config.activeStudentId || undefined,
         classId: r.id === 'teacher' && config.activeClassId ? config.activeClassId : undefined,
         filterOrgId: resolvedParams.filterOrgId || undefined,
+        priorityMaterialId: resolvedParams.materialId || undefined,
       });
       return {
         id: r.id,
@@ -423,6 +427,7 @@ export default async function KurikulumPage({
       homeroomClasses={formattedHomeroomClasses}
       subOrganizations={subOrganizations}
       activeFilterOrgId={resolvedParams.filterOrgId || null}
+      priorityMaterialId={resolvedParams.materialId || null}
       userName={userProfile?.fullName}
     />
   );

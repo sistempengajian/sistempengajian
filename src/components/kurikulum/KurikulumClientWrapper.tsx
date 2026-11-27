@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import RoleNavTabs, { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
+import React from 'react';
+import { type RoleTabItem, type RoleTabId } from '@/components/navigation/RoleNavTabs';
+import { useSyncedPageRole } from '@/components/navigation/ActiveRoleContext';
 import KurikulumInfiniteList from '@/components/kurikulum/KurikulumInfiniteList';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import PageContainer from '@/components/ui/PageContainer';
 import { MaterialData } from '@/components/kurikulum/MaterialCard';
 import { BookOpen } from 'lucide-react';
 
@@ -47,12 +50,13 @@ interface KurikulumClientWrapperProps {
   homeroomClasses: any[];
   subOrganizations: any[];
   activeFilterOrgId: string | null;
+  priorityMaterialId?: string | null;
   userName?: string;
 }
 
 export default function KurikulumClientWrapper({
   initialActiveRole,
-  availableRoles,
+  availableRoles: _availableRoles,
   roleDataMap,
   generations,
   userTierLevel,
@@ -62,48 +66,15 @@ export default function KurikulumClientWrapper({
   homeroomClasses,
   subOrganizations,
   activeFilterOrgId,
-  userName,
+  priorityMaterialId = null,
+  userName: _userName,
 }: KurikulumClientWrapperProps) {
-  const [activeRole, setActiveRole] = useState<RoleTabId>(initialActiveRole);
-
-  const handleRoleChange = (newRole: RoleTabId) => {
-    setActiveRole(newRole);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('role', newRole);
-      window.history.replaceState({}, '', url.toString());
-    }
-  };
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const roleFromUrl = (params.get('role') || params.get('view') || '').toLowerCase() as RoleTabId;
-      if (roleFromUrl && roleDataMap[roleFromUrl]) {
-        setActiveRole(roleFromUrl);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [roleDataMap]);
+  const activeRole = useSyncedPageRole(initialActiveRole, roleDataMap);
 
   const currentRoleData = roleDataMap[activeRole] || roleDataMap[initialActiveRole];
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fade-in pb-20 sm:pb-8">
-      {/* Top Multi-Role Switcher jika user memiliki > 1 peran */}
-      {availableRoles.length > 1 && (
-        <RoleNavTabs
-          title="Ganti Peran Tampilan Kurikulum"
-          description="Pilih sudut pandang kurikulum & rapor sesuai peran yang ingin Anda gunakan."
-          availableRoles={availableRoles}
-          activeRole={activeRole}
-          userName={userName}
-          variant="bottom-sheet"
-          onRoleChange={handleRoleChange}
-        />
-      )}
-
+    <PageContainer variant="standard" className="space-y-4 sm:space-y-5 animate-fade-in pb-20 sm:pb-8">
       {/* Header Banner */}
       {currentRoleData && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-2xs transition-all duration-300">
@@ -125,27 +96,30 @@ export default function KurikulumClientWrapper({
 
       {/* Kurikulum Client Container: Tabs, Focus Banner, Caching & Infinite Scroll List */}
       {currentRoleData && (
-        <KurikulumInfiniteList
-          key={activeRole}
-          initialMaterials={currentRoleData.initialPaginatedData.items as MaterialData[]}
-          initialTotal={currentRoleData.initialPaginatedData.total}
-          initialHasMore={currentRoleData.initialPaginatedData.hasMore}
-          currentGenCode={currentRoleData.currentGenCode}
-          generations={generations}
-          canManage={currentRoleData.canManage}
-          userTierLevel={userTierLevel}
-          userOrganizationId={userOrganizationId}
-          userOrganizationName={userOrganizationName}
-          parentOrganizationName={parentOrganizationName}
-          activeStudentId={currentRoleData.activeStudentId}
-          availableStudents={currentRoleData.availableStudents}
-          userRoleCategory={currentRoleData.userRoleCategory}
-          homeroomClasses={homeroomClasses}
-          activeClassId={currentRoleData.activeClassId}
-          subOrganizations={subOrganizations}
-          activeFilterOrgId={activeFilterOrgId}
-        />
+        <ErrorBoundary sectionName="Daftar Kurikulum">
+          <KurikulumInfiniteList
+            key={activeRole}
+            initialMaterials={currentRoleData.initialPaginatedData.items as MaterialData[]}
+            initialTotal={currentRoleData.initialPaginatedData.total}
+            initialHasMore={currentRoleData.initialPaginatedData.hasMore}
+            currentGenCode={currentRoleData.currentGenCode}
+            generations={generations}
+            canManage={currentRoleData.canManage}
+            userTierLevel={userTierLevel}
+            userOrganizationId={userOrganizationId}
+            userOrganizationName={userOrganizationName}
+            parentOrganizationName={parentOrganizationName}
+            activeStudentId={currentRoleData.activeStudentId}
+            availableStudents={currentRoleData.availableStudents}
+            userRoleCategory={currentRoleData.userRoleCategory}
+            homeroomClasses={homeroomClasses}
+            activeClassId={currentRoleData.activeClassId}
+            subOrganizations={subOrganizations}
+            activeFilterOrgId={activeFilterOrgId}
+            priorityMaterialId={priorityMaterialId}
+          />
+        </ErrorBoundary>
       )}
-    </div>
+    </PageContainer>
   );
 }

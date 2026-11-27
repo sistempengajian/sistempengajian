@@ -87,6 +87,7 @@ interface KurikulumInfiniteListProps {
   activeClassId?: string | null;
   subOrganizations?: SubOrganizationItem[];
   activeFilterOrgId?: string | null;
+  priorityMaterialId?: string | null;
 }
 
 interface GenerationCacheEntry {
@@ -129,12 +130,20 @@ export default function KurikulumInfiniteList({
   activeClassId = null,
   subOrganizations = [],
   activeFilterOrgId = null,
+  priorityMaterialId = null,
 }: KurikulumInfiniteListProps) {
   const toast = useToast();
   const initialKey = buildCacheKey(activeStudentId, activeClassId, activeFilterOrgId, currentGenCode);
   // Cek apakah ada data cache global dari kunjungan halaman sebelumnya yang masih valid
   const cachedForCurrent = globalKurikulumCache[initialKey];
-  const isCachedValid = Boolean(cachedForCurrent && Date.now() - cachedForCurrent.timestamp < CACHE_TTL_MS);
+  const hasPriorityInCache =
+    !priorityMaterialId ||
+    Boolean(cachedForCurrent?.items?.some((m) => m.id === priorityMaterialId));
+  const isCachedValid = Boolean(
+    cachedForCurrent &&
+      Date.now() - cachedForCurrent.timestamp < CACHE_TTL_MS &&
+      hasPriorityInCache
+  );
 
   const [activeGenCode, setActiveGenCode] = useState<string>(currentGenCode);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(activeStudentId || null);
@@ -921,7 +930,7 @@ export default function KurikulumInfiniteList({
                   {activeChild?.fullName}
                 </p>
                 {activeChild?.generationName && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200/60">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200/60">
                     {activeChild.generationName}
                   </span>
                 )}
@@ -959,12 +968,12 @@ export default function KurikulumInfiniteList({
                       : 'Jurnal Nilai & Capaian Santri'}
                   </span>
                   {homeroomClasses && homeroomClasses.length > 1 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200/60">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200/60">
                       {homeroomClasses.length} Kelas Binaan
                     </span>
                   )}
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   {homeroomClasses && homeroomClasses.length > 0
                     ? 'Pantau capaian kolektif kelas binaan atau beralih ke rincian evaluasi per santri'
                     : 'Pantau capaian kolektif seluruh santri di kelompok atau pilih santri spesifik'}
@@ -990,7 +999,7 @@ export default function KurikulumInfiniteList({
                       <Users className="w-3.5 h-3.5" />
                       <span>{cls.name}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
+                        className={`text-[11px] px-1.5 py-0.2 rounded-md font-semibold ${isSelected ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
                           }`}
                       >
                         {cls.students.length} Santri
@@ -1055,11 +1064,11 @@ export default function KurikulumInfiniteList({
             <div>
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <span>Monitoring Capaian Wilayah</span>
-                <span className="px-2 py-0.2 rounded-md text-[10px] font-bold bg-teal-100 text-teal-800">
+                <span className="px-2 py-0.2 rounded-md text-[11px] font-bold bg-teal-100 text-teal-800">
                   {userTierLevel || 'Wilayah'}
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Card materi dan checklist capaian menampilkan progres akumulasi santri binaan di wilayah Anda
               </p>
             </div>
@@ -1104,7 +1113,7 @@ export default function KurikulumInfiniteList({
             </div>
             <div>
               <h3 className="text-xs font-bold text-teal-950">Buku Kendali Capaian Kurikulum</h3>
-              <p className="text-[11px] text-teal-800/80">Pantau progres lingkaran materi, nilai yang diperoleh, serta catatan evaluasi ustadzmu.</p>
+              <p className="text-xs text-teal-800/80">Pantau progres lingkaran materi, nilai yang diperoleh, serta catatan evaluasi ustadzmu.</p>
             </div>
           </div>
         </div>
@@ -1167,7 +1176,7 @@ export default function KurikulumInfiniteList({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-600 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1255,7 +1264,7 @@ export default function KurikulumInfiniteList({
               title="Filter tingkatan materi"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 opacity-70" />
-              <span className="text-slate-400 font-normal"></span>
+              <span className="text-slate-500 font-normal"></span>
               <span className="flex items-center gap-1.5 font-bold">
                 {scopeFilter === 'DAERAH' && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
                 {scopeFilter === 'DESA' && <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
@@ -1279,7 +1288,7 @@ export default function KurikulumInfiniteList({
             {/* Menu Dropdown 1 Tombol Switch */}
             {isFilterDropdownOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-30 text-xs animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-0.5">
+                <div className="px-3 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 mb-0.5">
                   Filter Tingkatan
                 </div>
                 {[
@@ -1315,7 +1324,7 @@ export default function KurikulumInfiniteList({
                       <span>{opt.label}</span>
                     </span>
                     {scopeFilter === opt.key && (
-                      <span className="text-[11px] font-bold text-teal-600">✓</span>
+                      <span className="text-xs font-bold text-teal-600">✓</span>
                     )}
                   </button>
                 ))}
@@ -1444,7 +1453,7 @@ export default function KurikulumInfiniteList({
         )}
 
         {!hasMore && materials.length > 0 && (
-          <div className="text-center text-[11px] text-slate-400 py-3">
+          <div className="text-center text-xs text-slate-500 py-3">
             <span>• Seluruh materi kurikulum telah dimuat ({materials.length} modul) •</span>
           </div>
         )}
@@ -1529,7 +1538,7 @@ export default function KurikulumInfiniteList({
             <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900">Ganti Data Anak</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Pilih ananda untuk meninjau materi dan capaian belajar
                 </p>
               </div>
@@ -1574,7 +1583,7 @@ export default function KurikulumInfiniteList({
                           {child.fullName}
                         </p>
                         {child.generationName && (
-                          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 mt-1">
+                          <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 mt-1">
                             {child.generationName}
                           </span>
                         )}

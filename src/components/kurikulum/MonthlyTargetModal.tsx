@@ -254,7 +254,7 @@ export default function MonthlyTargetModal({
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight flex items-center gap-2">
                 <span>Target Kurikulum Bulanan</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 border border-teal-200">
                   {userTierLevel || 'Wilayah'}
                 </span>
               </h3>
@@ -267,7 +267,7 @@ export default function MonthlyTargetModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl hover:bg-slate-200/70 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl hover:bg-slate-200/70 text-slate-600 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -293,7 +293,7 @@ export default function MonthlyTargetModal({
             <button
               type="button"
               onClick={() => setActionMessage(null)}
-              className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              className="text-slate-500 hover:text-slate-600 p-0.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -392,7 +392,7 @@ export default function MonthlyTargetModal({
 
           {/* List Kartu Materi Terjadwal di Bulan Ini */}
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
               <span className="text-xs">Memuat target materi bulanan...</span>
             </div>
@@ -400,7 +400,7 @@ export default function MonthlyTargetModal({
             <div className="py-12 px-4 rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center justify-center gap-2 bg-slate-50/50">
               <BookOpen className="w-8 h-8 text-slate-300" />
               <p className="text-xs font-bold text-slate-700">Belum ada target materi di bulan ini</p>
-              <p className="text-[11px] text-slate-500 max-w-sm">
+              <p className="text-xs text-slate-500 max-w-sm">
                 Klik tombol <strong>Tambah Materi</strong> untuk memasangkan materi silabus jenjang {currentGenName}{' '}
                 ke bulan {selectedMonthName} {selectedYear}.
               </p>
@@ -430,20 +430,20 @@ export default function MonthlyTargetModal({
                         {item.material.title}
                       </h5>
                       {item.material.description && (
-                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                           {item.material.description}
                         </p>
                       )}
                       <div className="flex items-center gap-1.5 pt-1.5 flex-wrap">
                         {item.material.isMandatoryForTarget && (
-                          <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
+                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
                             Wajib
                           </span>
                         )}
-                        <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded-md">
+                        <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded-md">
                           {item.material.checklistItems.length} Poin Capaian
                         </span>
-                        <span className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded-md">
+                        <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded-md">
                           {item.material.creatorTierLevel}
                         </span>
                       </div>
@@ -456,7 +456,7 @@ export default function MonthlyTargetModal({
                       type="button"
                       disabled={idx === 0 || isPending}
                       onClick={() => handleMoveOrder(idx, 'UP')}
-                      className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-7 h-7 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                       title="Geser ke Atas"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
@@ -465,7 +465,7 @@ export default function MonthlyTargetModal({
                       type="button"
                       disabled={idx === targets.length - 1 || isPending}
                       onClick={() => handleMoveOrder(idx, 'DOWN')}
-                      className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-7 h-7 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                       title="Geser ke Bawah"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
@@ -474,7 +474,7 @@ export default function MonthlyTargetModal({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleRemoveTarget(item.id, item.material.title)}
-                      className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-7 h-7 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
                       title="Hapus dari Bulan Ini"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -497,7 +497,7 @@ export default function MonthlyTargetModal({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900">Pilih Materi Silabus</h4>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       Silabus jenjang {currentGenName} yang belum ada di target {selectedMonthName}
                     </p>
                   </div>
@@ -505,7 +505,7 @@ export default function MonthlyTargetModal({
                 <button
                   type="button"
                   onClick={() => setIsPickerOpen(false)}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer"
+                  className="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-600 hover:text-slate-600 flex items-center justify-center cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -528,12 +528,12 @@ export default function MonthlyTargetModal({
               {/* List Available Materials */}
               <div className="p-3 overflow-y-auto flex-1 space-y-2">
                 {isLoadingPicker ? (
-                  <div className="py-8 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                  <div className="py-8 flex flex-col items-center justify-center gap-1.5 text-slate-500">
                     <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                     <span className="text-xs">Mencari materi...</span>
                   </div>
                 ) : availableMaterials.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-xs">
+                  <div className="py-8 text-center text-slate-500 text-xs">
                     Tidak ada materi silabus yang cocok.
                   </div>
                 ) : (
@@ -545,11 +545,11 @@ export default function MonthlyTargetModal({
                       <div className="min-w-0 flex-1">
                         <h6 className="text-xs font-bold text-slate-900 truncate">{mat.title}</h6>
                         {mat.description && (
-                          <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                          <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                             {mat.description}
                           </p>
                         )}
-                        <span className="text-[9px] text-slate-500 font-medium mt-1 inline-block">
+                        <span className="text-xs text-slate-500 font-medium mt-1 inline-block">
                           {mat.checklistCount} Poin Capaian
                         </span>
                       </div>
@@ -571,7 +571,7 @@ export default function MonthlyTargetModal({
 
         {/* Footer Modal */}
         <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+          <div className="text-xs text-slate-500 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span>Perubahan target langsung aktif secara otomatis di jadwal dan presensi.</span>
           </div>

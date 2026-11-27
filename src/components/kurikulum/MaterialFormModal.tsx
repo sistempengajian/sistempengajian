@@ -177,7 +177,7 @@ export default function MaterialFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-slate-200/60 text-slate-600 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -291,7 +291,7 @@ export default function MaterialFormModal({
                   );
                 })}
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 {upgradeOptions.find((o) => o.tier === upgradeTier)?.helperText || ''}
               </p>
             </div>
@@ -307,7 +307,7 @@ export default function MaterialFormModal({
                 <Lock className="w-3.5 h-3.5 text-rose-600" />
                 <span>Materi Wajib Kelulusan Jenjang</span>
               </span>
-              <span className="text-[11px] text-slate-500 block">
+              <span className="text-xs text-slate-500 block">
                 Jika diaktifkan, seluruh santri pada jenjang ini wajib menuntaskan materi ini untuk lulus ke generasi berikutnya.
               </span>
             </div>

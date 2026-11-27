@@ -253,10 +253,19 @@ export default function MaterialCard({
     };
   }, [isVersionDropdownOpen]);
 
-  // Otomatis terbuka jika URL memuat hash ID materi ini
+  // Otomatis terbuka jika URL memuat hash ID materi ini atau query parameter ?materialId=
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === `#material-${material.id}`) {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const isTargetMatch =
+      window.location.hash === `#material-${material.id}` ||
+      params.get('materialId') === material.id;
+    if (isTargetMatch) {
       setIsExpanded(true);
+      const el = document.getElementById(`material-${material.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }, [material.id]);
 
@@ -456,7 +465,7 @@ export default function MaterialCard({
         {/* Sisi Kiri: Badge Tingkatan Pembuat & Status Wajib */}
         <div className="flex flex-wrap items-center gap-1.5">
           <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${material.creatorTierLevel === 'DAERAH'
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border ${material.creatorTierLevel === 'DAERAH'
               ? 'bg-blue-50 text-blue-700 border-blue-200'
               : material.creatorTierLevel === 'DESA'
                 ? 'bg-purple-50 text-purple-700 border-purple-200'
@@ -467,12 +476,12 @@ export default function MaterialCard({
           </span>
 
           {material.isMandatoryForTarget ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
               <Lock className="w-3 h-3 text-rose-500" />
               <span>Wajib</span>
             </span>
           ) : (
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
               Pengayaan
             </span>
           )}
@@ -502,7 +511,7 @@ export default function MaterialCard({
 
             {/* Indikator Teks Progres: Kolektif vs Individu */}
             {material.progressSummary && material.progressSummary.totalItems > 0 && (
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500 pt-0.5 flex-wrap">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-500 pt-0.5 flex-wrap">
                 {material.progressSummary.isGroupView ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-slate-600 font-medium">
@@ -573,7 +582,7 @@ export default function MaterialCard({
                   <button
                     type="button"
                     onClick={() => setIsVersionDropdownOpen(!isVersionDropdownOpen)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                     title="Ganti versi materi"
                   >
                     <Layers className="w-3.5 h-3.5 text-slate-400" />
@@ -599,7 +608,7 @@ export default function MaterialCard({
                         >
                           <span>{v.label}</span>
                           {activeVersion === v.key && (
-                            <span className="text-[10px] text-teal-600 font-bold">✓</span>
+                            <span className="text-xs text-teal-600 font-bold">✓</span>
                           )}
                         </button>
                       ))}
@@ -667,7 +676,7 @@ export default function MaterialCard({
               <button
                 type="button"
                 onClick={() => onAddChecklistItem(material.id, !isOwnerOfMaterial, isOwnerOfMaterial)}
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-teal-200/60 bg-teal-50 text-teal-700 hover:bg-teal-100 shadow-2xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg border border-teal-200/60 bg-teal-50 text-teal-700 hover:bg-teal-100 shadow-2xs transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>
@@ -702,7 +711,7 @@ export default function MaterialCard({
                           <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                         </div>
                       ) : (
-                        <span className="w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <span className="w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-600 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                           {idx + 1}
                         </span>
                       )}
@@ -723,7 +732,7 @@ export default function MaterialCard({
                           <button
                             type="button"
                             onClick={() => onEditChecklistItem(material.id, item, isOwnerOfMaterial)}
-                            className="p-1 rounded-md text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-slate-500 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer"
                             title={isOwnerOfMaterial ? 'Edit capaian ini' : `Sesuaikan capaian untuk versi ${userTierLabel}`}
                           >
                             <Pencil className="w-3 h-3" />
@@ -733,7 +742,7 @@ export default function MaterialCard({
                           <button
                             type="button"
                             onClick={() => onDeleteChecklistItem(item.id, item.itemTitle)}
-                            className="p-1 rounded-md text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                             title="Hapus capaian ini"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -744,7 +753,7 @@ export default function MaterialCard({
                   </div>
 
                   {item.description && (
-                    <p className="text-[11px] text-slate-500 leading-relaxed pl-7">
+                    <p className="text-xs text-slate-500 leading-relaxed pl-7">
                       {item.description}
                     </p>
                   )}
@@ -752,7 +761,7 @@ export default function MaterialCard({
                   <div className="w-full pl-7 pt-3">
                     {item.studentProgress && typeof item.studentProgress.score === 'number' && (
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.studentProgress.score >= 80
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${item.studentProgress.score >= 80
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : item.studentProgress.score >= 60
                             ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -784,7 +793,7 @@ export default function MaterialCard({
                         </div>
 
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 ${item.groupProgress.percentage >= 80
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border shrink-0 ${item.groupProgress.percentage >= 80
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : item.groupProgress.percentage >= 50
                               ? 'bg-teal-50 text-teal-800 border-teal-200'
@@ -800,7 +809,7 @@ export default function MaterialCard({
 
                         {item.groupProgress.averageScore > 0 && (
                           <span
-                            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 font-semibold"
+                            className="inline-flex items-center gap-0.5 text-xs text-slate-500 font-semibold"
                             title={`Rata-rata nilai: ${item.groupProgress.averageScore}`}
                           >
                             <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
@@ -813,11 +822,11 @@ export default function MaterialCard({
                   {/* Pesan Catatan Ustadz untuk capaian ini */}
                   {item.studentProgress?.teacherFeedback && (
                     <div className="w-full mt-1 p-2.5 rounded-xl bg-teal-50/70 border border-teal-200/60 space-y-1">
-                      <div className="flex items-center gap-1.5 text-teal-800 text-[11px] font-bold">
+                      <div className="flex items-center gap-1.5 text-teal-800 text-xs font-bold">
                         <MessageSquare className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                         <span>Catatan Ustadz:</span>
                         {item.studentProgress.evaluatedAt && (
-                          <span className="text-[10px] text-teal-600/70 font-normal ml-auto">
+                          <span className="text-xs text-teal-600/70 font-normal ml-auto">
                             {new Date(item.studentProgress.evaluatedAt).toLocaleDateString('id-ID', {
                               day: 'numeric',
                               month: 'short',
@@ -834,7 +843,7 @@ export default function MaterialCard({
                           {item.studentProgress.feedbackTags.map((tag, tIdx) => (
                             <span
                               key={tIdx}
-                              className="px-2 py-0.5 rounded-md bg-white border border-teal-200/80 text-teal-700 text-[10px] font-semibold"
+                              className="px-2 py-0.5 rounded-md bg-white border border-teal-200/80 text-teal-700 text-[11px] font-semibold"
                             >
                               #{tag.replace(/^#/, '')}
                             </span>
@@ -849,7 +858,7 @@ export default function MaterialCard({
                     {/* Kiri: Watermark samar teks abu-abu */}
                     <div className="min-w-0">
                       {hasItemWatermark ? (
-                        <span className="text-[10px] text-slate-400 italic">
+                        <span className="text-xs text-slate-500 italic">
                           * Versi {itemVersionLabel}
                         </span>
                       ) : (
@@ -859,14 +868,14 @@ export default function MaterialCard({
 
                     {/* Kanan: Badge Poin Reward & Otoritas */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] sm:text-[11px] font-bold text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200 shadow-2xs">
+                      <span className="text-[11px] font-bold text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200 shadow-2xs">
                         +{item.pointsWeight} Poin
                       </span>
 
                       {/* Badge Khusus Daerah 🔒 */}
                       {isLockedDaerah && (
                         <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
                           title="Hanya dapat disahkan oleh Tim Penguji Tingkat Daerah"
                         >
                           <Lock className="w-2.5 h-2.5 text-amber-700" />
@@ -877,7 +886,7 @@ export default function MaterialCard({
                       {/* Badge Khusus Desa 🏛️ */}
                       {isLockedDesa && (
                         <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-300"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-300"
                           title="Hanya dapat disahkan oleh Tim Penguji Tingkat Desa ke atas"
                         >
                           <Lock className="w-2.5 h-2.5 text-purple-700" />
@@ -891,7 +900,7 @@ export default function MaterialCard({
             })}
 
             {activeItems.length === 0 && (
-              <div className="text-center py-4 text-xs text-slate-400 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+              <div className="text-center py-4 text-xs text-slate-600 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
                 Belum ada butir target capaian pada versi ini.
               </div>
             )}

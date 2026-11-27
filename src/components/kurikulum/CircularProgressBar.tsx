@@ -35,7 +35,7 @@ export default function CircularProgressBar({
   // Tinggi (>= 80): Hijau / Emerald
   // Belum ada nilai (0): Abu-abu netral
   let strokeColor = 'stroke-slate-300';
-  let textColor = 'text-slate-400';
+  let textColor = 'text-slate-500';
   let bgColor = 'bg-slate-50/60';
   let borderColor = 'border-slate-200/50';
 
@@ -105,7 +105,7 @@ export default function CircularProgressBar({
           </span>
           {subLabel && (
             <span
-              className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mt-0.5"
+              className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mt-0.5"
               style={{ fontSize: size * 0.16 }}
             >
               {subLabel}

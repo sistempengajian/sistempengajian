@@ -138,6 +138,7 @@ export async function getMaterialsPaginated({
   studentId,
   classId,
   filterOrgId,
+  priorityMaterialId,
 }: {
   genCode: string;
   page?: number;
@@ -147,6 +148,7 @@ export async function getMaterialsPaginated({
   studentId?: string;
   classId?: string;
   filterOrgId?: string;
+  priorityMaterialId?: string;
 }) {
   const skip = (Math.max(page, 1) - 1) * limit;
 
@@ -283,68 +285,23 @@ export async function getMaterialsPaginated({
     AND: andConditions,
   };
 
-  const [total, items] = await Promise.all([
-    prisma.material.count({ where }),
-    prisma.material.findMany({
-      where,
+  const materialIncludeConfig = {
+    checklistItems: {
+      where: isSuperAdminOrDaerah
+        ? undefined
+        : {
+          OR: [
+            { organizationId: null },
+            { tierLevel: TierLevel.DAERAH },
+            ...(allowedOrgs.length > 0
+              ? [
+                  { organizationId: { in: allowedOrgs } },
+                  { material: { organizationId: { in: allowedOrgs } } },
+                ]
+              : []),
+          ],
+        },
       include: {
-        checklistItems: {
-          where: isSuperAdminOrDaerah
-            ? undefined
-            : {
-              OR: [
-                { organizationId: null },
-                { tierLevel: TierLevel.DAERAH },
-                ...(allowedOrgs.length > 0
-                  ? [
-                      { organizationId: { in: allowedOrgs } },
-                      { material: { organizationId: { in: allowedOrgs } } },
-                    ]
-                  : []),
-              ],
-            },
-          include: {
-            organization: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-              },
-            },
-            ...(studentId
-              ? {
-                studentProgress: {
-                  where: { studentId },
-                  select: {
-                    id: true,
-                    score: true,
-                    teacherFeedback: true,
-                    feedbackTags: true,
-                    isCompleted: true,
-                    evaluatedAt: true,
-                  },
-                },
-              }
-              : {}),
-          },
-          orderBy: { orderIndex: 'asc' },
-        },
-        customizations: {
-          where: isSuperAdminOrDaerah
-            ? undefined
-            : allowedOrgs.length > 0
-              ? { organizationId: { in: allowedOrgs } }
-              : undefined,
-          include: {
-            organization: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-              },
-            },
-          },
-        },
         organization: {
           select: {
             id: true,
@@ -352,19 +309,84 @@ export async function getMaterialsPaginated({
             type: true,
           },
         },
-        targetGeneration: {
+        ...(studentId
+          ? {
+            studentProgress: {
+              where: { studentId },
+              select: {
+                id: true,
+                score: true,
+                teacherFeedback: true,
+                feedbackTags: true,
+                isCompleted: true,
+                evaluatedAt: true,
+              },
+            },
+          }
+          : {}),
+      },
+      orderBy: { orderIndex: 'asc' as const },
+    },
+    customizations: {
+      where: isSuperAdminOrDaerah
+        ? undefined
+        : allowedOrgs.length > 0
+          ? { organizationId: { in: allowedOrgs } }
+          : undefined,
+      include: {
+        organization: {
           select: {
             id: true,
             name: true,
-            code: true,
+            type: true,
           },
         },
       },
+    },
+    organization: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
+    },
+    targetGeneration: {
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+    },
+  };
+
+  const validPriorityId =
+    page === 1 && priorityMaterialId && materialIdSchema.safeParse(priorityMaterialId).success
+      ? priorityMaterialId
+      : null;
+
+  const [total, rawItems, priorityItem] = await Promise.all([
+    prisma.material.count({ where }),
+    prisma.material.findMany({
+      where,
+      include: materialIncludeConfig,
       orderBy: [{ isMandatoryForTarget: 'desc' }, { createdAt: 'desc' }],
       skip,
       take: limit,
     }),
+    validPriorityId
+      ? prisma.material.findFirst({
+          where: {
+            AND: [...andConditions, { id: validPriorityId }],
+          },
+          include: materialIncludeConfig,
+        })
+      : Promise.resolve(null),
   ]);
+
+  const items =
+    priorityItem && !rawItems.some((m) => m.id === priorityItem.id)
+      ? [priorityItem, ...rawItems]
+      : rawItems;
 
   // 4. Tentukan target santri untuk perhitungan progres kolektif jika studentId tidak diberikan
   let targetStudentIds: string[] = [];

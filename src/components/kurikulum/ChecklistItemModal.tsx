@@ -261,7 +261,7 @@ export default function ChecklistItemModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl hover:bg-black/5 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-black/5 text-slate-300 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -322,7 +322,7 @@ export default function ChecklistItemModal({
                   onChange={(e) => setPointsWeight(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
-                <span className="absolute right-4 top-3 text-slate-400 text-sm font-medium pointer-events-none">
+                <span className="absolute right-4 top-3 text-slate-500 text-sm font-medium pointer-events-none">
                   Poin
                 </span>
               </div>

@@ -127,7 +127,7 @@ export default function MaterialCustomizeModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl hover:bg-black/5 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-black/5 text-slate-300 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -145,7 +145,7 @@ export default function MaterialCustomizeModal({
 
           {/* Rujukan Judul & Deskripsi Asli */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
               <span>Materi Asli Daerah</span>
             </div>
             <p className="font-bold text-slate-900 text-sm">{originalTitle}</p>
@@ -160,7 +160,7 @@ export default function MaterialCustomizeModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>Judul Khusus Versi {tierLabel}</span>
-              <span className="text-[11px] text-slate-400 font-normal">Opsional</span>
+              <span className="text-xs text-slate-500 font-normal">Opsional</span>
             </label>
             <input
               type="text"
@@ -178,7 +178,7 @@ export default function MaterialCustomizeModal({
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>Deskripsi & Catatan Pengajaran Lokal</span>
-              <span className="text-[11px] text-slate-400 font-normal">Opsional</span>
+              <span className="text-xs text-slate-500 font-normal">Opsional</span>
             </label>
             <textarea
               rows={4}
@@ -202,7 +202,7 @@ export default function MaterialCustomizeModal({
                 {customDescription.trim() || originalDescription || 'Belum ada deskripsi khusus.'}
               </p>
               {(customTitle.trim() || customDescription.trim()) && (
-                <p className="text-[11px] text-slate-400 italic pt-1">
+                <p className="text-xs text-slate-500 italic pt-1">
                   * Versi {tierLabel}
                 </p>
               )}

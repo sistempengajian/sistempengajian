@@ -2,9 +2,11 @@
 
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, ApprovalStatus } from '@prisma/client';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { CACHE_TAGS } from '@/lib/cache';
+import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { formatZodError } from '@/lib/security-utils';
 
 const requestRemedialSchema = z.object({
@@ -36,8 +38,19 @@ const scheduleIdSchema = z.string().uuid('ID jadwal pengajian tidak valid.');
 export async function requestPrivateRemedial(formData: FormData) {
   const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
 
-  if (!user || !effectiveUserId) {
+  if (!user || !userProfile || !effectiveUserId) {
     return { error: 'Anda harus masuk untuk mengajukan pengajian private.' };
+  }
+
+  const roles = userProfile.roles.map((r) => r.role);
+  const canPropose = roles.some((r) =>
+    ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'].includes(r)
+  );
+  if (!canPropose) {
+    return {
+      error:
+        'Akses ditolak: Hanya Pengajar, Wali Kelas, atau Pengurus Wilayah yang berhak mengajukan jadwal private remedial.',
+    };
   }
 
   const rawData = {
@@ -56,8 +69,65 @@ export async function requestPrivateRemedial(formData: FormData) {
 
   const { title, venuePlaceName, startTime, endTime, teacherId, studentIds } = validation.data;
 
-  if (!userProfile?.organizationId) {
+  const parsedStart = new Date(startTime);
+  const parsedEnd = new Date(endTime);
+  if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime())) {
+    return { error: 'Format waktu mulai atau selesai tidak valid.' };
+  }
+  if (parsedEnd <= parsedStart) {
+    return { error: 'Waktu selesai harus lebih akhir daripada waktu mulai.' };
+  }
+
+  if (!userProfile.organizationId) {
     return { error: 'Organisasi wilayah tidak ditemukan.' };
+  }
+
+  const baseScopedOrgIds = await getScopedOrganizationIds(roles, userProfile.organizationId);
+  const scopedOrgIds =
+    baseScopedOrgIds === null
+      ? null
+      : Array.from(
+          new Set([
+            ...baseScopedOrgIds,
+            ...userProfile.homeroomClasses.map((c) => c.organizationId),
+          ])
+        );
+
+  const uniqueStudentIds = Array.from(new Set(studentIds));
+
+  // Validasi pengajar dan seluruh santri yang dipilih berada dalam lingkup wilayah binaan
+  const [validTeacher, validStudentsCount] = await Promise.all([
+    prisma.user.findFirst({
+      where: {
+        id: teacherId,
+        status: 'ACTIVE',
+        ...(scopedOrgIds !== null ? { organizationId: { in: scopedOrgIds } } : {}),
+        roles: {
+          some: {
+            role: {
+              in: ['PENGAJAR', 'WALI_KELAS', 'PJ_KELOMPOK', 'PJ_DESA', 'PJ_DAERAH', 'ADMIN_MASTER'],
+            },
+          },
+        },
+      },
+      select: { id: true },
+    }),
+    prisma.user.count({
+      where: {
+        id: { in: uniqueStudentIds },
+        status: 'ACTIVE',
+        ...(scopedOrgIds !== null ? { organizationId: { in: scopedOrgIds } } : {}),
+        roles: { some: { role: 'SANTRI' } },
+      },
+    }),
+  ]);
+
+  if (!validTeacher) {
+    return { error: 'Ustadz pembimbing tidak valid atau berada di luar wilayah binaan Anda.' };
+  }
+
+  if (validStudentsCount !== uniqueStudentIds.length) {
+    return { error: 'Sebagian santri yang dipilih tidak valid atau berada di luar wilayah binaan Anda.' };
   }
 
   try {
@@ -68,8 +138,8 @@ export async function requestPrivateRemedial(formData: FormData) {
         tierLevel: TierLevel.KELOMPOK,
         organizationId: userProfile.organizationId,
         venuePlaceName,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
+        startTime: parsedStart,
+        endTime: parsedEnd,
         maxStudentsQuota: 5,
         status: ScheduleStatus.SCHEDULED,
         requestedByUserId: effectiveUserId,
@@ -87,6 +157,7 @@ export async function requestPrivateRemedial(formData: FormData) {
       },
     });
 
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/private-remedial');
     revalidatePath('/dashboard');
     return { success: true, scheduleId: schedule.id };
@@ -119,9 +190,23 @@ export async function approvePrivateRemedial(scheduleId: string) {
     return { error: 'Akses ditolak: Hanya Pengelola / PJ yang berhak menyetujui pengajuan private remedial.' };
   }
 
+  const schedule = await prisma.schedule.findUnique({
+    where: { id: idValidation.data },
+    select: { id: true, scheduleType: true, organizationId: true },
+  });
+
+  if (!schedule || schedule.scheduleType !== ScheduleType.PRIVATE_REMEDIAL) {
+    return { error: 'Pengajuan jadwal private remedial tidak ditemukan.' };
+  }
+
+  const scopedOrgIds = await getScopedOrganizationIds(roles, dbUser.organizationId || null);
+  if (scopedOrgIds !== null && !scopedOrgIds.includes(schedule.organizationId)) {
+    return { error: 'Akses ditolak: Pengajuan berada di luar wilayah binaan Anda.' };
+  }
+
   try {
     await prisma.schedule.update({
-      where: { id: scheduleId },
+      where: { id: idValidation.data },
       data: {
         approvalStatus: ApprovalStatus.APPROVED,
         approvedByPjId: effectiveUserId,
@@ -129,6 +214,7 @@ export async function approvePrivateRemedial(scheduleId: string) {
       },
     });
 
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/private-remedial');
     revalidatePath('/jadwal');
     revalidatePath('/dashboard');
@@ -162,9 +248,23 @@ export async function rejectPrivateRemedial(scheduleId: string) {
     return { error: 'Akses ditolak: Hanya Pengelola / PJ yang berhak menolak pengajuan private remedial.' };
   }
 
+  const schedule = await prisma.schedule.findUnique({
+    where: { id: idValidation.data },
+    select: { id: true, scheduleType: true, organizationId: true },
+  });
+
+  if (!schedule || schedule.scheduleType !== ScheduleType.PRIVATE_REMEDIAL) {
+    return { error: 'Pengajuan jadwal private remedial tidak ditemukan.' };
+  }
+
+  const scopedOrgIds = await getScopedOrganizationIds(roles, dbUser.organizationId || null);
+  if (scopedOrgIds !== null && !scopedOrgIds.includes(schedule.organizationId)) {
+    return { error: 'Akses ditolak: Pengajuan berada di luar wilayah binaan Anda.' };
+  }
+
   try {
     await prisma.schedule.update({
-      where: { id: scheduleId },
+      where: { id: idValidation.data },
       data: {
         approvalStatus: ApprovalStatus.REJECTED,
         approvedByPjId: effectiveUserId,
@@ -172,6 +272,7 @@ export async function rejectPrivateRemedial(scheduleId: string) {
       },
     });
 
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/private-remedial');
     revalidatePath('/dashboard');
     return { success: true };

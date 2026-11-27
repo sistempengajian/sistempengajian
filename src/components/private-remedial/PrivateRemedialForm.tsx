@@ -241,7 +241,7 @@ export default function PrivateRemedialForm({
                   >
                     <div>
                       <div>{s.fullName}</div>
-                      <div className="text-[10px] text-slate-400 font-normal">
+                      <div className="text-xs text-slate-500 font-normal">
                         {s.generation?.name || 'Caberawit'}
                       </div>
                     </div>
