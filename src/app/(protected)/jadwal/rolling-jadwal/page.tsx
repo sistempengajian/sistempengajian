@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import RollingJadwalBatchList from '@/components/jadwal/rolling-jadwal/RollingJadwalBatchList';
+import PageContainer from '@/components/ui/PageContainer';
 import { getRollingJadwalBatches } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -42,12 +43,12 @@ export default async function RollingJadwalPage() {
   const batches = result.success && result.data ? result.data : [];
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+    <PageContainer variant="wide" className="px-3 sm:px-6 space-y-6">
       <RollingJadwalBatchList
         initialBatches={batches}
         canManage={canManage}
         roleCodes={roleCodes}
       />
-    </div>
+    </PageContainer>
   );
 }

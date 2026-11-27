@@ -50,7 +50,7 @@ export default function StepperInput({
 
         <div className="px-3.5 py-1 text-center min-w-[3.5rem]">
           <span className="font-extrabold text-sm text-slate-900 leading-none">{value}</span>
-          {suffix && <span className="text-[10px] font-medium text-slate-500 block">{suffix}</span>}
+          {suffix && <span className="text-xs font-medium text-slate-500 block">{suffix}</span>}
         </div>
 
         <button

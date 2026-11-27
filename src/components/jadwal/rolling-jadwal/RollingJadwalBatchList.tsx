@@ -223,7 +223,7 @@ export default function RollingJadwalBatchList({
                       <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                         {batch.blueprintName}
                       </h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                         Batch: {batch.batchId.slice(0, 8)}…
                       </span>
                     </div>
@@ -240,7 +240,7 @@ export default function RollingJadwalBatchList({
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-xs text-slate-500">
                       Dibuat pada: {formatDate(batch.createdAt)}
                     </p>
                   </div>
@@ -262,7 +262,7 @@ export default function RollingJadwalBatchList({
                       type="button"
                       onClick={() => handleDelete(batch.batchId, batch.blueprintName)}
                       disabled={isPending}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-all disabled:opacity-40 cursor-pointer shadow-2xs active:scale-95"
+                      className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-all disabled:opacity-40 cursor-pointer shadow-2xs active:scale-95"
                       title="Hapus Seluruh Sesi dari Batch Ini"
                     >
                       {isDeleting ? (

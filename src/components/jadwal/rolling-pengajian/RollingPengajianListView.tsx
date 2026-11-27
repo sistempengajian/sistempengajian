@@ -128,20 +128,20 @@ export default function RollingPengajianListView({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -153,7 +153,7 @@ export default function RollingPengajianListView({
       case 'KELAS':
         const classNames = item.targetClasses?.map((tc: any) => tc.class?.name).filter(Boolean) || [];
         return (
-          <span className="flex flex-row text-[11px] font-semibold items-center gap-2">
+          <span className="flex flex-row text-xs font-semibold items-center gap-2">
             <Users className="w-3.5 h-3.5 text-rose-500 shrink-0" />
             <div className='flex flex-col'>
               {classNames.length > 0 ? `${classNames.join(', ')}` : 'Khusus Kelas'}
@@ -163,7 +163,7 @@ export default function RollingPengajianListView({
       case 'GENERASI':
         const genNames = item.targetGenerations?.map((tg: any) => tg.generation?.name).filter(Boolean) || [];
         return (
-          <span className="flex flex-row text-[11px] font-semibold items-center gap-2">
+          <span className="flex flex-row text-xs font-semibold items-center gap-2">
             <Users className="w-3.5 h-3.5 text-rose-500 shrink-0" />
             {genNames.length > 0 ? `Jenjang: ${genNames.join(', ')}` : 'Khusus Jenjang Usia'}
           </span>
@@ -171,7 +171,7 @@ export default function RollingPengajianListView({
       case 'WILAYAH_UMUM':
       default:
         return (
-          <span className="flex flex-row text-[11px] font-semibold items-center gap-2">
+          <span className="flex flex-row text-xs font-semibold items-center gap-2">
             <Building2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
             Umum Se-Wilayah
           </span>
@@ -265,7 +265,7 @@ export default function RollingPengajianListView({
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {getTierBadge(item.tierLevel)}
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/80">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/80">
                       {item.organization?.name || 'Wilayah'}
                     </span>
                   </div>
@@ -281,7 +281,7 @@ export default function RollingPengajianListView({
                   <div className="flex items-center gap-2 text-xs text-slate-600 pt-1">
                     <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                     <span className="font-semibold">{item.venuePlaceName}</span>
-                    <span className="text-[10px] text-slate-400">({item.venueType || 'MASJID'})</span>
+                    <span className="text-xs text-slate-500">({item.venueType || 'MASJID'})</span>
                   </div>
                   {renderScopeBadge(item)}
                 </div>
@@ -291,7 +291,7 @@ export default function RollingPengajianListView({
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(item)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
                       title="Edit Pengajian Rolling"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -300,7 +300,7 @@ export default function RollingPengajianListView({
                       type="button"
                       onClick={() => handleDelete(item.id, item.name)}
                       disabled={isPending}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Hapus Pengajian Rolling"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -314,11 +314,11 @@ export default function RollingPengajianListView({
                 {/* Kolom Kiri: Template Materi */}
                 <div className="p-3.5 rounded-xl border border-teal-200/80 bg-teal-50/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold text-teal-800 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-xs font-extrabold text-teal-800 uppercase tracking-wider flex items-center gap-1">
                       <Layers className="w-3.5 h-3.5 text-teal-600" />
                       Silabus Materi (Tahap 1)
                     </span>
-                    <span className="px-2 py-0.2 rounded-md bg-teal-100 text-teal-800 font-bold text-[10px]">
+                    <span className="px-2 py-0.2 rounded-md bg-teal-100 text-teal-800 font-bold text-[11px]">
                       {item.materialRolling?.rollingType}
                     </span>
                   </div>
@@ -327,7 +327,7 @@ export default function RollingPengajianListView({
                     <h5 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                       {item.materialRolling?.name || 'Materi Belum Terpasang'}
                     </h5>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {item.materialRolling?.itemsPerSession} materi per pengajian &bull; {item.materialRolling?.queues?.length || 0} antrean bergulir
                     </p>
                   </div>
@@ -336,11 +336,11 @@ export default function RollingPengajianListView({
                 {/* Kolom Kanan: Template Pengajar */}
                 <div className="p-3.5 rounded-xl border border-sky-200/80 bg-sky-50/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold text-sky-800 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-xs font-extrabold text-sky-800 uppercase tracking-wider flex items-center gap-1">
                       <Users className="w-3.5 h-3.5 text-sky-600" />
                       Dewan Pengajar (Tahap 2)
                     </span>
-                    <span className="px-2 py-0.2 rounded-md bg-sky-100 text-sky-800 font-bold text-[10px]">
+                    <span className="px-2 py-0.2 rounded-md bg-sky-100 text-sky-800 font-bold text-[11px]">
                       {item.teacherRolling?.rollingType}
                     </span>
                   </div>
@@ -349,7 +349,7 @@ export default function RollingPengajianListView({
                     <h5 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                       {item.teacherRolling?.name || 'Pengajar Belum Terpasang'}
                     </h5>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {item.teacherRolling?.teachersPerSession} ustadz per sesi &bull; {item.teacherRolling?.queues?.length || 0} antrean bergulir
                     </p>
                   </div>

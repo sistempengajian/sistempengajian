@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import RollingPengajianListView from '@/components/jadwal/rolling-pengajian/RollingPengajianListView';
+import PageContainer from '@/components/ui/PageContainer';
 import { getRollingPengajianList, getRollingReferenceData } from './actions';
 
 export const metadata = {
@@ -43,12 +44,12 @@ export default async function RollingPengajianPage() {
   ]);
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+    <PageContainer variant="wide" className="px-3 sm:px-6 space-y-6">
       <RollingPengajianListView
         initialList={listRes.data || []}
         referenceData={refRes.data}
         canManage={canManage}
       />
-    </div>
+    </PageContainer>
   );
 }

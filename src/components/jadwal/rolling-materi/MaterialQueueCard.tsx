@@ -44,20 +44,20 @@ export default function MaterialQueueCard({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -76,7 +76,7 @@ export default function MaterialQueueCard({
             <h4 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
               {queueTitle || `Antrean Ke-${stepNumber}`}
             </h4>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-xs text-slate-500 font-medium">
               Kapasitas: {itemsPerSession} materi per pengajian
             </span>
           </div>
@@ -88,7 +88,7 @@ export default function MaterialQueueCard({
             <button
               type="button"
               onClick={() => onBatchSelectClick(queueIndex)}
-              className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/60 px-2.5 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+              className="text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/60 px-2.5 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
               title="Pilih seluruh slot materi sekaligus"
             >
               <Sparkles className="w-3 h-3 text-teal-600" />
@@ -101,7 +101,7 @@ export default function MaterialQueueCard({
             type="button"
             onClick={() => onRemoveQueue(queueIndex)}
             disabled={!canDelete}
-            className={`p-1.5 rounded-xl text-slate-400 transition-colors ${
+            className={`p-1.5 rounded-xl text-slate-500 transition-colors ${
               canDelete
                 ? 'hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
                 : 'opacity-30 cursor-not-allowed text-slate-300'
@@ -126,10 +126,10 @@ export default function MaterialQueueCard({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <span className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 text-[11px] font-bold flex items-center justify-center shrink-0">
                       {slotIdx + 1}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Materi #{slotIdx + 1}
                     </span>
                   </div>
@@ -142,7 +142,7 @@ export default function MaterialQueueCard({
                         e.stopPropagation();
                         onClearSlot(queueIndex, slotIdx);
                       }}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md transition-colors"
+                      className="p-1 text-slate-500 hover:text-rose-600 rounded-md transition-colors"
                       title="Kosongkan slot ini"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -159,7 +159,7 @@ export default function MaterialQueueCard({
                     {material.title}
                   </h5>
 
-                  <div className="flex items-center justify-between text-[10px] text-teal-700 font-medium pt-1">
+                  <div className="flex items-center justify-between text-xs text-teal-700 font-medium pt-1">
                     <span>{material.targetGeneration?.name || 'Semua Usia'}</span>
                     <span className="inline-flex items-center gap-0.5 hover:underline">
                       <RefreshCw className="w-2.5 h-2.5" /> Ganti
@@ -184,7 +184,7 @@ export default function MaterialQueueCard({
               <span className="text-xs font-bold text-slate-600 group-hover/slot:text-teal-900">
                 Pilih Materi ke-{slotIdx + 1}
               </span>
-              <span className="text-[10px] text-slate-400">Klik untuk membuka katalog</span>
+              <span className="text-xs text-slate-500">Klik untuk membuka katalog</span>
             </button>
           );
         })}

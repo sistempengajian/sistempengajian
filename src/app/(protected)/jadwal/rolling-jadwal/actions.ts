@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { CACHE_TAGS } from '@/lib/cache';
 import { ScheduleType, TierLevel } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import {
@@ -439,6 +440,8 @@ export async function generateAndSaveRollingSchedule(
 
     revalidatePath('/jadwal');
     revalidatePath('/jadwal/rolling-jadwal');
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
+    revalidatePath('/dashboard');
     return { success: true, batchId, totalCreated: sessions.length };
   } catch (error) {
     console.error('[generateAndSaveRollingSchedule]', error);
@@ -547,6 +550,8 @@ export async function deleteRollingJadwalBatch(batchId: string) {
 
     revalidatePath('/jadwal');
     revalidatePath('/jadwal/rolling-jadwal');
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
+    revalidatePath('/dashboard');
     return { success: true, deletedCount: deleted.count };
   } catch (error) {
     console.error('[deleteRollingJadwalBatch]', error);

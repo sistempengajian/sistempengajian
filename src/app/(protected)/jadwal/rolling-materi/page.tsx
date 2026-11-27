@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import MaterialRollingListView from '@/components/jadwal/rolling-materi/MaterialRollingListView';
+import PageContainer from '@/components/ui/PageContainer';
 import { getMaterialRollings } from './actions';
 
 export const metadata = {
@@ -50,12 +51,12 @@ export default async function RollingMateriPage() {
   const rollings = rollingsRes.data || [];
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+    <PageContainer variant="wide" className="px-3 sm:px-6 space-y-6">
       <MaterialRollingListView
         initialRollings={rollings}
         generations={generations}
         canManage={canManage}
       />
-    </div>
+    </PageContainer>
   );
 }

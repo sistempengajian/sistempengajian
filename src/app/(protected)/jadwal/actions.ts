@@ -3,7 +3,8 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { CACHE_TAGS } from '@/lib/cache';
 import { ScheduleType, TierLevel, ScheduleStatus, RollingTargetScope, UserRole, ApprovalStatus } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { getEffectiveAuthUser } from '@/lib/auth';
@@ -277,6 +278,7 @@ export async function createSchedule(formData: FormData) {
     });
 
     revalidatePath('/jadwal');
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return {
       success: true,
@@ -506,6 +508,7 @@ export async function updateSchedule(formData: FormData) {
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
 
     // Evaluasi Aturan 5 Jam untuk Notifikasi Perubahan Jadwal:
@@ -613,6 +616,7 @@ export async function deleteSchedule(scheduleId: string) {
     });
 
     revalidatePath('/jadwal');
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return { success: true, message: 'Jadwal pengajian berhasil dihapus.' };
   } catch (err: any) {
@@ -675,6 +679,7 @@ export async function updateScheduleStatus(scheduleId: string, status: ScheduleS
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
     revalidatePath('/presensi');
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
 
     // Evaluasi aturan 5 jam untuk notifikasi perubahan status:
@@ -756,6 +761,7 @@ export async function confirmAndDispatchScheduleChangeNotification(params: {
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
 
     return result;
@@ -851,6 +857,7 @@ export async function assignSubstituteTeacher(scheduleId: string, substituteTeac
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return { success: true, message: 'Ustadz badal berhasil didelegasikan.' };
   } catch (err: any) {
@@ -911,6 +918,7 @@ export async function removeSubstituteTeacher(scheduleId: string) {
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${scheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return { success: true, message: 'Delegasi badal berhasil dicabut.' };
   } catch (err: any) {
@@ -979,6 +987,7 @@ export async function approveScheduleProposal(scheduleId: string, notes?: string
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${validatedScheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return { success: true, message: 'Pengajuan jadwal pengajian berhasil disetujui dan kini aktif.' };
   } catch (err: any) {
@@ -1047,6 +1056,7 @@ export async function rejectScheduleProposal(scheduleId: string, rejectionReason
 
     revalidatePath('/jadwal');
     revalidatePath(`/jadwal/${validatedScheduleId}`);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/dashboard');
     return { success: true, message: 'Pengajuan jadwal berhasil ditolak.' };
   } catch (err: any) {

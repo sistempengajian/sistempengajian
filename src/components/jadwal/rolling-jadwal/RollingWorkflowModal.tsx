@@ -81,7 +81,7 @@ export default function RollingWorkflowModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer shadow-2xs"
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer shadow-2xs"
               aria-label="Tutup Modal"
             >
               <X className="w-5 h-5" />
@@ -110,11 +110,11 @@ export default function RollingWorkflowModal({
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                   <span>Multi-slot materi per sesi</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                   <span>Rotasi per pengajian / mingguan / bulanan</span>
                 </div>
@@ -152,11 +152,11 @@ export default function RollingWorkflowModal({
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                   <span>Asatidz utama & cadangan (badal)</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                   <span>Distribusi pengajar berkeadilan</span>
                 </div>
@@ -194,11 +194,11 @@ export default function RollingWorkflowModal({
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span>Multi-kelas & sasaran se-wilayah</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span>Penetapan masjid & tempat bawaan</span>
                 </div>
@@ -237,11 +237,11 @@ export default function RollingWorkflowModal({
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                <div className="flex items-center gap-2 text-[11px] text-slate-700">
+                <div className="flex items-center gap-2 text-xs text-slate-700">
                   <CheckCircle2 className={`w-3.5 h-3.5 ${theme.modalHeaderIconColor} shrink-0`} />
                   <span>Kalender picker rentang tanggal</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-700">
+                <div className="flex items-center gap-2 text-xs text-slate-700">
                   <CheckCircle2 className={`w-3.5 h-3.5 ${theme.modalHeaderIconColor} shrink-0`} />
                   <span>Simulasi / Dry-run preview sesi</span>
                 </div>

@@ -389,7 +389,7 @@ export default function TeacherRollingFormModal({
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
+              className="p-2 text-slate-600 hover:text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
               title="Tutup (Esc)"
             >
               <X className="w-5 h-5" />
@@ -514,11 +514,11 @@ export default function TeacherRollingFormModal({
                   <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
                     <Users className="w-4 h-4 text-sky-600" />
                     <span>2. Susunan Antrean Ustadz Pengajar</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                       Minimal 2 Antrean
                     </span>
                   </h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Pengajar akan berotasi secara otomatis dari antrean #1 hingga #{queues.length}, lalu berputar kembali.
                   </p>
                 </div>

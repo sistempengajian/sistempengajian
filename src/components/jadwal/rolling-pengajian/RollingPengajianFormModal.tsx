@@ -280,7 +280,7 @@ export default function RollingPengajianFormModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
+            className="p-2 text-slate-600 hover:text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
             title="Tutup (Esc)"
           >
             <X className="w-5 h-5" />
@@ -415,7 +415,7 @@ export default function RollingPengajianFormModal({
                         {isSelected && <Check className="w-2.5 h-2.5" />}
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">{scope.desc}</p>
+                    <p className="text-xs text-slate-500 mt-1">{scope.desc}</p>
                   </button>
                 );
               })}
@@ -427,7 +427,7 @@ export default function RollingPengajianFormModal({
                 <div className="flex flex-col items-start justify-start gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-800">Pilih Kelas Target:</span>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold">
                       {selectedClassIds.length} dari {classes.length} Kelas Dipilih
                     </span>
                   </div>
@@ -450,7 +450,7 @@ export default function RollingPengajianFormModal({
                         <button
                           type="button"
                           onClick={() => setSelectedClassIds(classes.map((c) => c.id))}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
                         >
                           Pilih Semua
                         </button>
@@ -458,7 +458,7 @@ export default function RollingPengajianFormModal({
                         <button
                           type="button"
                           onClick={() => setSelectedClassIds([])}
-                          className="text-[11px] font-bold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                          className="text-xs font-bold text-slate-500 hover:text-slate-700 underline cursor-pointer"
                         >
                           Kosongkan
                         </button>
@@ -492,13 +492,13 @@ export default function RollingPengajianFormModal({
                           <div className="min-w-0 flex-1">
                             <span className="font-bold text-xs truncate block leading-snug">{cls.name}</span>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`text-[10px] truncate ${isChecked ? 'text-indigo-100' : 'text-slate-500'}`}>
+                              <span className={`text-xs truncate ${isChecked ? 'text-indigo-100' : 'text-slate-500'}`}>
                                 {cls.generation?.name || 'Umum'}
                               </span>
                               {cls.organization?.name && (
                                 <>
-                                  <span className={`text-[9px] ${isChecked ? 'text-indigo-200' : 'text-slate-300'}`}>•</span>
-                                  <span className={`text-[9px] truncate ${isChecked ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                  <span className={`text-xs ${isChecked ? 'text-indigo-200' : 'text-slate-300'}`}>•</span>
+                                  <span className={`text-xs truncate ${isChecked ? 'text-indigo-200' : 'text-slate-500'}`}>
                                     {cls.organization.name}
                                   </span>
                                 </>
@@ -524,7 +524,7 @@ export default function RollingPengajianFormModal({
               <div className="p-4 rounded-2xl bg-indigo-50/30 border border-indigo-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">Pilih 1 Jenjang Usia Sasaran:</span>
-                  <span className="text-[11px] text-slate-400">Kurikulum materi disesuaikan per usia</span>
+                  <span className="text-xs text-slate-500">Kurikulum materi disesuaikan per usia</span>
                 </div>
 
                 {generations.length === 0 ? (
@@ -546,7 +546,7 @@ export default function RollingPengajianFormModal({
                             }`}
                         >
                           <span className="text-xs font-bold">{gen.name}</span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-xs text-slate-500">
                             {gen.minAge && gen.maxAge ? `${gen.minAge}-${gen.maxAge} Th` : gen.code}
                           </span>
                         </button>
@@ -577,7 +577,7 @@ export default function RollingPengajianFormModal({
                   <Link
                     href="/jadwal/rolling-materi"
                     target="_blank"
-                    className="text-[10px] font-bold text-teal-700 hover:text-teal-900 flex items-center gap-0.5 underline"
+                    className="text-xs font-bold text-teal-700 hover:text-teal-900 flex items-center gap-0.5 underline"
                   >
                     <span>Kelola Silabus</span>
                     <ExternalLink className="w-2.5 h-2.5" />
@@ -586,13 +586,13 @@ export default function RollingPengajianFormModal({
 
                 {materialRollings.length === 0 ? (
                   <div className="p-3 rounded-xl bg-white border border-teal-200 text-xs text-teal-900 space-y-2">
-                    <p className="text-[11px] text-teal-800">
+                    <p className="text-xs text-teal-800">
                       Belum ada template Rolling Materi yang aktif untuk wilayah Anda.
                     </p>
                     <Link
                       href="/jadwal/rolling-materi"
                       target="_blank"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Buat Rolling Materi Sekarang</span>
@@ -616,12 +616,12 @@ export default function RollingPengajianFormModal({
                     </select>
 
                     {selectedMaterialRolling && (
-                      <div className="p-2.5 rounded-xl bg-white border border-teal-200/80 text-[11px] space-y-1">
+                      <div className="p-2.5 rounded-xl bg-white border border-teal-200/80 text-xs space-y-1">
                         <div className="flex items-center justify-between font-bold text-teal-900">
                           <span>Tipe: {selectedMaterialRolling.rollingType}</span>
                           <span>{selectedMaterialRolling.itemsPerSession} Materi/Sesi</span>
                         </div>
-                        <p className="text-slate-500 text-[10px]">
+                        <p className="text-slate-500 text-xs">
                           Memiliki {selectedMaterialRolling.queues?.length || 0} langkah antrean silabus bergulir
                         </p>
                       </div>
@@ -641,7 +641,7 @@ export default function RollingPengajianFormModal({
                   <Link
                     href="/jadwal/rolling-pengajar"
                     target="_blank"
-                    className="text-[10px] font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5 underline"
+                    className="text-xs font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5 underline"
                   >
                     <span>Kelola Ustadz</span>
                     <ExternalLink className="w-2.5 h-2.5" />
@@ -650,13 +650,13 @@ export default function RollingPengajianFormModal({
 
                 {teacherRollings.length === 0 ? (
                   <div className="p-3 rounded-xl bg-white border border-sky-200 text-xs text-sky-900 space-y-2">
-                    <p className="text-[11px] text-sky-800">
+                    <p className="text-xs text-sky-800">
                       Belum ada template Rolling Pengajar yang aktif untuk wilayah Anda.
                     </p>
                     <Link
                       href="/jadwal/rolling-pengajar"
                       target="_blank"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-all shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Buat Rolling Pengajar Sekarang</span>
@@ -680,12 +680,12 @@ export default function RollingPengajianFormModal({
                     </select>
 
                     {selectedTeacherRolling && (
-                      <div className="p-2.5 rounded-xl bg-white border border-sky-200/80 text-[11px] space-y-1">
+                      <div className="p-2.5 rounded-xl bg-white border border-sky-200/80 text-xs space-y-1">
                         <div className="flex items-center justify-between font-bold text-sky-900">
                           <span>Tipe: {selectedTeacherRolling.rollingType}</span>
                           <span>{selectedTeacherRolling.teachersPerSession} Ustadz/Sesi</span>
                         </div>
-                        <p className="text-slate-500 text-[10px]">
+                        <p className="text-slate-500 text-xs">
                           Memiliki {selectedTeacherRolling.queues?.length || 0} langkah antrean rotasi dewan pengajar
                         </p>
                       </div>

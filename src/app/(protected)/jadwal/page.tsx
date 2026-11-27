@@ -1,12 +1,11 @@
 import React from 'react';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import JadwalClientWrapper, { RoleConfigData } from '@/components/jadwal/JadwalClientWrapper';
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { UserRole } from '@prisma/client';
-import { getEffectiveAuthUser } from '@/lib/auth';
+import { requireProtectedAuth } from '@/lib/auth';
+import { resolveGlobalActiveRole } from '@/lib/role-context-server';
 
 export const metadata = {
   title: 'Jadwal Pengajian | Sistem Pengajian Terstruktur',
@@ -183,15 +182,7 @@ export default async function JadwalPage({
 }) {
   const resolvedParams = await searchParams;
 
-  const { authUser: user, dbUser: userProfile, effectiveUserId } = await getEffectiveAuthUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  if (!userProfile) {
-    redirect('/login');
-  }
+  const { dbUser: userProfile, effectiveUserId } = await requireProtectedAuth('full');
 
   const roleCodes = (userProfile?.roles.map((r) => r.role) || []) as UserRole[];
   const isPjDaerah = roleCodes.includes('PJ_DAERAH') || roleCodes.includes('ADMIN_MASTER');
@@ -287,10 +278,11 @@ export default async function JadwalPage({
     });
   }
 
-  // 3. Tentukan Role Tab Awal
-  const roleQuery = (resolvedParams.role || resolvedParams.view || '').toLowerCase();
-  const matchedRole = availableRoles.find((r) => r.id === roleQuery);
-  const initialActiveRole: RoleTabId = matchedRole ? matchedRole.id : availableRoles[0].id;
+  // 3. Tentukan Role Tab Awal (prioritas: ?role= eksplisit -> cookie global -> default)
+  const { activeRole: initialActiveRole } = await resolveGlobalActiveRole({
+    searchParamRole: resolvedParams.role || resolvedParams.view,
+    availableRoleIds: availableRoles.map((r) => r.id),
+  });
 
   // 4. Scoped Org IDs (hanya di-query 1x jika user manager)
   const scopedOrgIds = isManager

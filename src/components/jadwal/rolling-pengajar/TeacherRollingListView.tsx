@@ -113,20 +113,20 @@ export default function TeacherRollingListView({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -137,21 +137,21 @@ export default function TeacherRollingListView({
     switch (type) {
       case 'PER_PENGAJIAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200/80 flex items-center gap-1">
             <Clock className="w-3 h-3 text-sky-600" />
             Per Pengajian
           </span>
         );
       case 'MINGGUAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200/80 flex items-center gap-1">
             <CalendarDays className="w-3 h-3 text-blue-600" />
             Mingguan (7 Hari)
           </span>
         );
       case 'BULANAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
             <Calendar className="w-3 h-3 text-indigo-600" />
             Bulanan
           </span>
@@ -268,7 +268,7 @@ export default function TeacherRollingListView({
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(rolling)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-sky-700 hover:bg-sky-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-sky-50 transition-colors cursor-pointer"
                       title="Edit Rolling Pengajar"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -277,7 +277,7 @@ export default function TeacherRollingListView({
                       type="button"
                       onClick={() => handleDelete(rolling.id, rolling.name)}
                       disabled={isPending}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Hapus Rolling Pengajar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -312,7 +312,7 @@ export default function TeacherRollingListView({
                       >
                         <div className="flex items-center justify-between font-bold text-slate-800 border-b border-slate-200/60 pb-1.5">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-5 h-5 rounded-md bg-sky-100 text-sky-800 text-[10px] flex items-center justify-center font-bold">
+                            <span className="w-5 h-5 rounded-md bg-sky-100 text-sky-800 text-[11px] flex items-center justify-center font-bold">
                               #{q.stepOrder}
                             </span>
                             <span>{q.title || `Antrean #${q.stepOrder}`}</span>
@@ -323,24 +323,24 @@ export default function TeacherRollingListView({
                           {q.items?.map((it: any, sIdx: number) => (
                             <div
                               key={it.id}
-                              className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-[11px] space-y-1 shadow-2xs"
+                              className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs space-y-1 shadow-2xs"
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className="font-bold text-slate-900 truncate">
                                   {it.teacher?.fullName || 'Pengajar Belum Terpilih'}
                                 </span>
-                                <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                                <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-200">
                                   Slot {sIdx + 1}
                                 </span>
                               </div>
 
-                              <p className="text-[10px] text-slate-400 truncate">
+                              <p className="text-xs text-slate-500 truncate">
                                 {it.teacher?.organization?.name || 'Pusat'}
                               </p>
 
                               {it.substituteTeacher && (
-                                <div className="pt-1 mt-1 border-t border-slate-100 flex items-center gap-1 text-[10px] text-amber-800">
-                                  <span className="px-1 py-0.2 rounded bg-amber-100 font-semibold text-[9px]">
+                                <div className="pt-1 mt-1 border-t border-slate-100 flex items-center gap-1 text-xs text-amber-800">
+                                  <span className="px-1 py-0.2 rounded bg-amber-100 font-semibold text-[11px]">
                                     Badal:
                                   </span>
                                   <span className="truncate">{it.substituteTeacher.fullName}</span>

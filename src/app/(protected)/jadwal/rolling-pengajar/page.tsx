@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import TeacherRollingListView from '@/components/jadwal/rolling-pengajar/TeacherRollingListView';
+import PageContainer from '@/components/ui/PageContainer';
 import { getTeacherRollings } from './actions';
 
 export const metadata = {
@@ -38,11 +39,11 @@ export default async function RollingPengajarPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+    <PageContainer variant="wide" className="px-3 sm:px-6 space-y-6">
       <TeacherRollingListView
         initialRollings={rollings}
         canManage={canManage}
       />
-    </div>
+    </PageContainer>
   );
 }

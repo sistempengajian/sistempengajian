@@ -53,20 +53,20 @@ export default function TeacherQueueCard({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -85,7 +85,7 @@ export default function TeacherQueueCard({
             <h4 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
               {queueTitle || `Antrean Ke-${stepNumber}`}
             </h4>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-xs text-slate-500 font-medium">
               Kapasitas: {teachersPerSession} pengajar per sesi
             </span>
           </div>
@@ -97,7 +97,7 @@ export default function TeacherQueueCard({
             <button
               type="button"
               onClick={() => onBatchSelectClick(queueIndex)}
-              className="text-[11px] font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200/60 px-2.5 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+              className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200/60 px-2.5 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
               title="Pilih seluruh slot pengajar antrean ini sekaligus"
             >
               <Sparkles className="w-3 h-3 text-sky-600" />
@@ -110,7 +110,7 @@ export default function TeacherQueueCard({
             type="button"
             onClick={() => onRemoveQueue(queueIndex)}
             disabled={!canDelete}
-            className={`p-1.5 rounded-xl text-slate-400 transition-colors ${
+            className={`p-1.5 rounded-xl text-slate-500 transition-colors ${
               canDelete
                 ? 'hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
                 : 'opacity-30 cursor-not-allowed text-slate-300'
@@ -138,10 +138,10 @@ export default function TeacherQueueCard({
                 {/* Header Slot */}
                 <div className="flex items-start justify-between gap-2 pb-1 border-b border-sky-100/80">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-md bg-sky-100 text-sky-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <span className="w-5 h-5 rounded-md bg-sky-100 text-sky-800 text-[11px] font-bold flex items-center justify-center shrink-0">
                       {slotIdx + 1}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Pengajar #{slotIdx + 1}
                     </span>
                   </div>
@@ -154,7 +154,7 @@ export default function TeacherQueueCard({
                         e.stopPropagation();
                         onClearSlot(queueIndex, slotIdx);
                       }}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md transition-colors cursor-pointer"
+                      className="p-1 text-slate-500 hover:text-rose-600 rounded-md transition-colors cursor-pointer"
                       title="Kosongkan pengajar di slot ini"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export default function TeacherQueueCard({
                     <h5 className="font-bold text-xs sm:text-sm text-slate-900 leading-snug truncate">
                       {teacher.fullName}
                     </h5>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
                       <span className="truncate">{teacher.organization?.name || 'Pusat'}</span>
                     </div>
                   </div>
@@ -192,7 +192,7 @@ export default function TeacherQueueCard({
                     title="Ganti Pengajar"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    <span className="text-[10px]">Ganti</span>
+                    <span className="text-xs">Ganti</span>
                   </button>
                 </div>
 
@@ -201,14 +201,14 @@ export default function TeacherQueueCard({
                   {substitute ? (
                     <div className="p-2 rounded-lg bg-white/90 border border-amber-200/80 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 shrink-0">
+                        <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 shrink-0">
                           Badal
                         </span>
                         <div className="min-w-0">
-                          <p className="font-bold text-[11px] text-slate-900 truncate">
+                          <p className="font-bold text-xs text-slate-900 truncate">
                             {substitute.fullName}
                           </p>
-                          <p className="text-[9px] text-slate-400 truncate">
+                          <p className="text-xs text-slate-500 truncate">
                             {substitute.organization?.name || 'Pusat'}
                           </p>
                         </div>
@@ -218,7 +218,7 @@ export default function TeacherQueueCard({
                         <button
                           type="button"
                           onClick={() => onSubstituteClick(queueIndex, slotIdx)}
-                          className="p-1 text-slate-400 hover:text-sky-600 rounded"
+                          className="p-1 text-slate-500 hover:text-sky-600 rounded"
                           title="Ganti Badal"
                         >
                           <RefreshCw className="w-2.5 h-2.5" />
@@ -226,7 +226,7 @@ export default function TeacherQueueCard({
                         <button
                           type="button"
                           onClick={() => onClearSubstitute(queueIndex, slotIdx)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          className="p-1 text-slate-500 hover:text-rose-600 rounded"
                           title="Hapus Badal"
                         >
                           <Trash2 className="w-2.5 h-2.5" />
@@ -237,7 +237,7 @@ export default function TeacherQueueCard({
                     <button
                       type="button"
                       onClick={() => onSubstituteClick(queueIndex, slotIdx)}
-                      className="w-full py-1 px-2 rounded-lg border border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50/50 text-[10px] font-medium text-slate-500 hover:text-amber-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      className="w-full py-1 px-2 rounded-lg border border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50/50 text-xs font-medium text-slate-500 hover:text-amber-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <UserCheck className="w-3 h-3 text-slate-400 group-hover:text-amber-600" />
                       <span>+ Tambah Badal Cadangan (Opsional)</span>
@@ -262,7 +262,7 @@ export default function TeacherQueueCard({
               <span className="text-xs font-bold text-slate-700 group-hover/slot:text-sky-900">
                 Pilih Pengajar ke-{slotIdx + 1}
               </span>
-              <span className="text-[10px] text-slate-400">Klik untuk memilih ustadz</span>
+              <span className="text-xs text-slate-500">Klik untuk memilih ustadz</span>
             </button>
           );
         })}

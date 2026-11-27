@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useTransition, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Clock,
@@ -15,23 +15,17 @@ import {
   MoreVertical,
   Users,
   BookOpen,
-  ArrowRight,
-  ShieldCheck,
   CircleUser,
-  GroupIcon,
-  UserRoundCog,
-  Group,
-  User2Icon,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { ScheduleStatus, ScheduleType, TierLevel } from '@prisma/client';
-import {
-  updateScheduleStatus,
-} from '@/app/(protected)/jadwal/actions';
+import { updateScheduleStatus } from '@/app/(protected)/jadwal/actions';
 import ScheduleChangeNotificationModal, {
   ScheduleNotificationData,
 } from './ScheduleChangeNotificationModal';
 import { useToast } from '@/components/ui/Toast';
+import type { RoleTheme } from '@/lib/theme';
 
 export interface TeacherRelation {
   teacher: {
@@ -119,21 +113,52 @@ interface ScheduleCardProps {
   currentUserId?: string | null;
   availableTeachers?: { id: string; fullName: string }[];
   activeRole?: 'manage' | 'teacher' | 'parent' | 'student';
+  roleKey?: RoleTheme['roleKey'];
   onEdit: (schedule: ScheduleItem) => void;
   onDelete: (scheduleId: string) => void;
 }
 
+const ROLE_ICON_COLOR_MAP: Record<RoleTheme['roleKey'], string> = {
+  SANTRI: 'text-emerald-600',
+  PENGAJAR: 'text-teal-600',
+  ORANG_TUA: 'text-indigo-600',
+  PJ: 'text-blue-600',
+  ADMIN_MASTER: 'text-purple-600',
+};
+
+const ROLE_USER_CIRCLE_MAP: Record<RoleTheme['roleKey'], string> = {
+  SANTRI: 'bg-emerald-50 border-emerald-200/80 text-emerald-600',
+  PENGAJAR: 'bg-teal-50 border-teal-200/80 text-teal-600',
+  ORANG_TUA: 'bg-indigo-50 border-indigo-200/80 text-indigo-600',
+  PJ: 'bg-blue-50 border-blue-200/80 text-blue-600',
+  ADMIN_MASTER: 'bg-purple-50 border-purple-200/80 text-purple-600',
+};
+
+const TIER_BADGE_MAP: Record<TierLevel, { label: string; className: string }> = {
+  DAERAH: {
+    label: 'Daerah',
+    className: 'bg-purple-50 text-purple-700 border-purple-200/80',
+  },
+  DESA: {
+    label: 'Desa',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+  },
+  KELOMPOK: {
+    label: 'Kelompok',
+    className: 'bg-sky-50 text-sky-700 border-sky-200/80',
+  },
+};
+
 export default function ScheduleCard({
   schedule,
   canManage,
-  canPropose = false,
   currentUserId = null,
-  availableTeachers = [],
   activeRole,
+  roleKey = 'SANTRI',
   onEdit,
   onDelete,
 }: ScheduleCardProps) {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [notificationModalData, setNotificationModalData] = useState<ScheduleNotificationData | null>(null);
@@ -142,7 +167,11 @@ export default function ScheduleCard({
   const teacherTooltipRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
-  // Tutup tooltip saat klik di luar
+  const iconAccent = ROLE_ICON_COLOR_MAP[roleKey] || 'text-emerald-600';
+  const userCircleAccent =
+    ROLE_USER_CIRCLE_MAP[roleKey] || 'bg-emerald-50 border-emerald-200/80 text-emerald-600';
+
+  // Tutup tooltip & status menu saat klik di luar atau tekan Escape
   useEffect(() => {
     if (!isTooltipOpen && !isTeacherTooltipOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -153,9 +182,17 @@ export default function ScheduleCard({
         setIsTeacherTooltipOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsTooltipOpen(false);
+        setIsTeacherTooltipOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isTooltipOpen, isTeacherTooltipOpen]);
 
@@ -165,50 +202,21 @@ export default function ScheduleCard({
   const primaryTeacher = schedule.teachers.find((t) => t.isPrimary)?.teacher;
   const coTeachers = schedule.teachers.filter((t) => !t.isPrimary && !t.isSubstitute);
   const substituteTeachers = schedule.teachers.filter((t) => t.isSubstitute);
-  const substituteTeacher = substituteTeachers[0]?.teacher;
+  const hasBadal = substituteTeachers.length > 0;
+  const displayedTeacherName = hasBadal
+    ? substituteTeachers[0].teacher.fullName
+    : primaryTeacher?.fullName || 'Belum Ditentukan';
+  const additionalTeachersCount =
+    substituteTeachers.length > 1
+      ? coTeachers.length + (substituteTeachers.length - 1)
+      : coTeachers.length;
   const hasMultipleTeachersOrBadal = coTeachers.length > 0 || substituteTeachers.length > 0;
-  const hasActiveSession = schedule.attendanceSessions?.some((s) => s.isActive);
+  const hasActiveSession = Boolean(schedule.attendanceSessions?.some((s) => s.isActive));
 
-  // Deteksi peran pengguna: Pengampu langsung vs Wali Kelas yang memantau
-  const isUserTeaching = currentUserId
-    ? schedule.teachers.some((t) => t.teacher.id === currentUserId)
-    : false;
-  const isUserHomeroom = !isUserTeaching && Boolean(
-    currentUserId &&
-    (schedule.class?.homeroomTeacherId === currentUserId ||
-      schedule.targetClasses?.some((tc) => tc.class.homeroomTeacherId === currentUserId))
-  );
-
-  // Santri terhubung (khusus Orang Tua)
   const connectedStudents = schedule.connectedStudents || [];
-
-  // Kelas terhubung (untuk Wali Kelas / Pengajar)
-  const connectedClasses = useMemo(() => {
-    if (schedule.connectedClasses && schedule.connectedClasses.length > 0) {
-      return schedule.connectedClasses;
-    }
-    const list: string[] = [];
-    if (schedule.class?.name && !list.includes(schedule.class.name)) {
-      list.push(schedule.class.name);
-    }
-    if (schedule.targetClasses) {
-      for (const tc of schedule.targetClasses) {
-        if (tc.class?.name && !list.includes(tc.class.name)) {
-          list.push(tc.class.name);
-        }
-      }
-    }
-    return list;
-  }, [schedule.class?.name, schedule.targetClasses, schedule.connectedClasses]);
-
   const showStudentIndicator =
     (activeRole === 'parent' || connectedStudents.length > 0) && connectedStudents.length > 0;
-  const showClassIndicator =
-    !showStudentIndicator &&
-    (activeRole === 'teacher' || isUserHomeroom) &&
-    connectedClasses.length > 0;
 
-  // Status & hak akses proposal
   const isOwnPendingProposal =
     schedule.requestedByUserId === currentUserId && schedule.approvalStatus === 'PENDING';
   const canEdit = canManage || isOwnPendingProposal;
@@ -216,51 +224,38 @@ export default function ScheduleCard({
   const isApproved = schedule.approvalStatus === 'APPROVED' || !schedule.approvalStatus;
   const canChangeStatus = canManage && isApproved;
 
-  // Tier badge styling & labels
-  const getTierBadge = (tier: TierLevel) => {
-    switch (tier) {
-      case 'DAERAH':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
-            Daerah
-          </span>
-        );
-      case 'DESA':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-            Desa
-          </span>
-        );
-      case 'KELOMPOK':
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
-            Kelompok
-          </span>
-        );
-    }
-  };
+  // Kontekstual QR action:
+  // - Orang Tua: disembunyikan (fokus Detail / menu Presensi Anak)
+  // - Santri: hanya tampil saat sesi sedang berlangsung (ACTIVE atau sesi QR terbuka)
+  // - Pengajar / PJ: tampil pada semua sesi disetujui yang tidak diliburkan
+  const isLiveSession = hasActiveSession || schedule.status === 'ACTIVE';
+  const showQrAction =
+    isApproved &&
+    schedule.status !== 'CANCELLED' &&
+    activeRole !== 'parent' &&
+    (activeRole !== 'student' || isLiveSession);
 
-  // Status badge styling & labels
-  const getStatusBadge = (status: ScheduleStatus) => {
+  const tierBadge = TIER_BADGE_MAP[schedule.tierLevel] || TIER_BADGE_MAP.KELOMPOK;
+
+  const renderStatusBadge = (status: ScheduleStatus) => {
     switch (status) {
       case 'ACTIVE':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
             Berlangsung
           </span>
         );
       case 'COMPLETED':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
             <CheckCircle2 className="w-3 h-3 text-indigo-600" />
             Selesai
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
             <XCircle className="w-3 h-3 text-rose-600" />
             Diliburkan
           </span>
@@ -268,7 +263,7 @@ export default function ScheduleCard({
       case 'SCHEDULED':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
             <Clock className="w-3 h-3 text-amber-600" />
             Terjadwal
           </span>
@@ -288,99 +283,72 @@ export default function ScheduleCard({
     });
   };
 
-  // Target peserta label ringkas
-  // Target peserta label ringkas
-  const getTargetBadge = () => {
-    // 1. Target Kelas
+  const resolveTargetLabel = () => {
     const classesCount = schedule.targetClasses?.length ?? (schedule.class ? 1 : 0);
-    if (classesCount > 1) {
-      return (
-        <span
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold"
-          title={schedule.targetClasses?.map((tc) => tc.class.name).join(', ')}
-        >
-          <Users className="w-3 h-3 text-teal-600 shrink-0" />
-          <span>{classesCount} Kelas</span>
-        </span>
-      );
-    }
+    if (classesCount > 1) return `${classesCount} Kelas`;
     if (classesCount === 1) {
-      const clsName = schedule.targetClasses?.[0]?.class.name || schedule.class?.name || '1 Kelas';
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold">
-          <Users className="w-3 h-3 text-teal-600 shrink-0" />
-          <span>{clsName}</span>
-        </span>
-      );
+      return schedule.targetClasses?.[0]?.class.name || schedule.class?.name || '1 Kelas';
     }
-
-    // 2. Target Generasi
     if (schedule.targetScope === 'GENERASI' || (schedule.targetGenerations?.length ?? 0) > 0) {
-      const genName = schedule.targetGenerations?.[0]?.generation.name || 'Jenjang Usia';
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold">
-          <Users className="w-3 h-3 text-teal-600 shrink-0" />
-          <span>{genName}</span>
-        </span>
-      );
+      return schedule.targetGenerations?.[0]?.generation.name || 'Jenjang Usia';
     }
-
-    // 3. Umum Se-wilayah
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold">
-        <Users className="w-3 h-3 text-teal-600 shrink-0" />
-        <span>Umum {schedule.organization?.name ? `(${schedule.organization.name})` : 'Se-wilayah'}</span>
-      </span>
-    );
+    return schedule.organization?.name ? `Umum (${schedule.organization.name})` : 'Umum Se-wilayah';
   };
 
   const materialsCount = schedule.scheduleMaterials?.length ?? 0;
   const isCombined = (schedule.targetClasses?.length ?? 0) > 1;
+  const startTimeText = start.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  });
+  const endTimeText = end.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  });
 
   return (
-    <div className="group relative p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 bg-white hover:bg-slate-50/30 hover:border-slate-300/80 transition-all duration-200 shadow-2xs hover:shadow-xs space-y-2.5">
-      {/* 0. Top Indicator: Santri Terhubung (Khusus Orang Tua) atau Kelas Terhubung (Wali Kelas) */}
+    <div className="group relative p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 bg-white/95 hover:border-slate-300/90 transition-all duration-200 shadow-[0_6px_18px_-6px_rgba(15,23,42,0.07)] hover:shadow-[0_10px_24px_-6px_rgba(15,23,42,0.11)] space-y-2.5">
+      {/* 0. Indicator Santri Terhubung (khusus Orang Tua / santri terhubung) */}
       {showStudentIndicator && (
         <div className="flex items-center justify-between gap-2">
           <div
             ref={tooltipRef}
             className="relative inline-block"
-            onMouseEnter={() => setIsTooltipOpen(true)}
-            onMouseLeave={() => setIsTooltipOpen(false)}
+            onPointerEnter={(e) => {
+              if (e.pointerType === 'mouse') setIsTooltipOpen(true);
+            }}
+            onPointerLeave={(e) => {
+              if (e.pointerType === 'mouse') setIsTooltipOpen(false);
+            }}
           >
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsTooltipOpen((prev) => !prev);
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50/90 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs group/chip active:scale-95"
-              title="Klik atau arahkan kursor untuk melihat daftar santri terhubung"
+              onClick={() => setIsTooltipOpen((prev) => !prev)}
+              aria-expanded={isTooltipOpen}
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50/90 hover:bg-indigo-100 text-indigo-800 border border-indigo-200/80 text-xs font-bold transition-all cursor-pointer active:scale-95"
+              title="Klik untuk melihat daftar santri terhubung"
             >
               <CircleUser className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
               <span className="truncate max-w-[170px] sm:max-w-[220px]">
                 {connectedStudents[0]?.fullName}
               </span>
               {connectedStudents.length > 1 && (
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-indigo-200/80 text-indigo-900 text-[10px] font-extrabold">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-indigo-200/80 text-indigo-900 text-[11px] font-extrabold leading-none">
                   +{connectedStudents.length - 1}
                 </span>
               )}
             </button>
 
-            {/* Tooltip Hover / Click Popover Daftar Santri */}
             {isTooltipOpen && (
-              <div
-                className="absolute left-0 top-full mt-1.5 z-30 w-56 sm:w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="absolute left-0 top-full mt-1.5 z-30 w-56 sm:w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
                     <CircleUser className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Santri Terhubung</span>
                   </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                     {connectedStudents.length} Anak
                   </span>
                 </div>
@@ -388,9 +356,9 @@ export default function ScheduleCard({
                   {connectedStudents.map((student) => (
                     <div
                       key={student.id}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 text-slate-800 font-medium transition-colors"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-800 font-medium"
                     >
-                      <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-indigo-200">
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-extrabold text-[11px] flex items-center justify-center shrink-0 border border-indigo-200">
                         {student.fullName.charAt(0).toUpperCase()}
                       </div>
                       <span className="truncate text-xs font-semibold">{student.fullName}</span>
@@ -403,94 +371,29 @@ export default function ScheduleCard({
         </div>
       )}
 
-      {showClassIndicator && !showStudentIndicator && (
-        <div className="flex items-center justify-between gap-2">
-          <div
-            ref={tooltipRef}
-            className="relative inline-block"
-            onMouseEnter={() => setIsTooltipOpen(true)}
-            onMouseLeave={() => setIsTooltipOpen(false)}
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsTooltipOpen((prev) => !prev);
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50/90 hover:bg-teal-100 text-teal-800 border border-teal-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs group/chip active:scale-95"
-              title="Klik atau arahkan kursor untuk melihat daftar kelas terhubung"
-            >
-              <Users className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-              <span className="truncate max-w-[170px] sm:max-w-[220px]">
-                {connectedClasses[0]}
-              </span>
-              {connectedClasses.length > 1 && (
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-teal-200/80 text-teal-900 text-[10px] font-extrabold">
-                  +{connectedClasses.length - 1}
-                </span>
-              )}
-            </button>
-
-            {/* Tooltip Hover / Click Popover Daftar Kelas */}
-            {isTooltipOpen && (
-              <div
-                className="absolute left-0 top-full mt-1.5 z-30 w-56 sm:w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
-                    <Users className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Kelas Terhubung</span>
-                  </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60">
-                    {connectedClasses.length} Kelas
-                  </span>
-                </div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {connectedClasses.map((clsName, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50/50 text-slate-800 font-medium transition-colors"
-                    >
-                      <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-teal-200">
-                        {idx + 1}
-                      </div>
-                      <span className="truncate text-xs font-semibold">{clsName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 1. Header Bar: Badges Status & Action Menu */}
+      {/* 1. Header Bar Ringkas: Tier + Status + Persetujuan & Tombol Manajemen */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-          {getTierBadge(schedule.tierLevel)}
-          {getStatusBadge(schedule.status)}
-          {/* Badge Khusus Wali Kelas jika bukan pengampu sesi langsung */}
-          {isUserHomeroom && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-300"
-              title="Sesi ini dijadwalkan untuk kelas binaan Anda"
-            >
-              <ShieldCheck className="w-3 h-3 text-teal-600" />
-              Kelas Binaan Anda
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${tierBadge.className}`}
+          >
+            {tierBadge.label}
+          </span>
+          {renderStatusBadge(schedule.status)}
+          {schedule.scheduleType === 'PRIVATE_REMEDIAL' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+              Private / Remedial
             </span>
           )}
-          {/* Badge Status Persetujuan PJ Wilayah */}
           {schedule.approvalStatus === 'PENDING' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-              <Clock className="w-3 h-3 text-amber-600 animate-spin" />
-              Menunggu Persetujuan
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+              <Clock className="w-3 h-3 text-amber-600" />
+              Menunggu
             </span>
           )}
           {schedule.approvalStatus === 'REJECTED' && (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-300"
               title={schedule.approvalNotes ? `Alasan: ${schedule.approvalNotes}` : undefined}
             >
               <XCircle className="w-3 h-3 text-rose-600" />
@@ -499,27 +402,28 @@ export default function ScheduleCard({
           )}
         </div>
 
-        {/* Action buttons (Edit, Delete, Status Toggle) */}
         {(canEdit || canDelete || canChangeStatus) && (
           <div className="flex items-center gap-0.5 shrink-0 relative">
             {canEdit && (
               <button
                 type="button"
                 onClick={() => onEdit(schedule)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer"
+                className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 title={isOwnPendingProposal ? 'Edit Pengajuan Jadwal' : 'Edit Rincian Jadwal'}
+                aria-label={isOwnPendingProposal ? 'Edit Pengajuan Jadwal' : 'Edit Rincian Jadwal'}
               >
-                <Edit3 className="w-3.5 h-3.5" />
+                <Edit3 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
             )}
             {canDelete && (
               <button
                 type="button"
                 onClick={() => onDelete(schedule.id)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                 title={isOwnPendingProposal ? 'Batalkan Pengajuan' : 'Hapus Jadwal'}
+                aria-label={isOwnPendingProposal ? 'Batalkan Pengajuan' : 'Hapus Jadwal'}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
             )}
             {canChangeStatus && (
@@ -527,54 +431,59 @@ export default function ScheduleCard({
                 <button
                   type="button"
                   onClick={() => setShowStatusMenu(!showStatusMenu)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   title="Ubah Status Sesi"
+                  aria-label="Ubah Status Sesi"
                 >
-                  <MoreVertical className="w-3.5 h-3.5" />
+                  <MoreVertical className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </button>
 
                 {showStatusMenu && (
                   <div className="absolute right-0 top-full mt-1 z-20 w-44 p-1 bg-white rounded-xl shadow-lg border border-slate-200 text-xs space-y-0.5 animate-in fade-in">
-                    <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="px-2.5 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Ubah Status Sesi
                     </div>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(ScheduleStatus.SCHEDULED)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${schedule.status === 'SCHEDULED'
-                        ? 'bg-amber-50 text-amber-800 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
-                        }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+                        schedule.status === 'SCHEDULED'
+                          ? 'bg-amber-50 text-amber-800 font-bold'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
                     >
                       Terjadwal
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(ScheduleStatus.ACTIVE)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${schedule.status === 'ACTIVE'
-                        ? 'bg-emerald-50 text-emerald-800 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
-                        }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+                        schedule.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-800 font-bold'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
                     >
                       Sedang Berlangsung
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(ScheduleStatus.COMPLETED)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${schedule.status === 'COMPLETED'
-                        ? 'bg-indigo-50 text-indigo-800 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
-                        }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+                        schedule.status === 'COMPLETED'
+                          ? 'bg-indigo-50 text-indigo-800 font-bold'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
                     >
                       Selesai
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(ScheduleStatus.CANCELLED)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium text-rose-600 transition-colors ${schedule.status === 'CANCELLED'
-                        ? 'bg-rose-50 font-bold'
-                        : 'hover:bg-rose-50/50'
-                        }`}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg font-medium text-rose-600 transition-colors ${
+                        schedule.status === 'CANCELLED'
+                          ? 'bg-rose-50 font-bold'
+                          : 'hover:bg-rose-50/50'
+                      }`}
                     >
                       Diliburkan
                     </button>
@@ -586,198 +495,231 @@ export default function ScheduleCard({
         )}
       </div>
 
-      {/* 2. Judul Sesi (Clickable to /jadwal/[id]) */}
-      <div>
-        <Link
-          href={`/jadwal/${schedule.id}`}
-          className="group/title inline-block font-bold text-sm sm:text-base text-slate-900 hover:text-teal-700 transition-colors leading-snug tracking-tight"
-        >
-          {isCombined && (
-            <span className="mr-1 group/title inline-block font-bold text-sm sm:text-base text-slate-900 hover:text-teal-700 transition-colors leading-snug tracking-tight">
-              Gabungan
+      {/* 2. Clickable Main Body: Judul + Metadata Grid 2x2 Kompak */}
+      <Link
+        href={`/jadwal/${schedule.id}`}
+        prefetch={true}
+        className="block group/body space-y-2 rounded-xl focus:outline-none"
+      >
+        <h3 className="font-bold text-sm sm:text-base text-slate-900 group-hover/body:text-emerald-800 transition-colors leading-snug tracking-tight truncate">
+          {isCombined ? `Gabungan ${schedule.title}` : schedule.title}
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-3 text-xs text-slate-700">
+          <div className="flex items-center gap-2 font-semibold text-slate-800 min-w-0">
+            <Clock className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+            <span className="truncate tabular-nums">
+              {startTimeText} – {endTimeText} WIB
             </span>
-          )}
-          {schedule.title}
-        </Link>
-      </div>
-
-      {/* 3. Metadata Row (Waktu, Lokasi, Target / Jumlah Kelas, & Jumlah Materi) */}
-      <div className="flex flex-col items-start gap-1 text-xs text-slate-600">
-        {/* Waktu Pelaksanaan (dipindahkan dari header) */}
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold">
-          <Clock className="w-3 h-3 text-teal-600 shrink-0" />
-          <span>
-            {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} -{' '}
-            {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
-          </span>
-        </span>
-
-        {/* Lokasi */}
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-700 text-[11px] font-semibold max-w-[180px] truncate">
-          <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
-          <span className="truncate">{schedule.venuePlaceName}</span>
-        </span>
-
-        {/* Target Peserta / Jumlah Kelas */}
-        {getTargetBadge()}
-
-        {/* Indikator Jumlah Materi */}
-        {materialsCount > 0 ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-teal-700 bg-teal-50 border border-teal-200/60 text-[11px] font-semibold">
-            <BookOpen className="w-3 h-3 text-teal-600 shrink-0" />
-            <span>+{materialsCount} Materi Tambahan</span>
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-slate-600 bg-slate-50 border border-slate-200/60 text-[11px] font-medium" title="Target kurikulum bulanan otomatis aktif sesuai kalender">
-            <Sparkles className="w-3 h-3 text-teal-600 shrink-0" />
-            <span>Target Bulanan</span>
-          </span>
-        )}
-      </div>
-
-      {/* 4. Footer Row: Ustadz Pengampu & Action Links */}
-      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-        {/* Info Pengajar */}
-        <div
-          ref={teacherTooltipRef}
-          className="relative min-w-0"
-          onMouseEnter={() => hasMultipleTeachersOrBadal && setIsTeacherTooltipOpen(true)}
-          onMouseLeave={() => setIsTeacherTooltipOpen(false)}
-        >
-          <div
-            onClick={(e) => {
-              if (hasMultipleTeachersOrBadal) {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsTeacherTooltipOpen((prev) => !prev);
-              }
-            }}
-            className={`flex items-center gap-1.5 min-w-0 ${hasMultipleTeachersOrBadal ? 'cursor-pointer hover:opacity-85 transition-opacity' : ''}`}
-            title={hasMultipleTeachersOrBadal ? 'Klik untuk melihat rincian seluruh pengajar dan badal' : undefined}
-          >
-            <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center shrink-0 border border-teal-200">
-              {primaryTeacher?.fullName.charAt(0) || 'U'}
-            </div>
-            <div className="min-w-0 flex items-center gap-1 text-xs">
-              <span className="font-semibold text-slate-800 truncate max-w-[120px] sm:max-w-[160px]">
-                {primaryTeacher?.fullName || 'Belum Ditentukan'}
-              </span>
-              {coTeachers.length > 0 && (
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-teal-50 text-teal-800 border border-teal-200/80 text-[10px] font-bold shrink-0">
-                  +{coTeachers.length}
-                </span>
-              )}
-              {substituteTeachers.length === 1 && (
-                <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold shrink-0 truncate max-w-[110px] sm:max-w-[140px]">
-                  Badal: {substituteTeachers[0].teacher.fullName}
-                </span>
-              )}
-              {substituteTeachers.length > 1 && (
-                <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold shrink-0">
-                  {substituteTeachers.length} Badal
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Tooltip Popover Daftar Pengajar & Badal */}
-          {isTeacherTooltipOpen && hasMultipleTeachersOrBadal && (
-            <div
-              className="absolute left-0 bottom-full mb-1.5 z-30 w-64 p-3 bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
-                  <User className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Tim Pengajar &amp; Badal</span>
+          <div className="flex items-center gap-2 font-medium text-slate-700 min-w-0">
+            <MapPin className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+            <span className="truncate">{schedule.venuePlaceName}</span>
+          </div>
+
+          <div className="flex items-center gap-2 font-medium text-slate-700 min-w-0">
+            <Users className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+            <span className="truncate">{resolveTargetLabel()}</span>
+          </div>
+
+          <div className="flex items-center gap-2 font-medium text-slate-600 min-w-0">
+            {materialsCount > 0 ? (
+              <>
+                <BookOpen className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+                <span className="truncate">+{materialsCount} Materi Tambahan</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+                <span className="truncate">Target Bulanan</span>
+              </>
+            )}
+          </div>
+        </div>
+      </Link>
+
+      {/* 3. Footer Row: Tim Pengajar 1-Baris Ringkas & Aksi QR Kontekstual */}
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div
+          ref={teacherTooltipRef}
+          className="relative flex-1 min-w-0"
+          onPointerEnter={(e) => {
+            if (e.pointerType === 'mouse' && hasMultipleTeachersOrBadal) {
+              setIsTeacherTooltipOpen(true);
+            }
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse') {
+              setIsTeacherTooltipOpen(false);
+            }
+          }}
+        >
+          {(() => {
+            const teacherContent = (
+              <div className="flex items-center gap-2 min-w-0">
+                {hasBadal ? (
+                  <span
+                    aria-label="Pengajar Badal"
+                    className="w-6 h-6 rounded-full bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center shrink-0"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                  </span>
+                ) : (
+                  <span
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 ${userCircleAccent}`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                  </span>
+                )}
+
+                <div className="min-w-0 flex items-center gap-1.5 flex-1">
+                  <span
+                    className={`text-xs font-semibold truncate ${
+                      hasBadal ? 'text-amber-900' : 'text-slate-900'
+                    }`}
+                  >
+                    {displayedTeacherName}
+                  </span>
+
+                  {additionalTeachersCount > 0 && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80 text-[11px] font-bold leading-none shrink-0">
+                      +{additionalTeachersCount}
+                    </span>
+                  )}
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60">
-                  {schedule.teachers.length} Ustadz
-                </span>
+              </div>
+            );
+
+            if (!hasMultipleTeachersOrBadal) {
+              return teacherContent;
+            }
+
+            return (
+              <button
+                type="button"
+                onClick={() => setIsTeacherTooltipOpen((prev) => !prev)}
+                aria-expanded={isTeacherTooltipOpen}
+                aria-label="Lihat rincian tim pengajar dan badal"
+                title="Klik untuk melihat rincian tim pengajar dan badal"
+                className="w-full text-left rounded-lg py-0.5 -my-0.5 pr-1 hover:bg-slate-50/80 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30"
+              >
+                {teacherContent}
+              </button>
+            );
+          })()}
+
+          {isTeacherTooltipOpen && hasMultipleTeachersOrBadal && (
+            <div className="absolute left-0 bottom-full mb-2 z-40 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] p-3 bg-white rounded-2xl shadow-[0_14px_34px_-6px_rgba(15,23,42,0.18)] border border-slate-200/90 text-xs animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-100">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Users className={`w-3.5 h-3.5 shrink-0 ${iconAccent}`} />
+                  <span className="font-bold text-slate-900 text-xs truncate">
+                    Tim Pengajar
+                  </span>
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 leading-none">
+                    {schedule.teachers.length}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTeacherTooltipOpen(false);
+                  }}
+                  aria-label="Tutup rincian tim pengajar"
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <div className="space-y-2 max-h-52 overflow-y-auto">
-                {/* Pengampu Utama */}
-                {primaryTeacher && (
-                  <div className="p-2 rounded-xl bg-teal-50/60 border border-teal-200/70 space-y-0.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-teal-700 block">
-                      Pengampu Utama
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                {[
+                  ...(primaryTeacher
+                    ? [
+                        {
+                          id: primaryTeacher.id,
+                          name: primaryTeacher.fullName,
+                          roleLabel: 'Utama',
+                          roleClass: 'bg-teal-50 text-teal-700 border-teal-200/70',
+                          isSubstitute: false,
+                        },
+                      ]
+                    : []),
+                  ...coTeachers.map((ct) => ({
+                    id: ct.teacher.id,
+                    name: ct.teacher.fullName,
+                    roleLabel: 'Pendamping',
+                    roleClass: 'bg-slate-100 text-slate-600 border-slate-200/80',
+                    isSubstitute: false,
+                  })),
+                  ...substituteTeachers.map((st) => ({
+                    id: st.teacher.id,
+                    name: st.teacher.fullName,
+                    roleLabel: 'Badal',
+                    roleClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+                    isSubstitute: true,
+                  })),
+                ].map((member, idx) => (
+                  <div
+                    key={`${member.id}-${member.roleLabel}-${idx}`}
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-xl bg-slate-50/85 border border-slate-100"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {member.isSubstitute ? (
+                        <span className="w-6 h-6 rounded-full bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center shrink-0">
+                          <UserCheck className="w-3.5 h-3.5" />
+                        </span>
+                      ) : (
+                        <span
+                          className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 ${
+                            member.roleLabel === 'Utama'
+                              ? 'bg-teal-50 border-teal-200/70 text-teal-600'
+                              : 'bg-slate-100 border-slate-200/80 text-slate-600'
+                          }`}
+                        >
+                          <User className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                      <span className="text-xs font-semibold text-slate-900 leading-snug break-words min-w-0">
+                        {member.name}
+                      </span>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border leading-none shrink-0 ${member.roleClass}`}
+                    >
+                      {member.roleLabel}
                     </span>
-                    <p className="font-bold text-slate-900 text-xs truncate">{primaryTeacher.fullName}</p>
                   </div>
-                )}
-
-                {/* Pengampu Pendamping */}
-                {coTeachers.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 block px-1">
-                      Pengampu Pendamping ({coTeachers.length})
-                    </span>
-                    {coTeachers.map((ct) => (
-                      <div
-                        key={ct.teacher.id}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-800 font-medium"
-                      >
-                        <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {ct.teacher.fullName.charAt(0)}
-                        </div>
-                        <span className="truncate text-xs font-semibold">{ct.teacher.fullName}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Badal / Pengganti */}
-                {substituteTeachers.length > 0 && (
-                  <div className="space-y-1 pt-1 border-t border-slate-100">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-700 block px-1">
-                      Ustadz Badal ({substituteTeachers.length})
-                    </span>
-                    {substituteTeachers.map((st) => (
-                      <div
-                        key={st.teacher.id}
-                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-50/70 border border-amber-200/70 text-amber-900 font-medium"
-                      >
-                        <UserCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="truncate text-xs font-bold">{st.teacher.fullName}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}
         </div>
 
-        {/* Action Buttons: Presensi QR & Detail Link */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Quick Presensi Button (Hanya jika jadwal sudah disetujui) */}
-          {isApproved && (
-            <Link
-              href={`/presensi?scheduleId=${schedule.id}`}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${hasActiveSession
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs animate-pulse'
-                : 'bg-teal-50 hover:bg-teal-100/80 text-teal-800 border border-teal-200/70'
-                }`}
-              title="Buka Presensi QR Sesi Ini"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">
-                {hasActiveSession ? 'QR Aktif' : 'Absensi'}
-              </span>
-            </Link>
-          )}
-
-          {/* Tombol Lihat Detail Sesi */}
+        {/* Tombol QR Kontekstual */}
+        {showQrAction && (
           <Link
-            href={`/jadwal/${schedule.id}`}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-teal-800 hover:bg-slate-100 border border-slate-200/80 transition-all active:scale-95"
-            title="Lihat Detail Lengkap Sesi Ini"
+            href={`/presensi?scheduleId=${schedule.id}`}
+            className={`min-h-[38px] shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+              hasActiveSession
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs animate-pulse'
+                : 'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/70'
+            }`}
+            title="Buka Presensi QR Sesi Ini"
+            aria-label="Buka Presensi QR Sesi Ini"
           >
-            <span>Detail</span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-700 transition-colors" />
+            <QrCode className="w-3.5 h-3.5" />
+            <span>
+              {activeRole === 'student'
+                ? 'Scan QR'
+                : hasActiveSession
+                  ? 'QR Aktif'
+                  : 'Absensi'}
+            </span>
           </Link>
-        </div>
+        )}
       </div>
 
       {notificationModalData && (

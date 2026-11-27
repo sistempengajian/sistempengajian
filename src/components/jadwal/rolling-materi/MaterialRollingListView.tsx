@@ -120,20 +120,20 @@ export default function MaterialRollingListView({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -145,21 +145,21 @@ export default function MaterialRollingListView({
     switch (type) {
       case 'PER_PENGAJIAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200/80 flex items-center gap-1">
             <Clock className="w-3 h-3 text-teal-600" />
             Per Pengajian
           </span>
         );
       case 'MINGGUAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200/80 flex items-center gap-1">
             <CalendarDays className="w-3 h-3 text-blue-600" />
             Mingguan (7 Hari)
           </span>
         );
       case 'BULANAN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
             <Calendar className="w-3 h-3 text-indigo-600" />
             Bulanan
           </span>
@@ -249,7 +249,7 @@ export default function MaterialRollingListView({
                     {getTierBadge(rolling.tierLevel)}
                     {getRollingTypeBadge(rolling.rollingType)}
                     {rolling.targetGeneration && (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
                         {rolling.targetGeneration.name}
                       </span>
                     )}
@@ -281,7 +281,7 @@ export default function MaterialRollingListView({
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(rolling)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 transition-colors cursor-pointer"
                       title="Edit Rolling Materi"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -290,7 +290,7 @@ export default function MaterialRollingListView({
                       type="button"
                       onClick={() => handleDelete(rolling.id, rolling.name)}
                       disabled={isPending}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Hapus Rolling Materi"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -325,7 +325,7 @@ export default function MaterialRollingListView({
                       >
                         <div className="flex items-center justify-between font-bold text-slate-800">
                           <span className="flex items-center gap-1">
-                            <span className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 text-[10px] flex items-center justify-center font-bold">
+                            <span className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 text-[11px] flex items-center justify-center font-bold">
                               #{q.stepOrder}
                             </span>
                             <span>{q.title || `Antrean #${q.stepOrder}`}</span>
@@ -336,7 +336,7 @@ export default function MaterialRollingListView({
                           {q.items?.map((it: any, sIdx: number) => (
                             <div
                               key={it.id}
-                              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-[11px] flex items-start gap-1.5"
+                              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs flex items-start gap-1.5"
                             >
                               <BookOpen className="w-3 h-3 text-teal-600 shrink-0 mt-0.5" />
                               <span className="font-medium line-clamp-2 leading-tight flex-1">

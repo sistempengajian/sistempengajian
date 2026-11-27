@@ -142,20 +142,20 @@ export default function TeacherSelectModal({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -199,7 +199,7 @@ export default function TeacherSelectModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="p-2 text-slate-600 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -221,7 +221,7 @@ export default function TeacherSelectModal({
           <div className="flex flex-wrap items-center gap-2">
             {/* Filter Wilayah */}
             <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs">
-              <span className="text-[10px] font-bold text-slate-400 px-1.5 flex items-center gap-1">
+              <span className="text-xs font-bold text-slate-500 px-1.5 flex items-center gap-1">
                 <MapPin className="w-3 h-3" /> Wilayah:
               </span>
               {(['ALL', 'KELOMPOK', 'DESA', 'DAERAH'] as const).map((tier) => (
@@ -229,7 +229,7 @@ export default function TeacherSelectModal({
                   key={tier}
                   type="button"
                   onClick={() => setSelectedTierFilter(tier)}
-                  className={`px-2 py-0.5 rounded-lg font-medium text-[11px] transition-all cursor-pointer ${selectedTierFilter === tier
+                  className={`px-2 py-0.5 rounded-lg font-medium text-xs transition-all cursor-pointer ${selectedTierFilter === tier
                     ? 'bg-sky-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100'
                     }`}
@@ -241,7 +241,7 @@ export default function TeacherSelectModal({
 
             {/* Filter Peran */}
             <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs">
-              <span className="text-[10px] font-bold text-slate-400 px-1.5 flex items-center gap-1">
+              <span className="text-xs font-bold text-slate-500 px-1.5 flex items-center gap-1">
                 <Shield className="w-3 h-3" /> Peran:
               </span>
               {[
@@ -254,7 +254,7 @@ export default function TeacherSelectModal({
                   key={role.id}
                   type="button"
                   onClick={() => setSelectedRoleFilter(role.id)}
-                  className={`px-2 py-0.5 rounded-lg font-medium text-[11px] transition-all cursor-pointer ${selectedRoleFilter === role.id
+                  className={`px-2 py-0.5 rounded-lg font-medium text-xs transition-all cursor-pointer ${selectedRoleFilter === role.id
                     ? 'bg-sky-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-100'
                     }`}
@@ -269,17 +269,17 @@ export default function TeacherSelectModal({
         {/* Konten Daftar Ustadz */}
         <div className="p-5 overflow-y-auto flex-1 divide-y divide-slate-100">
           {isLoading ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="py-16 flex flex-col items-center justify-center text-slate-500 gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-sky-600" />
               <p className="text-xs">Memuat daftar dewan pengajar...</p>
             </div>
           ) : filteredTeachers.length === 0 ? (
             <div className="py-14 text-center space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <p className="text-xs sm:text-sm font-semibold text-slate-700">Tidak ada pengajar yang cocok</p>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+              <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 Coba sesuaikan kata kunci pencarian atau ganti filter wilayah/peran di atas.
               </p>
             </div>
@@ -313,7 +313,7 @@ export default function TeacherSelectModal({
                           </div>
                         )}
                         {isSelected && maxSelectCount > 1 && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-sky-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">
+                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-sky-600 text-white flex items-center justify-center text-[11px] font-bold shadow-2xs">
                             {selectionIndex + 1}
                           </div>
                         )}
@@ -324,7 +324,7 @@ export default function TeacherSelectModal({
                           {teacher.fullName}
                         </h4>
 
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
                           {getTierBadge(teacher.organization?.type)}
                           <span className="text-slate-500 truncate max-w-[120px]">
                             {teacher.organization?.name || 'Pusat'}
@@ -336,7 +336,7 @@ export default function TeacherSelectModal({
                             {teacher.roles.slice(0, 2).map((r) => (
                               <span
                                 key={r.role}
-                                className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] font-semibold"
+                                className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-semibold"
                               >
                                 {formatRoleLabel(r.role)}
                               </span>

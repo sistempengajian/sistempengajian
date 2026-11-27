@@ -329,7 +329,7 @@ export default function MaterialRollingFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
             title="Tutup (Esc)"
           >
             <X className="w-5 h-5" />
@@ -390,7 +390,7 @@ export default function MaterialRollingFormModal({
                 </select>
 
                 {/* Kotak Penjelasan Tipe */}
-                <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-200/60 text-[11px] text-teal-900 flex items-start gap-2">
+                <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-200/60 text-xs text-teal-900 flex items-start gap-2">
                   <Info className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
                   <p className="leading-relaxed">{getRollingTypeExplanation()}</p>
                 </div>
@@ -402,7 +402,7 @@ export default function MaterialRollingFormModal({
                   <label className="text-xs font-bold text-slate-700 block">
                     Jumlah Materi per Pengajian
                   </label>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Tentukan berapa materi yang disampaikan dalam setiap sesi pertemuan
                   </p>
                 </div>

@@ -157,20 +157,20 @@ export default function MaterialSelectModal({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
             Desa
           </span>
         );
       case 'KELOMPOK':
       default:
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
             Kelompok
           </span>
         );
@@ -199,7 +199,7 @@ export default function MaterialSelectModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-slate-600 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -256,12 +256,12 @@ export default function MaterialSelectModal({
         {/* Material Items List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
               <span className="text-xs">Memuat katalog materi...</span>
             </div>
           ) : filteredMaterials.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-2xl">
+            <div className="py-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2 border border-dashed border-slate-200 rounded-2xl">
               <AlertCircle className="w-6 h-6 text-slate-300" />
               <span>Tidak ada materi yang sesuai dengan filter.</span>
             </div>
@@ -284,12 +284,12 @@ export default function MaterialSelectModal({
                     <div className="flex flex-wrap items-center gap-1.5">
                       {getTierBadge(item.creatorTierLevel)}
                       {item.targetGeneration && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
                           {item.targetGeneration.name}
                         </span>
                       )}
                       {item.isCustomized && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/70">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/70">
                           {item.versionLabel || 'Versi Khusus'}
                         </span>
                       )}

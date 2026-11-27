@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MessageSquare,
   BellOff,
@@ -16,6 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { confirmAndDispatchScheduleChangeNotification } from '@/app/(protected)/jadwal/actions';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyModalLock } from '@/hooks/useBodyModalLock';
 
 export interface ScheduleNotificationData {
   scheduleId: string;
@@ -45,13 +48,17 @@ export default function ScheduleChangeNotificationModal({
   onClose,
   onSuccess,
 }: ScheduleChangeNotificationModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
   } | null>(null);
+  const modalPanelRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen || !data) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleMute = () => {
     setStatusFeedback({
@@ -62,6 +69,15 @@ export default function ScheduleChangeNotificationModal({
       onClose();
     }, 700);
   };
+
+  useBodyModalLock(isOpen && Boolean(data) && mounted);
+  useFocusTrap(
+    isOpen && Boolean(data) && mounted,
+    modalPanelRef,
+    isSending ? undefined : handleMute
+  );
+
+  if (!isOpen || !data || !mounted) return null;
 
   const handleSend = async () => {
     setIsSending(true);
@@ -103,9 +119,17 @@ export default function ScheduleChangeNotificationModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Konfirmasi Notifikasi WhatsApp"
+      className="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+    >
+      <div
+        ref={modalPanelRef}
+        className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+      >
         {/* Header Modal */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-3">
@@ -125,7 +149,7 @@ export default function ScheduleChangeNotificationModal({
             type="button"
             onClick={handleMute}
             disabled={isSending}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors disabled:opacity-50"
+            className="p-1.5 text-slate-600 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors disabled:opacity-50"
             title="Tutup / Bisukan"
           >
             <X className="w-4 h-4" />
@@ -164,7 +188,7 @@ export default function ScheduleChangeNotificationModal({
                 <span className="font-bold flex items-center gap-1.5 text-amber-950">
                   Peringatan: Perubahan Mendadak (&lt; 5 Jam)
                 </span>
-                <p className="text-amber-800/90 text-[11px] leading-relaxed">
+                <p className="text-amber-800/90 text-xs leading-relaxed">
                   {data.warningMessage ||
                     'Perubahan jadwal dilakukan kurang dari 5 jam sebelum waktu pelaksanaan. Kirimkan pesan WhatsApp hanya jika bersifat mendesak/darurat bagi peserta, atau pilih Bisukan jika tidak ingin mengirim pesan WA.'}
                 </p>
@@ -201,19 +225,19 @@ export default function ScheduleChangeNotificationModal({
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 Preview Pesan WhatsApp yang Akan Dikirim:
               </span>
-              <span className="text-[11px] text-slate-400">Template Resmi Sistem</span>
+              <span className="text-xs text-slate-500">Template Resmi Sistem</span>
             </div>
 
             <div className="bg-[#EFEAE2] dark:bg-slate-900/90 rounded-xl p-3 border border-slate-200 shadow-inner max-h-64 overflow-y-auto">
               <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-xs border border-slate-200/60 max-w-[95%] space-y-2">
-                <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between border-b border-slate-100 pb-1">
+                <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between border-b border-slate-100 pb-1">
                   <span>Sistem Pengajian {data.organizationName}</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Hari-H Alert</span>
+                  <span className="text-xs text-slate-500 font-normal">Hari-H Alert</span>
                 </div>
                 <div className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
                   {data.previewMessage}
                 </div>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-slate-400 pt-1">
+                <div className="flex items-center justify-end gap-1 text-xs text-slate-500 pt-1">
                   <span>Sekarang</span>
                   <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
                 </div>
@@ -274,6 +298,7 @@ export default function ScheduleChangeNotificationModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

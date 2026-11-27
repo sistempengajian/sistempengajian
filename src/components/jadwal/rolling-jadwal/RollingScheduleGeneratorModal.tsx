@@ -264,7 +264,7 @@ export default function RollingScheduleGeneratorModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer shadow-2xs"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer shadow-2xs"
             aria-label="Tutup Modal"
           >
             <X className="w-5 h-5" />
@@ -309,20 +309,20 @@ export default function RollingScheduleGeneratorModal({
                           <p className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
                             {bp.name}
                           </p>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-500 shrink-0">
+                          <div className="flex items-center gap-1 text-xs text-slate-500 shrink-0">
                             <MapPin className="w-3.5 h-3.5 text-slate-400" />
                             <span className="">{bp.venuePlaceName}</span>
                           </div>
                         </div>
 
                         <div className="flex flex-wrap gap-1.5 mt-2">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
                             {SCOPE_LABELS[bp.targetScope] ?? bp.targetScope}
                           </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
                             Materi: {bp.materialRolling ? ROLLING_TYPE_LABELS[bp.materialRolling.rollingType] : 'Kurikulum Bulanan'}
                           </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
                             Pengajar: {ROLLING_TYPE_LABELS[bp.teacherRolling.rollingType]}
                           </span>
                         </div>
@@ -332,12 +332,12 @@ export default function RollingScheduleGeneratorModal({
                       {isSelected && (
                         <div className="mt-3 pt-2.5 border-t border-blue-200/60 flex flex-wrap gap-1">
                           {bp.targetClasses.map((tc) => (
-                            <span key={tc.classId} className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-medium">
+                            <span key={tc.classId} className="text-[11px] px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-medium">
                               {tc.class.name}
                             </span>
                           ))}
                           {bp.targetGenerations.map((tg) => (
-                            <span key={tg.generationId} className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded font-medium">
+                            <span key={tg.generationId} className="text-[11px] px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded font-medium">
                               {tg.generation.name}
                             </span>
                           ))}
@@ -515,15 +515,15 @@ export default function RollingScheduleGeneratorModal({
                       <div className="grid grid-cols-3 divide-x divide-slate-200 bg-white">
                         <div className="px-3 py-3 text-center">
                           <p className="text-2xl font-black text-blue-600">{preview.totalSessions}</p>
-                          <p className="text-[10px] font-bold text-slate-500 mt-0.5">Total Sesi</p>
+                          <p className="text-xs font-bold text-slate-500 mt-0.5">Total Sesi</p>
                         </div>
                         <div className="px-3 py-3 text-center">
                           <p className="text-2xl font-black text-emerald-600">{preview.totalMaterialRotations}</p>
-                          <p className="text-[10px] font-bold text-slate-500 mt-0.5">Rotasi Materi</p>
+                          <p className="text-xs font-bold text-slate-500 mt-0.5">Rotasi Materi</p>
                         </div>
                         <div className="px-3 py-3 text-center">
                           <p className="text-2xl font-black text-amber-600">{preview.totalTeacherRotations}</p>
-                          <p className="text-[10px] font-bold text-slate-500 mt-0.5">Rotasi Pengajar</p>
+                          <p className="text-xs font-bold text-slate-500 mt-0.5">Rotasi Pengajar</p>
                         </div>
                       </div>
 
@@ -531,11 +531,11 @@ export default function RollingScheduleGeneratorModal({
                       {preview.sampleSessions && preview.sampleSessions.length > 0 && (
                         <div className="border-t border-slate-200 bg-white p-3.5 space-y-2.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                               Simulasi Rotasi & Waktu Pertemuan:
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
                               {startTime} - {endTime} WIB
                             </span>
                           </div>
@@ -543,20 +543,20 @@ export default function RollingScheduleGeneratorModal({
                             {preview.sampleSessions.map((samp, sIdx) => (
                               <div
                                 key={sIdx}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors text-[11px]"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors text-xs"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold text-slate-800 w-28 shrink-0">
                                     {samp.dayName}, {samp.date.split('-').reverse().join('/')}
                                   </span>
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold shrink-0">
+                                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold shrink-0">
                                     Antrean #{samp.stepOrder}
                                   </span>
                                   <span className="text-slate-700 font-medium truncate max-w-[200px]" title={samp.materialTitle}>
                                     {samp.materialTitle}
                                   </span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 shrink-0 sm:text-right">
+                                <div className="text-xs text-slate-500 shrink-0 sm:text-right">
                                   Ust. {samp.teacherName}
                                 </div>
                               </div>
@@ -582,7 +582,7 @@ export default function RollingScheduleGeneratorModal({
                             <div className="px-4 pb-3 max-h-56 overflow-y-auto">
                               <div className="flex flex-wrap gap-1.5">
                                 {preview.sessionDates.map((d) => (
-                                  <span key={d} className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-200 font-medium">
+                                  <span key={d} className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-200 font-medium">
                                     {formatDate(d)}
                                   </span>
                                 ))}

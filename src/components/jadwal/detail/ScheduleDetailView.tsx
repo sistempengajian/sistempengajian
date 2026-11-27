@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import PageContainer from '@/components/ui/PageContainer';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -43,10 +45,15 @@ import {
   rejectScheduleProposal,
   broadcastScheduleReminderAction,
 } from '@/app/(protected)/jadwal/actions';
-import ScheduleFormModal from '../ScheduleFormModal';
-import ScheduleChangeNotificationModal, {
-  ScheduleNotificationData,
-} from '../ScheduleChangeNotificationModal';
+import type { ScheduleNotificationData } from '../ScheduleChangeNotificationModal';
+
+const ScheduleFormModal = dynamic(() => import('../ScheduleFormModal'), {
+  ssr: false,
+});
+const ScheduleChangeNotificationModal = dynamic(
+  () => import('../ScheduleChangeNotificationModal'),
+  { ssr: false }
+);
 import {
   AvailableTeacher,
   AvailableClass,
@@ -476,14 +483,14 @@ export default function ScheduleDetailView({
     switch (tier) {
       case 'DAERAH':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold mr-1">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold mr-1">
             <Building2 className="w-3.5 h-3.5 text-emerald-600" />
             Daerah
           </span>
         );
       case 'DESA':
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold mr-1">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold mr-1">
             <Building2 className="w-3.5 h-3.5 text-emerald-600" />
             Desa
           </span>
@@ -491,7 +498,7 @@ export default function ScheduleDetailView({
       case 'KELOMPOK':
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold mr-1">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold mr-1">
             <Building2 className="w-3.5 h-3.5 text-emerald-600" />
             Kelompok
           </span>
@@ -500,7 +507,7 @@ export default function ScheduleDetailView({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-6 animate-fade-in pb-16">
+    <PageContainer variant="medium" className="space-y-6 animate-fade-in pb-16">
       {/* 1. Top Navigation & Breadcrumbs */}
       <div className="flex flex-col items-start justify-between gap-3">
         <div>
@@ -512,7 +519,7 @@ export default function ScheduleDetailView({
             <span>Kembali ke Jadwal</span>
           </Link>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
           <Link href="/jadwal" className="hover:text-teal-700 transition-colors">
             Jadwal
           </Link>
@@ -536,7 +543,7 @@ export default function ScheduleDetailView({
                   <h3 className="text-sm sm:text-base font-bold text-amber-950">
                     Pengajuan Jadwal / Sesi Pengajian
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
                     Menunggu Persetujuan PJ
                   </span>
                 </div>
@@ -611,7 +618,7 @@ export default function ScheduleDetailView({
               )}
             </h1>
             <div className="flex flex-col gap-1">
-              <p className="flex items-center gap-1 flex-wrap items-center text-[11px] font-semibold">
+              <p className="flex items-center gap-1 flex-wrap items-center text-xs font-semibold">
                 <Calendar1 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>
                   {schedule.scheduleType === 'REGULAR_ROUTINE' ? 'Rutin Mingguan' : 'Sesi Pengajian'}</span>
@@ -619,7 +626,7 @@ export default function ScheduleDetailView({
               <div className='flex flex-wrap'>
                 {getTierBadge(schedule.tierLevel)}
                 {schedule.organization?.name && (
-                  <span className="inline-flex items-center text-[11px] font-semibold">
+                  <span className="inline-flex items-center text-xs font-semibold">
                     <span>{schedule.organization.name}</span>
                   </span>
                 )}
@@ -714,7 +721,7 @@ export default function ScheduleDetailView({
                 <span>Status Sesi Cepat:</span>
               </span>
               {isPending && (
-                <span className="text-[11px] font-medium text-teal-600 sm:hidden animate-pulse">
+                <span className="text-xs font-medium text-teal-600 sm:hidden animate-pulse">
                   Memperbarui...
                 </span>
               )}
@@ -799,7 +806,7 @@ export default function ScheduleDetailView({
               {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} -{' '}
               {end.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
             </div>
-            <div className="text-[11px] text-teal-700 font-semibold pt-1">
+            <div className="text-xs text-teal-700 font-semibold pt-1">
               Durasi: {durationMinutes} Menit
             </div>
           </div>
@@ -818,7 +825,7 @@ export default function ScheduleDetailView({
             <div className="text-xs text-slate-600 font-medium">
               Tipe: {schedule.venueType || 'MASJID'}
             </div>
-            <div className="text-[11px] text-slate-500 truncate pt-1">
+            <div className="text-xs text-slate-500 truncate pt-1">
               Wilayah: {schedule.organization?.name || 'Kelompok'}
             </div>
           </div>
@@ -862,7 +869,7 @@ export default function ScheduleDetailView({
               {coTeacherRels.length > 0 ? `+${coTeacherRels.length} Guru Pendamping` : 'Pengampu Tunggal'}
             </div>
             {substituteTeacherRels.length > 0 && (
-              <div className="text-[11px] text-amber-700 font-semibold pt-1 truncate">
+              <div className="text-xs text-amber-700 font-semibold pt-1 truncate">
                 Badal: {substituteTeacherRels.map((st: any) => st.teacher?.fullName).join(', ')}
               </div>
             )}
@@ -897,7 +904,7 @@ export default function ScheduleDetailView({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white text-[11px] font-bold">
                   Pengampu Utama
                 </span>
               </div>
@@ -918,7 +925,7 @@ export default function ScheduleDetailView({
                 {ct.teacher.fullName?.charAt(0) || 'U'}
               </div>
               <div className="min-w-0 flex-1">
-                <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[11px] font-bold">
                   Pengampu Pendamping
                 </span>
                 <h4 className="font-bold text-slate-900 text-sm mt-1 truncate">{ct.teacher.fullName}</h4>
@@ -938,14 +945,14 @@ export default function ScheduleDetailView({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-600 text-white text-[11px] font-bold">
                     Ustadz Badal (Pengganti)
                   </span>
                   {canDelegateBadal && (
                     <button
                       type="button"
                       onClick={handleRemoveBadal}
-                      className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
                     >
                       Cabut
                     </button>
@@ -988,7 +995,7 @@ export default function ScheduleDetailView({
         {/* Switcher Filter (Orang Tua: Pilih Anak | Pengajar/PJ: Pilih Kelas Gabungan) */}
         {isPersonal && progressData?.studentsPersonal && progressData.studentsPersonal.length > 1 ? (
           <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl overflow-x-auto no-scrollbar border border-slate-200/60">
-            <span className="text-[11px] font-bold text-slate-500 px-2 shrink-0 flex items-center gap-1">
+            <span className="text-xs font-bold text-slate-500 px-2 shrink-0 flex items-center gap-1">
               <Users className="w-3.5 h-3.5 text-teal-600" />
               <span>Pilih Ananda:</span>
             </span>
@@ -1063,16 +1070,16 @@ export default function ScheduleDetailView({
                   >
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <span className={`px-2 py-0.5 rounded-md text-white text-[10px] sm:text-[11px] font-bold shrink-0 ${sm.isMonthlyTarget ? 'bg-emerald-600' : 'bg-teal-600'}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-white text-[11px] font-bold shrink-0 ${sm.isMonthlyTarget ? 'bg-emerald-600' : 'bg-teal-600'}`}>
                           {sm.isMonthlyTarget ? 'Target Bulanan' : sm.slotIndex === 0 ? 'Materi Tambahan' : `Materi Slot #${sm.slotIndex + 1}`}
                         </span>
                         {sm.material?.targetGeneration?.name && (
-                          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
+                          <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
                             {sm.material.targetGeneration.name}
                           </span>
                         )}
                         {isPersonal && activePersonalStudent && (
-                          <span className="text-[10px] sm:text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 shrink-0 flex items-center gap-1">
+                          <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 shrink-0 flex items-center gap-1">
                             <User className="w-3 h-3" />
                             <span>{activePersonalStudent.studentName}</span>
                           </span>
@@ -1085,7 +1092,7 @@ export default function ScheduleDetailView({
                             {sm.material?.title || 'Materi Tanpa Judul'}
                           </h4>
                           {!isExpanded && sm.material?.description && (
-                            <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-3">
+                            <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
                               {sm.material.description}
                             </p>
                           )}
@@ -1094,7 +1101,7 @@ export default function ScheduleDetailView({
                               personalMat && (
                                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-left">
                                   <span
-                                    className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold ${personalMat.isCompleted
+                                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${personalMat.isCompleted
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                       : personalMat.completedItems > 0
                                         ? 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -1108,7 +1115,7 @@ export default function ScheduleDetailView({
                                         : 'Belum Tuntas'}
                                   </span>
                                   {personalMat.completedItems > 0 && personalMat.averageScore > 0 && (
-                                    <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
                                       ★ Nilai: {personalMat.averageScore}
                                     </span>
                                   )}
@@ -1118,14 +1125,14 @@ export default function ScheduleDetailView({
                               matProgress &&
                               matProgress.totalStudents > 0 && (
                                 <>
-                                  <span className="text-[11px] sm:text-xs font-extrabold text-slate-800 leading-tight">
+                                  <span className="text-xs font-extrabold text-slate-800 leading-tight">
                                     {matProgress.completedStudents}/{matProgress.totalStudents}
                                   </span>
-                                  <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium leading-tight">
+                                  <span className="text-xs text-slate-500 font-medium leading-tight">
                                     Santri Tuntas
                                   </span>
                                   {matProgress.completedStudents > 0 && matProgress.averageScore > 0 && (
-                                    <span className="text-[9px] sm:text-[10px] font-bold text-amber-600 leading-tight">
+                                    <span className="text-xs font-bold text-amber-600 leading-tight">
                                       ★ {matProgress.averageScore}
                                     </span>
                                   )}
@@ -1155,7 +1162,7 @@ export default function ScheduleDetailView({
                             )
                           )}
 
-                          <div className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 bg-white border border-slate-200/60 shrink-0 shadow-2xs">
+                          <div className="p-1.5 rounded-xl text-slate-500 hover:text-slate-600 bg-white border border-slate-200/60 shrink-0 shadow-2xs">
                             <ChevronDown
                               className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-teal-600' : ''
                                 }`}
@@ -1213,7 +1220,7 @@ export default function ScheduleDetailView({
                             <Target className="w-3.5 h-3.5 text-teal-600" />
                             <span>Target Capaian ({checklistItems.length})</span>
                           </div>
-                          <span className="text-[11px] text-slate-400 font-medium">
+                          <span className="text-xs text-slate-500 font-medium">
                             Indikator kompetensi santri
                           </span>
                         </div>
@@ -1244,12 +1251,12 @@ export default function ScheduleDetailView({
 
                                         <div className="flex items-center gap-1.5 shrink-0">
                                           {item.pointsWeight > 0 && (
-                                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
                                               +{item.pointsWeight} Poin
                                             </span>
                                           )}
                                           {item.completionTierLevel && (
-                                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-semibold border border-slate-200">
+                                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">
                                               {isDaerah
                                                 ? 'Otoritas Daerah'
                                                 : isDesa
@@ -1302,7 +1309,7 @@ export default function ScheduleDetailView({
                                         <div className="p-2.5 rounded-lg bg-teal-50/70 border border-teal-200/60 text-xs text-teal-950 flex items-start gap-2 mt-0.5">
                                           <MessageSquare className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
                                           <div className="space-y-0.5">
-                                            <span className="font-bold text-[11px] text-teal-800">
+                                            <span className="font-bold text-xs text-teal-800">
                                               Catatan Ustadz Pengampu:
                                             </span>
                                             <p className="text-teal-900 leading-relaxed italic">
@@ -1316,7 +1323,7 @@ export default function ScheduleDetailView({
                                     itemProg &&
                                     itemProg.totalStudents > 0 && (
                                       <div className="mt-0.5 pt-1 border-t border-slate-100">
-                                        <div className="flex items-center justify-between text-[11px] gap-2 flex-wrap mb-0.5">
+                                        <div className="flex items-center justify-between text-xs gap-2 flex-wrap mb-0.5">
                                           <span className="text-slate-600 font-medium">
                                             <strong className="text-slate-800 font-bold">
                                               {itemProg.completedCount} / {itemProg.totalStudents} Santri
@@ -1324,12 +1331,12 @@ export default function ScheduleDetailView({
                                           </span>
                                           <div className="flex items-center gap-2 shrink-0">
                                             {itemProg.completedCount > 0 && itemProg.averageScore > 0 && (
-                                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
                                                 ★ {itemProg.averageScore}
                                               </span>
                                             )}
                                             <span
-                                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${itemProg.percentage >= 80
+                                              className={`text-xs font-bold px-2 py-0.5 rounded-md ${itemProg.percentage >= 80
                                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                                 : itemProg.percentage >= 60
                                                   ? 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -1468,7 +1475,7 @@ export default function ScheduleDetailView({
                 >
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-900 truncate">{tc.class.name}</div>
-                    <div className="text-[10px] text-slate-500">
+                    <div className="text-xs text-slate-500">
                       {tc.class.generation?.name || 'Umum'} • {tc.class.tierLevel}
                     </div>
                   </div>
@@ -1486,9 +1493,9 @@ export default function ScheduleDetailView({
                 >
                   <div>
                     <div className="text-xs font-bold text-slate-900">{tg.generation.name}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Kode: {tg.generation.code}</div>
+                    <div className="text-xs text-slate-500 font-mono">Kode: {tg.generation.code}</div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
                     Target Usia
                   </span>
                 </div>
@@ -1541,19 +1548,19 @@ export default function ScheduleDetailView({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
             <span className="text-xl font-bold text-emerald-800">{hadirCount}</span>
-            <p className="text-[11px] font-semibold text-emerald-700 mt-0.5">Hadir</p>
+            <p className="text-xs font-semibold text-emerald-700 mt-0.5">Hadir</p>
           </div>
           <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 text-center">
             <span className="text-xl font-bold text-sky-800">{izinCount}</span>
-            <p className="text-[11px] font-semibold text-sky-700 mt-0.5">Izin</p>
+            <p className="text-xs font-semibold text-sky-700 mt-0.5">Izin</p>
           </div>
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
             <span className="text-xl font-bold text-amber-800">{sakitCount}</span>
-            <p className="text-[11px] font-semibold text-amber-700 mt-0.5">Sakit</p>
+            <p className="text-xs font-semibold text-amber-700 mt-0.5">Sakit</p>
           </div>
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-center">
             <span className="text-xl font-bold text-rose-800">{alpaCount}</span>
-            <p className="text-[11px] font-semibold text-rose-700 mt-0.5">Alpa / Belum Absen</p>
+            <p className="text-xs font-semibold text-rose-700 mt-0.5">Alpa / Belum Absen</p>
           </div>
         </div>
 
@@ -1603,7 +1610,7 @@ export default function ScheduleDetailView({
                 <button
                   type="button"
                   onClick={() => setIsBadalModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="text-slate-500 hover:text-slate-600 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -1763,7 +1770,7 @@ export default function ScheduleDetailView({
                 </div>
               )}
 
-              <p className="text-[11px] text-slate-500 leading-relaxed bg-amber-50/70 text-amber-900 p-2.5 rounded-xl border border-amber-200/60">
+              <p className="text-xs text-slate-500 leading-relaxed bg-amber-50/70 text-amber-900 p-2.5 rounded-xl border border-amber-200/60">
                 💡 <strong>Catatan:</strong> Pesan dilengkapi tautan izin otomatis (magic link) untuk santri yang berhalangan serta tautan pengajuan badal untuk Ustadz. Pengiriman menggunakan jeda anti-spam.
               </p>
 
@@ -1819,7 +1826,7 @@ export default function ScheduleDetailView({
       )}
 
       {ConfirmModalComponent()}
-    </div >
+    </PageContainer>
   );
 }
 

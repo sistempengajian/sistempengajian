@@ -51,19 +51,19 @@ export default function RotationProjectionTable({
     switch (type) {
       case 'PER_PENGAJIAN':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-200/70 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200/70 px-2 py-0.5 rounded-full">
             <Clock className="w-2.5 h-2.5" /> Per Pengajian
           </span>
         );
       case 'MINGGUAN':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/70 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/70 px-2 py-0.5 rounded-full">
             <CalendarDays className="w-2.5 h-2.5" /> Mingguan (7 Hari)
           </span>
         );
       case 'BULANAN':
         return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/70 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/70 px-2 py-0.5 rounded-full">
             <Calendar className="w-2.5 h-2.5" /> Bulanan
           </span>
         );
@@ -96,7 +96,7 @@ export default function RotationProjectionTable({
             <Sparkles className="w-4 h-4 text-sky-600" />
             <span>Simulasi Proyeksi Rotasi ({totalCount} Sesi / Siklus Pertama)</span>
           </h5>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs text-slate-500">
             Prakiraan perputaran otomatis pertemuan berikutnya berdasarkan template yang dipasangkan
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function RotationProjectionTable({
           <button
             type="button"
             onClick={() => setTotalCount(totalCount === 6 ? 12 : 6)}
-            className="text-[11px] font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-xl border border-sky-200/80 transition-colors cursor-pointer"
+            className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-xl border border-sky-200/80 transition-colors cursor-pointer"
           >
             {totalCount === 6 ? 'Tampilkan 12 Siklus' : 'Tampilkan 6 Siklus'}
           </button>
@@ -116,10 +116,10 @@ export default function RotationProjectionTable({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
         <div className="p-2.5 rounded-xl bg-teal-50/50 border border-teal-200/60 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-[10px] font-bold text-teal-800 uppercase block">
+            <span className="text-xs font-bold text-teal-800 uppercase block">
               Materi ({matQueues.length} Antrean)
             </span>
-            <span className="font-bold text-slate-800 text-[11px] truncate block">
+            <span className="font-bold text-slate-800 text-xs truncate block">
               {materialRolling.name}
             </span>
           </div>
@@ -128,10 +128,10 @@ export default function RotationProjectionTable({
 
         <div className="p-2.5 rounded-xl bg-sky-50/50 border border-sky-200/60 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-[10px] font-bold text-sky-800 uppercase block">
+            <span className="text-xs font-bold text-sky-800 uppercase block">
               Pengajar ({teachQueues.length} Antrean)
             </span>
-            <span className="font-bold text-slate-800 text-[11px] truncate block">
+            <span className="font-bold text-slate-800 text-xs truncate block">
               {teacherRolling.name}
             </span>
           </div>
@@ -143,10 +143,10 @@ export default function RotationProjectionTable({
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold uppercase tracking-wider">
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold uppercase tracking-wider">
               <th className="py-2 px-3 w-16 text-center">Siklus</th>
               <th className="py-2 px-3">Materi yang Dikaji</th>
-              <th className="py-2 px-3 w-8 text-center text-slate-400">&times;</th>
+              <th className="py-2 px-3 w-8 text-center text-slate-500">&times;</th>
               <th className="py-2 px-3">Pengajar yang Bertugas</th>
             </tr>
           </thead>
@@ -158,7 +158,7 @@ export default function RotationProjectionTable({
               return (
                 <tr key={`proj-${p.iterationNumber}`} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-2.5 px-3 font-extrabold text-slate-900 text-center">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-slate-100 text-slate-700 text-[10px]">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-slate-100 text-slate-700 text-[11px]">
                       #{p.iterationNumber}
                     </span>
                   </td>
@@ -166,14 +166,14 @@ export default function RotationProjectionTable({
                   {/* Materi */}
                   <td className="py-2.5 px-3">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-teal-800">
+                      <div className="flex items-center gap-1 text-xs font-bold text-teal-800">
                         <span className="px-1.5 py-0.2 rounded bg-teal-100">
                           {p.matQueue?.title || `Antrean #${p.matQueue?.stepOrder}`}
                         </span>
                       </div>
                       <div className="space-y-0.5">
                         {matItems.map((m: any, mIdx: number) => (
-                          <div key={m.id || mIdx} className="flex items-center gap-1.5 text-slate-800 text-[11px]">
+                          <div key={m.id || mIdx} className="flex items-center gap-1.5 text-slate-800 text-xs">
                             <BookOpen className="w-3 h-3 text-teal-600 shrink-0" />
                             <span className="font-semibold line-clamp-1">
                               {m.material?.title || 'Materi Belum Terpilih'}
@@ -192,20 +192,20 @@ export default function RotationProjectionTable({
                   {/* Pengajar */}
                   <td className="py-2.5 px-3">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-sky-800">
+                      <div className="flex items-center gap-1 text-xs font-bold text-sky-800">
                         <span className="px-1.5 py-0.2 rounded bg-sky-100">
                           {p.teachQueue?.title || `Antrean #${p.teachQueue?.stepOrder}`}
                         </span>
                       </div>
                       <div className="space-y-0.5">
                         {teachItems.map((t: any, tIdx: number) => (
-                          <div key={t.id || tIdx} className="space-y-0.5 text-[11px]">
+                          <div key={t.id || tIdx} className="space-y-0.5 text-xs">
                             <div className="flex items-center gap-1.5 text-slate-900 font-semibold">
                               <User className="w-3 h-3 text-sky-600 shrink-0" />
                               <span className="truncate">{t.teacher?.fullName || 'Pengajar Belum Terpilih'}</span>
                             </div>
                             {t.substituteTeacher && (
-                              <div className="text-[10px] text-amber-700 pl-4">
+                              <div className="text-xs text-amber-700 pl-4">
                                 <span>Badal: {t.substituteTeacher.fullName}</span>
                               </div>
                             )}
