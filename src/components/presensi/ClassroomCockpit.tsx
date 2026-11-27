@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import {
   QrCode,
@@ -25,8 +26,25 @@ import { AttendanceStatus } from '@prisma/client';
 import { getSessionAttendanceRecords } from '@/app/(protected)/presensi/actions';
 import DynamicQrDisplay, { InitialQrPayload } from './DynamicQrDisplay';
 import ManualAttendanceSheet, { StudentAttendanceItem } from './ManualAttendanceSheet';
-import BatchCardScanner from './BatchCardScanner';
-import RealtimeEvaluationSheet, { MaterialWithChecklists, StudentProgressData } from './RealtimeEvaluationSheet';
+import type { MaterialWithChecklists, StudentProgressData } from './RealtimeEvaluationSheet';
+
+const BatchCardScanner = dynamic(() => import('./BatchCardScanner'), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-white/90 rounded-2xl border border-slate-200/75 p-8 text-center text-xs text-slate-600 animate-pulse">
+      Memuat pemindai kartu QR santri...
+    </div>
+  ),
+});
+
+const RealtimeEvaluationSheet = dynamic(() => import('./RealtimeEvaluationSheet'), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-white/90 rounded-2xl border border-slate-200/75 p-8 text-center text-xs text-slate-600 animate-pulse">
+      Memuat lembar penilaian &amp; jurnal sesi...
+    </div>
+  ),
+});
 
 export interface ScheduleTeacherInfo {
   id: string;
@@ -393,7 +411,7 @@ export default function ClassroomCockpit({
                           <h3 className="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">
                             Pilih Sesi Pengajian Hari Ini
                           </h3>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             Tersedia {availableSchedules.length} sesi pengajian untuk Anda
                           </p>
                         </div>
@@ -433,7 +451,7 @@ export default function ClassroomCockpit({
                                   <Check className="w-3 h-3 stroke-[3]" />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                                <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
                                   <Clock className="w-3 h-3" />
                                 </div>
                               )}
@@ -445,24 +463,24 @@ export default function ClassroomCockpit({
                                   {s.title}
                                 </span>
                                 {isCurrent && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-600 text-white shadow-2xs shrink-0">
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-teal-600 text-white shadow-2xs shrink-0">
                                     Sesi Aktif
                                   </span>
                                 )}
                                 {isSwitching && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 animate-pulse shrink-0">
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 animate-pulse shrink-0">
                                     Beralih...
                                   </span>
                                 )}
                               </div>
 
-                              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                              <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-slate-700 flex items-center gap-1">
                                   <Clock className="w-3 h-3 text-slate-400" />
                                   <span>{s.startTime} - {s.endTime} WIB</span>
                                 </span>
                                 {s.className && (
-                                  <span className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200 text-[10px]">
+                                  <span className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200 text-[11px]">
                                     {s.className}
                                   </span>
                                 )}
@@ -524,7 +542,7 @@ export default function ClassroomCockpit({
               <UserCheck className={`w-3.5 h-3.5 ${activeTab === 'MANUAL_SHEET' ? 'text-teal-600' : 'text-slate-400'}`} />
               <span>Absensi Manual</span>
               {pendingLeaveCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse shadow-2xs">
+                <span className="px-1.5 py-0.2 rounded-full text-[11px] font-extrabold bg-amber-500 text-white animate-pulse shadow-2xs">
                   {pendingLeaveCount} Izin
                 </span>
               )}
@@ -553,7 +571,7 @@ export default function ClassroomCockpit({
               <Award className={`w-3.5 h-3.5 ${activeTab === 'EVALUATION' ? 'text-teal-600' : 'text-slate-400'}`} />
               <span>Jurnal Nilai</span>
               {hadirCount > 0 && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeTab === 'EVALUATION' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200/80 text-slate-600'}`}>
+                <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${activeTab === 'EVALUATION' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200/80 text-slate-600'}`}>
                   {hadirCount}
                 </span>
               )}

@@ -1,10 +1,11 @@
 'use server';
 
 import { z } from 'zod';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { CACHE_TAGS, invalidateUserProfileCache } from '@/lib/cache';
 import { formatZodError } from '@/lib/security-utils';
 import {
   generateSessionSecret,
@@ -16,6 +17,7 @@ import { AttendanceStatus, AttendanceMethod, AbsenceReasonType, AbsenceConfirmat
 import crypto from 'crypto';
 import { uploadTaskImage } from '@/lib/storage/mediaUploader';
 import { formatWibTime } from '@/lib/utils';
+import { recordUiTelemetryServer } from '@/lib/telemetry';
 
 const sessionIdSchema = z.string().uuid('ID sesi presensi tidak valid.');
 const scheduleIdSchema = z.string().uuid('ID jadwal tidak valid.');
@@ -628,6 +630,7 @@ export async function closeAttendanceSession(sessionId: string) {
     data: { status: 'COMPLETED' },
   });
 
+  revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');
@@ -679,6 +682,7 @@ export async function reopenAttendanceSession(sessionId: string) {
     data: { status: 'ACTIVE' },
   });
 
+  revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');
@@ -715,6 +719,10 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
   });
 
   if (!session) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'STUDENT', reasonBucket: 'SESSION_CLOSED', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return { success: false, message: 'Sesi presensi pengajian belum dibuka oleh pengajar.' };
   }
 
@@ -727,12 +735,20 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
   );
 
   if (!verification.isValid) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'STUDENT', reasonBucket: 'INVALID_OR_EXPIRED_QR', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return { success: false, message: verification.message };
   }
 
   // Verifikasi kelayakan santri: Pastikan santri terdaftar di jadwal/kelas ini!
   const eligibility = await checkStudentScheduleEligibility(effectiveUserId, scheduleId, session.id);
   if (!eligibility.isEligible) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'STUDENT', reasonBucket: 'NOT_ELIGIBLE', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return {
       success: false,
       message:
@@ -806,12 +822,18 @@ export async function submitStudentQrScan(rawContent: string, scheduleId: string
     console.error('Gamification update warning:', error);
   }
 
+  await invalidateUserProfileCache(effectiveUserId, authUser.id);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');
   revalidatePath('/kelas');
   revalidatePath('/analisis');
   revalidatePath(`/jadwal/${scheduleId}`);
+
+  void recordUiTelemetryServer(
+    { type: 'QR_SCAN_OUTCOME', outcome: 'SUCCESS', context: 'STUDENT', deviceFamily: 'Unknown', route: '/presensi' },
+    effectiveUserId
+  );
 
   return {
     success: true,
@@ -883,6 +905,10 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
   });
 
   if (!session) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'PARENT', reasonBucket: 'SESSION_CLOSED', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return { success: false, message: 'Sesi presensi pengajian belum dibuka oleh pengajar.' };
   }
 
@@ -895,12 +921,20 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
   );
 
   if (!verification.isValid) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'PARENT', reasonBucket: 'INVALID_OR_EXPIRED_QR', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return { success: false, message: verification.message };
   }
 
   // 5. Verifikasi kelayakan ananda: Pastikan santri terdaftar di jadwal/kelas ini!
   const eligibility = await checkStudentScheduleEligibility(studentId, scheduleId, session.id);
   if (!eligibility.isEligible) {
+    void recordUiTelemetryServer(
+      { type: 'QR_SCAN_OUTCOME', outcome: 'FAILED', context: 'PARENT', reasonBucket: 'NOT_ELIGIBLE', deviceFamily: 'Unknown', route: '/presensi' },
+      effectiveUserId
+    );
     return {
       success: false,
       message:
@@ -976,12 +1010,18 @@ export async function submitParentQrScan(rawContent: string, scheduleId: string,
     console.error('Gamification update warning:', error);
   }
 
+  await invalidateUserProfileCache(studentId, effectiveUserId, authUser.id);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');
   revalidatePath('/kelas');
   revalidatePath('/analisis');
   revalidatePath(`/jadwal/${scheduleId}`);
+
+  void recordUiTelemetryServer(
+    { type: 'QR_SCAN_OUTCOME', outcome: 'SUCCESS', context: 'PARENT', deviceFamily: 'Unknown', route: '/presensi' },
+    effectiveUserId
+  );
 
   return {
     success: true,
@@ -1324,6 +1364,7 @@ export async function recordBatchCardScan(sessionId: string, cardQrContent: stri
     console.error('Gamification update warning (Batch card scan):', error);
   }
 
+  await invalidateUserProfileCache(student.id);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');
@@ -1518,6 +1559,7 @@ export async function saveComprehensiveEvaluation({
     { timeout: 10000 }
   );
 
+  await invalidateUserProfileCache(studentId);
   revalidatePath('/presensi');
   revalidatePath('/dashboard');
   revalidatePath('/kurikulum');
@@ -1818,6 +1860,7 @@ export async function saveBulkComprehensiveEvaluation({
     );
   }
 
+  await invalidateUserProfileCache(...studentIds);
   revalidatePath('/presensi');
   revalidatePath('/laporan');
   revalidatePath('/dashboard');

@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
-import QRCode from 'qrcode';
+import type { Html5Qrcode as Html5QrcodeType } from 'html5-qrcode';
 import {
   Camera,
   QrCode,
@@ -19,6 +18,10 @@ import {
 } from 'lucide-react';
 import { submitStudentQrScan } from '@/app/(protected)/presensi/actions';
 import { useToast } from '@/components/ui/Toast';
+import {
+  trackQrScanClientOutcome,
+  triggerMicroCsatPrompt,
+} from '@/lib/telemetry-client';
 
 interface StudentQrScannerProps {
   studentId: string;
@@ -67,7 +70,7 @@ export default function StudentQrScanner({
   const [studentQrDataUrl, setStudentQrDataUrl] = useState<string>('');
   const [isGeneratingCard, setIsGeneratingCard] = useState<boolean>(false);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const isCooldownRef = useRef<boolean>(false);
   const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isStartingRef = useRef<boolean>(false);
@@ -75,16 +78,26 @@ export default function StudentQrScanner({
 
   // Generate QR Code santri (format: santri:<studentId>)
   useEffect(() => {
-    QRCode.toDataURL(`santri:${studentId}`, {
-      width: 360,
-      margin: 1.5,
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff',
-      },
-    })
-      .then((url) => setStudentQrDataUrl(url))
-      .catch((err) => console.error('Gagal membuat QR santri:', err));
+    let active = true;
+    (async () => {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const url = await QRCode.toDataURL(`santri:${studentId}`, {
+          width: 360,
+          margin: 1.5,
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff',
+          },
+        });
+        if (active) setStudentQrDataUrl(url);
+      } catch (err) {
+        console.error('Gagal membuat QR santri:', err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [studentId]);
 
   // Haptic feedback vibration (jika didukung perangkat seluler)
@@ -124,6 +137,7 @@ export default function StudentQrScanner({
             await scannerRef.current.stop();
             setIsScanning(false);
           }
+          triggerMicroCsatPrompt('student_qr_scan');
         } else {
           setErrorMessage(res.message || 'Kode QR tidak cocok atau telah diperbarui.');
           // Beri jeda 2 detik sebelum scan berikutnya jika gagal
@@ -178,6 +192,7 @@ export default function StudentQrScanner({
         }
       }
 
+      const { Html5Qrcode } = await import('html5-qrcode');
       const scanner = new Html5Qrcode('student-camera-reader');
       scannerRef.current = scanner;
 
@@ -216,6 +231,7 @@ export default function StudentQrScanner({
     } catch (err) {
       if (!isUnmountedRef.current) {
         console.error('Camera start error:', err);
+        trackQrScanClientOutcome('FAILED', 'STUDENT', 'CAMERA_ERROR');
         setErrorMessage('Izin kamera ditolak atau kamera tidak ditemukan pada perangkat ini.');
         setIsScanning(false);
       }
@@ -352,19 +368,19 @@ export default function StudentQrScanner({
   return (
     <div className="space-y-4 sm:space-y-5 animate-fade-in">
       {/* Segmented Control 2 Tab: Scan QR Sesi vs Kartu QR Saya */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-center gap-2 max-w-md mx-auto">
+      <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs grid grid-cols-2 items-stretch gap-1.5 max-w-md mx-auto">
         <button
           type="button"
           onClick={() => {
             setActiveTab('SCAN_SESSION');
             stopScanner();
           }}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'SCAN_SESSION'
+          className={`min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'SCAN_SESSION'
             ? 'bg-emerald-800 text-white shadow-xs'
-            : 'text-emerald-600 hover:text-slate-900 bg-transparent'
+            : 'text-emerald-700 hover:text-slate-900 bg-transparent'
             }`}
         >
-          <Camera className="w-4 h-4 text-emerald-400" />
+          <Camera className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>Scan QR</span>
         </button>
 
@@ -374,12 +390,12 @@ export default function StudentQrScanner({
             setActiveTab('MY_QR_CARD');
             stopScanner();
           }}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'MY_QR_CARD'
+          className={`min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'MY_QR_CARD'
             ? 'bg-slate-900 text-white shadow-xs'
             : 'text-slate-600 hover:text-slate-900 bg-transparent'
             }`}
         >
-          <QrCode className="w-4 h-4 text-teal-400" />
+          <QrCode className="w-4 h-4 text-teal-400 shrink-0" />
           <span>Kartu QR</span>
         </button>
       </div>
@@ -391,15 +407,15 @@ export default function StudentQrScanner({
           {activeSchedule ? (
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-left">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
                   Sesi Pengajian Hari Ini
                 </span>
                 {hasCheckedIn ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-600 text-white">
                     SUDAH HADIR ✓
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
                     BELUM HADIR
                   </span>
                 )}
@@ -432,13 +448,13 @@ export default function StudentQrScanner({
             />
 
             {!isScanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-3 bg-slate-900/90 backdrop-blur-xs">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-300 gap-3 bg-slate-900/90 backdrop-blur-xs">
                 <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-emerald-400 border border-slate-700">
                   <Camera className="w-7 h-7" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-200">Kamera Pemindai Siap</p>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Arahkan kamera ke layar QR dinamis ustadz di depan kelas.
                   </p>
                 </div>
@@ -466,7 +482,7 @@ export default function StudentQrScanner({
               type="button"
               onClick={isScanning ? stopScanner : startScanner}
               disabled={!activeSchedule || isProcessing}
-              className={`w-full py-3 rounded-2xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2 ${isScanning
+              className={`w-full min-h-[44px] py-3 rounded-2xl text-xs font-bold shadow-sm transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2 ${isScanning
                 ? 'bg-rose-600 hover:bg-rose-700 text-white'
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                 } disabled:opacity-50`}
@@ -474,7 +490,7 @@ export default function StudentQrScanner({
               <Camera className="w-4 h-4" />
               <span>{isScanning ? 'Hentikan Pemindai' : 'Nyalakan Kamera Scan QR'}</span>
             </button>
-            <p className="text-[11px] text-slate-400 font-medium mt-2">
+            <p className="text-xs text-slate-500 font-medium mt-2">
               Pastikan memberi izin akses kamera pada peramban/browser Anda.
             </p>
           </div>
@@ -497,7 +513,7 @@ export default function StudentQrScanner({
           <div className="p-5 rounded-3xl bg-white border-2 border-slate-200 shadow-md shadow-slate-900/5 space-y-4">
             {/* Header Kartu */}
             <div className="p-3 rounded-2xl bg-emerald-600 text-white">
-              <span className="text-[11px] uppercase tracking-wider font-bold block">
+              <span className="text-xs uppercase tracking-wider font-bold block">
                 Sistem Pengajian
               </span>
               <span className="text-xs font-bold text-emerald-100">
@@ -522,7 +538,7 @@ export default function StudentQrScanner({
                   className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-lg mx-auto"
                 />
               ) : (
-                <div className="w-48 h-48 flex items-center justify-center text-slate-400">
+                <div className="w-48 h-48 flex items-center justify-center text-slate-500">
                   <RefreshCw className="w-6 h-6 animate-spin" />
                 </div>
               )}
@@ -541,12 +557,12 @@ export default function StudentQrScanner({
               type="button"
               onClick={handleDownloadQrCard}
               disabled={isGeneratingCard || !studentQrDataUrl}
-              className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
               <span>{isGeneratingCard ? 'Menyiapkan Gambar Kartu...' : 'Download Kartu QR Santri (PNG)'}</span>
             </button>
-            <p className="text-[11px] text-slate-400 font-medium">
+            <p className="text-xs text-slate-500 font-medium">
               Kartu dapat dicetak atau disimpan di galeri ponsel orang tua.
             </p>
           </div>

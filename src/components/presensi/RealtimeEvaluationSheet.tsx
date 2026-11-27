@@ -2339,7 +2339,7 @@ export default function RealtimeEvaluationSheet({
                       <h4 className="text-xs sm:text-sm font-bold text-teal-950">
                         Mode Penilaian Massal Aktif
                       </h4>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-200/80 text-teal-900 border border-teal-300/70">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-teal-200/80 text-teal-900 border border-teal-300/70">
                         {bulkSelectedStudentIds.length} dari {students.length} Santri
                       </span>
                     </div>
@@ -2354,7 +2354,7 @@ export default function RealtimeEvaluationSheet({
                       setModalSelectedStudentIds([...bulkSelectedStudentIds]);
                       setIsBulkStudentModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-100 text-teal-800 text-[11px] font-bold border border-teal-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 transition-all cursor-pointer shadow-2xs active:scale-95"
                   >
                     <Users className="w-3.5 h-3.5 text-teal-600" />
                     <span>Ubah Santri</span>
@@ -2366,7 +2366,7 @@ export default function RealtimeEvaluationSheet({
                       setBulkSelectedStudentIds([]);
                       setApplyToAllGenerations(false);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/80 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/80 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-95"
                     title="Keluar dari mode penilaian massal"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -2377,13 +2377,13 @@ export default function RealtimeEvaluationSheet({
 
               {/* Daftar Chips Santri Terpilih */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-teal-900">
+                <div className="flex items-center justify-between text-xs font-semibold text-teal-900">
                   <span>Daftar Santri yang Menerima Penilaian:</span>
                   {bulkSelectedStudentIds.length < students.length && (
                     <button
                       type="button"
                       onClick={() => setBulkSelectedStudentIds(students.map((s) => s.id))}
-                      className="text-teal-700 hover:text-teal-900 underline text-[10px] cursor-pointer"
+                      className="text-teal-700 hover:text-teal-900 underline text-xs cursor-pointer"
                     >
                       Pilih Semua Santri Hadir ({students.length})
                     </button>
@@ -2397,7 +2397,7 @@ export default function RealtimeEvaluationSheet({
                         key={s.id}
                         className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-xl bg-white border border-teal-200/80 text-teal-950 text-xs shadow-2xs"
                       >
-                        <div className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-md bg-teal-100 text-teal-800 font-bold text-[11px] flex items-center justify-center">
                           {s.fullName.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-semibold truncate max-w-[140px] sm:max-w-[180px]">
@@ -2406,7 +2406,7 @@ export default function RealtimeEvaluationSheet({
                         <button
                           type="button"
                           onClick={() => handleRemoveStudentFromBulk(s.id)}
-                          className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="p-0.5 rounded hover:bg-slate-100 text-slate-600 hover:text-rose-600 transition-colors cursor-pointer"
                           title={`Hapus ${s.fullName} dari penilaian massal`}
                         >
                           <X className="w-3 h-3" />
@@ -2435,11 +2435,11 @@ export default function RealtimeEvaluationSheet({
                     <span className="text-xs font-bold text-teal-950">
                       Simpan Nilai Semua Jenjang
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-teal-200/80 text-teal-900 border border-teal-300/80">
+                    <span className="text-[11px] font-bold px-1.5 py-0.2 rounded-full bg-teal-200/80 text-teal-900 border border-teal-300/80">
                       Lintas Jenjang
                     </span>
                   </div>
-                  <p className="text-[11px] text-teal-900/80 leading-relaxed">
+                  <p className="text-xs text-teal-900/80 leading-relaxed">
                     Aktifkan agar capaian materi dapat disimpan ke seluruh santri terpilih, meskipun materi berasal dari jenjang berbeda.
                   </p>
                 </div>
@@ -2511,7 +2511,7 @@ export default function RealtimeEvaluationSheet({
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {currentStudent ? currentStudent.fullName : 'Pilih Santri Hadir'}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
+                      <p className="text-xs text-slate-500 truncate flex items-center gap-1.5">
                         <span>{currentStudent?.generationName || 'Santri'}</span>
                         <span>•</span>
                         <span className="text-teal-700 font-medium">Masuk {currentStudent?.checkInTime || 'Hadir'}</span>
@@ -2519,7 +2519,7 @@ export default function RealtimeEvaluationSheet({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <div className="flex items-center gap-1 shrink-0 text-slate-500">
                     <ChevronDown
                       className={`w-4 h-4 transition-transform duration-200 ${isStudentDropdownOpen ? 'rotate-180 text-teal-600' : ''
                         }`}
@@ -2546,7 +2546,7 @@ export default function RealtimeEvaluationSheet({
                           <button
                             type="button"
                             onClick={() => setStudentSearch('')}
-                            className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-600 transition-colors cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -2554,7 +2554,7 @@ export default function RealtimeEvaluationSheet({
                       </div>
 
                       {/* Meta Bar Info Debounce */}
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1.5">
+                      <div className="flex items-center justify-between text-xs text-slate-500 px-1 pt-1.5">
                         <span>
                           {isSearchingStudent ? (
                             <span className="text-teal-600 font-medium">Menyaring nama santri...</span>
@@ -2576,7 +2576,7 @@ export default function RealtimeEvaluationSheet({
                         <div className="p-4 text-center text-xs text-slate-500 space-y-1">
                           <UserX className="w-5 h-5 text-slate-400 mx-auto" />
                           <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="text-xs text-slate-500">
                             Tidak ada santri yang cocok dengan &quot;{debouncedStudentSearch}&quot;
                           </p>
                         </div>
@@ -2622,15 +2622,15 @@ export default function RealtimeEvaluationSheet({
                                       {s.fullName}
                                     </p>
                                     {isEvaluated && (
-                                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 shrink-0">
+                                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 shrink-0">
                                         Dinilai
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5">
+                                  <p className="text-xs text-slate-500 truncate flex items-center gap-1.5">
                                     <span>{s.generationName || 'Santri'}</span>
                                     {s.className && (
-                                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[9px] border border-slate-200/80">
+                                      <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[11px] border border-slate-200/80">
                                         {s.className}
                                       </span>
                                     )}
@@ -2687,7 +2687,7 @@ export default function RealtimeEvaluationSheet({
                     <button
                       type="button"
                       onClick={() => setIsFilterScopeDropdownOpen((prev) => !prev)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer bg-white hover:bg-slate-50 border-slate-200"
                       title="Klik untuk memilih cakupan materi"
                     >
                       <Filter className="w-3.5 h-3.5 text-teal-600 shrink-0" />
@@ -2710,10 +2710,10 @@ export default function RealtimeEvaluationSheet({
                       <div className="absolute left-0 top-full mt-1.5 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 z-40 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
                         <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
                           <div>
-                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
                               Cakupan Materi
                             </span>
-                            <p className="text-[10px] text-slate-500">
+                            <p className="text-xs text-slate-500">
                               Pilih materi yang ingin ditampilkan di lembar kerja
                             </p>
                           </div>
@@ -2734,13 +2734,13 @@ export default function RealtimeEvaluationSheet({
                                 <span className={`text-xs font-bold ${materialFilterScope === 'ALL' ? 'text-teal-900' : 'text-slate-900'}`}>
                                   Semua
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded-md ${
                                   materialFilterScope === 'ALL' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {scopeCounts.ALL}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                                 Semua materi semua jenjang
                               </p>
                             </div>
@@ -2766,13 +2766,13 @@ export default function RealtimeEvaluationSheet({
                                 <span className={`text-xs font-bold ${materialFilterScope === 'GENERATION' ? 'text-teal-900' : 'text-slate-900'}`}>
                                   Jenjang
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded-md ${
                                   materialFilterScope === 'GENERATION' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {scopeCounts.GENERATION}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                                 Semua materi sesuai jenjang santri yang dipilih ({currentStudent?.generationName || 'Santri'})
                               </p>
                             </div>
@@ -2798,13 +2798,13 @@ export default function RealtimeEvaluationSheet({
                                 <span className={`text-xs font-bold ${materialFilterScope === 'MONTHLY' ? 'text-teal-900' : 'text-slate-900'}`}>
                                   Bulanan
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded-md ${
                                   materialFilterScope === 'MONTHLY' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {scopeCounts.MONTHLY}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                                 Semua materi yang terdaftar dalam bulan ini sesuai jenjang santri yang dipilih
                               </p>
                             </div>
@@ -2830,16 +2830,16 @@ export default function RealtimeEvaluationSheet({
                                 <span className={`text-xs font-bold ${materialFilterScope === 'SCHEDULED' ? 'text-teal-900' : 'text-slate-900'}`}>
                                   Jadwal
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded-md ${
                                   materialFilterScope === 'SCHEDULED' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {scopeCounts.SCHEDULED}
                                 </span>
-                                <span className="text-[9px] font-bold text-teal-700 bg-teal-100 px-1 rounded">
+                                <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-1 rounded">
                                   Default
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                                 Semua materi yang terdaftar dalam bulan ini + materi tambahan/umum dalam sesi tersebut
                               </p>
                             </div>
@@ -2865,13 +2865,13 @@ export default function RealtimeEvaluationSheet({
                                 <span className={`text-xs font-bold ${materialFilterScope === 'ADDITIONAL' ? 'text-teal-900' : 'text-slate-900'}`}>
                                   Tambahan
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                                <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded-md ${
                                   materialFilterScope === 'ADDITIONAL' ? 'bg-teal-200/70 text-teal-900' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {scopeCounts.ADDITIONAL}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                                 Semua materi tambahan/umum dalam sesi tersebut
                               </p>
                             </div>
@@ -2897,7 +2897,7 @@ export default function RealtimeEvaluationSheet({
                           setExpandedMaterialIds([filteredMaterials[0].id]);
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-2 min-[400px]:px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:text-teal-800 bg-teal-50/70 hover:bg-teal-50 px-2 min-[400px]:px-3 py-1.5 rounded-lg border border-teal-200/60 shadow-2xs transition-colors cursor-pointer"
                       title={expandedMaterialIds.length > 0 ? 'Tutup Materi' : 'Buka Materi'}
                       aria-label={expandedMaterialIds.length > 0 ? 'Tutup Materi' : 'Buka Materi'}
                     >
@@ -2920,7 +2920,7 @@ export default function RealtimeEvaluationSheet({
                     <button
                       type="button"
                       onClick={() => setIsBulkDropdownOpen((prev) => !prev)}
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 sm:px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer select-none ${isBulkMode
+                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl border shadow-2xs transition-all cursor-pointer select-none ${isBulkMode
                         ? 'bg-teal-600 text-white border-teal-700 ring-2 ring-teal-500/20 shadow-xs'
                         : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                         }`}
@@ -2944,17 +2944,17 @@ export default function RealtimeEvaluationSheet({
                       <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-white rounded-2xl shadow-xl border border-slate-200/90 z-50 p-2 space-y-1 animate-fade-in divide-y divide-slate-100">
                         <div className="px-3 py-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                               <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600" />
                               Penilaian Massal
                             </span>
                             {isBulkMode && (
-                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-teal-100 text-teal-800">
+                              <span className="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-teal-100 text-teal-800">
                                 Aktif
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             Tentukan santri yang akan dinilai bersamaan dalam satu submit
                           </p>
                         </div>
@@ -2979,11 +2979,11 @@ export default function RealtimeEvaluationSheet({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-slate-900">Pilih Semua</span>
-                                <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
+                                <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
                                   {students.length} Santri
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-tight">
                                 Nilai sekaligus untuk semua santri yang hadir dalam 1x submit
                               </p>
                             </div>
@@ -3012,11 +3012,11 @@ export default function RealtimeEvaluationSheet({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-slate-900">Pilih Beberapa</span>
-                                <span className="text-[10px] font-semibold text-slate-500">
+                                <span className="text-xs font-semibold text-slate-500">
                                   Custom
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                              <p className="text-xs text-slate-500 mt-0.5 leading-tight">
                                 Pilih daftar santri yang hadir untuk dinilai bersamaan
                               </p>
                             </div>
@@ -3026,9 +3026,9 @@ export default function RealtimeEvaluationSheet({
                         {/* Akses Cepat Pilih Semua Santri Per Jenjang (Khusus Jenjang dengan Santri Aktif > 1) */}
                         {bulkGenerationQuickOptions.length > 0 && (
                           <div className="pt-1.5 space-y-1">
-                            <div className="px-2.5 py-1 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                            <div className="px-2.5 py-1 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-500">
                               <span>Pilih Per Jenjang</span>
-                              <span className="text-[9px] font-medium text-slate-400 lowercase">&gt; 1 santri</span>
+                              <span className="text-xs font-medium text-slate-500 lowercase">&gt; 1 santri</span>
                             </div>
                             <div className="space-y-0.5 max-h-36 overflow-y-auto">
                               {bulkGenerationQuickOptions.map((gen) => {
@@ -3056,7 +3056,7 @@ export default function RealtimeEvaluationSheet({
                                       <GraduationCap className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                                       <span className="text-xs truncate">{gen.name}</span>
                                     </div>
-                                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50/80 px-1.5 py-0.2 rounded border border-teal-200 shrink-0">
+                                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50/80 px-1.5 py-0.2 rounded border border-teal-200 shrink-0">
                                       {gen.studentIds.length} Santri
                                     </span>
                                   </button>
@@ -3077,7 +3077,7 @@ export default function RealtimeEvaluationSheet({
                                 setApplyToAllGenerations(false);
                                 setIsBulkDropdownOpen(false);
                               }}
-                              className="w-full text-center py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-bold transition-colors cursor-pointer"
+                              className="w-full text-center py-2 px-3 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition-colors cursor-pointer"
                             >
                               Matikan Mode Massal (Nilai Per Santri)
                             </button>
@@ -3127,7 +3127,7 @@ export default function RealtimeEvaluationSheet({
                         setMaterialSearchQuery('');
                         setDebouncedSearch('');
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-500 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
                       title="Hapus pencarian materi"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -3149,7 +3149,7 @@ export default function RealtimeEvaluationSheet({
                   <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                   <span className="hidden sm:inline">Filter</span>
                   {totalActiveAdvancedFilters > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[10px] font-extrabold bg-teal-600 text-white">
+                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-[11px] font-extrabold bg-teal-600 text-white">
                       {totalActiveAdvancedFilters}
                     </span>
                   )}
@@ -3159,7 +3159,7 @@ export default function RealtimeEvaluationSheet({
               {/* Tag / Chip Filter Lanjutan Aktif */}
               {totalActiveAdvancedFilters > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Filter:
                   </span>
                   {activeGenFilterIds.map((genId) => {
@@ -3167,7 +3167,7 @@ export default function RealtimeEvaluationSheet({
                     return (
                       <span
                         key={genId}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200"
                       >
                         <span>{genName}</span>
                         <button
@@ -3184,7 +3184,7 @@ export default function RealtimeEvaluationSheet({
                   {activeMonthFilters.map((mNum) => (
                     <span
                       key={mNum}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
                     >
                       <span>{MONTH_NAMES[mNum - 1]}</span>
                       <button
@@ -3207,7 +3207,7 @@ export default function RealtimeEvaluationSheet({
                     return (
                       <span
                         key={st}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
                       >
                         <span>{label}</span>
                         <button
@@ -3224,7 +3224,7 @@ export default function RealtimeEvaluationSheet({
                   <button
                     type="button"
                     onClick={handleClearAllActiveFilters}
-                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer ml-1"
+                    className="text-xs font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer ml-1"
                   >
                     Reset Filter
                   </button>
@@ -3248,7 +3248,7 @@ export default function RealtimeEvaluationSheet({
                       <p className="text-xs font-bold text-slate-800">
                         Belum ada materi terjadwal khusus jenjang {currentStudent.generationName} pada sesi ini
                       </p>
-                      <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                         Jadwal ini merupakan jadwal gabungan. Anda dapat membuka target kurikulum jenjang {currentStudent.generationName} untuk mengisi capaian santri ini.
                       </p>
                       <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
@@ -3295,7 +3295,7 @@ export default function RealtimeEvaluationSheet({
                           Reset Filter & Pencarian
                         </button>
                       ) : (
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-xs text-slate-500">
                           Coba ganti filter materi ke "Semua" untuk melihat materi jenjang lainnya.
                         </p>
                       )}
@@ -3383,7 +3383,7 @@ export default function RealtimeEvaluationSheet({
                                       openAudienceTooltipMatId === mat.id ? null : mat.id
                                     );
                                   }}
-                                  className={`px-1.5 py-0.5 rounded-lg border text-[10px] sm:text-[11px] font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 ${
+                                  className={`px-1.5 py-0.5 rounded-lg border text-xs font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 ${
                                     openAudienceTooltipMatId === mat.id
                                       ? 'bg-teal-700 text-white border-teal-800 ring-2 ring-teal-500/20'
                                       : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
@@ -3399,7 +3399,7 @@ export default function RealtimeEvaluationSheet({
                             {/* Deskripsi Materi */}
                             {
                               mat.description && (
-                                <p className={`text-[11px] text-slate-500 leading-relaxed ${isExpanded ? 'line-clamp-none' : 'line-clamp-2'}`}>
+                                <p className={`text-xs text-slate-500 leading-relaxed ${isExpanded ? 'line-clamp-none' : 'line-clamp-2'}`}>
                                   {mat.description}
                                 </p>
                               )
@@ -3407,22 +3407,22 @@ export default function RealtimeEvaluationSheet({
                             {/* Meta Badges di bawah judul: Lega di layar HP */}
                             <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
                               {hasPlannedItems && (
-                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-2 py-0.5 rounded-md shadow-2xs inline-flex items-center gap-1">
+                                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-2 py-0.5 rounded-md shadow-2xs inline-flex items-center gap-1">
                                   {plannedItemsCount} Prioritas
                                 </span>
                               )}
                               {mat.isMandatoryForTarget && (
-                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md">
+                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md">
                                   Wajib
                                 </span>
                               )}
                               {mat.targetGeneration?.name && (
-                                <span className="text-[10px] sm:text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-200/50 px-2 py-0.5 rounded-md shrink-0">
+                                <span className="text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-200/50 px-2 py-0.5 rounded-md shrink-0">
                                   {mat.targetGeneration.name}
                                 </span>
                               )}
                               <span
-                                className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md border shadow-2xs transition-colors ${matCompletedCount === items.length
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border shadow-2xs transition-colors ${matCompletedCount === items.length
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                   : 'bg-white text-slate-600 border-slate-200'
                                   }`}
@@ -3445,7 +3445,7 @@ export default function RealtimeEvaluationSheet({
                           </div>
                           <div className='flex justify-end pr-1.5 pt-3'>
                             <div
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-teal-600 bg-teal-50' : 'bg-slate-100/80 hover:bg-slate-200/60'
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-teal-600 bg-teal-50' : 'bg-slate-100/80 hover:bg-slate-200/60'
                                 }`}
                             >
                               <ChevronDown className="w-4 h-4" />
@@ -3485,11 +3485,11 @@ export default function RealtimeEvaluationSheet({
                                         <span className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
                                           {item.itemTitle}
                                         </span>
-                                        <span className="text-[10px] font-medium text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60">
+                                        <span className="text-[11px] font-medium text-amber-700 bg-amber-50/80 px-1.5 py-0.5 rounded border border-amber-200/60">
                                           +{item.pointsWeight} Poin
                                         </span>
                                         {plannedChecklistItemIds.includes(item.id) && (
-                                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
+                                          <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
                                             Prioritas
                                           </span>
                                         )}
@@ -3605,7 +3605,7 @@ export default function RealtimeEvaluationSheet({
                                   if (itemStatus === 'MIXED') {
                                     const completedCount = studentDetails.completed.length;
                                     return (
-                                      <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-center gap-2 animate-fade-in mt-1">
+                                      <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-xs text-indigo-950 flex items-center gap-2 animate-fade-in mt-1">
                                         <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                                         <span className="leading-snug">
                                           Kondisi bervariasi: <strong>{completedCount} santri sudah tuntas (nilai tetap)</strong> • <strong>{pendingCount} santri belum tuntas</strong>
@@ -3617,7 +3617,7 @@ export default function RealtimeEvaluationSheet({
                                   if (itemStatus === 'COMPLETED') {
                                     const targetUpdatingCount = justCompletedCount > 0 ? justCompletedCount : studentDetails.completed.length;
                                     return (
-                                      <div className="p-2 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[11px] text-teal-900 flex items-center gap-2 animate-fade-in mt-1">
+                                      <div className="p-2 rounded-xl bg-teal-50/80 border border-teal-200/80 text-xs text-teal-900 flex items-center gap-2 animate-fade-in mt-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-teal-600 shrink-0" />
                                         <span className="leading-snug">
                                           Berlaku untuk <strong>{targetUpdatingCount} santri (Tuntas)</strong>
@@ -3635,7 +3635,7 @@ export default function RealtimeEvaluationSheet({
                                   if (itemStatus === 'IN_PROGRESS') {
                                     const targetUpdatingCount = studentDetails.inProgress.length;
                                     return (
-                                      <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-2 animate-fade-in mt-1">
+                                      <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 flex items-center gap-2 animate-fade-in mt-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
                                         <span className="leading-snug">
                                           Berlaku untuk <strong>{targetUpdatingCount} santri (Proses)</strong>
@@ -3653,7 +3653,7 @@ export default function RealtimeEvaluationSheet({
                                   if (itemStatus === 'NOT_STARTED' && (prevCompletedCount > 0 || targetProgressMap[item.id]?.isModifiedSession)) {
                                     const targetUpdatingCount = studentDetails.notStarted.length;
                                     return (
-                                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-700 flex items-center gap-2 animate-fade-in mt-1">
+                                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center gap-2 animate-fade-in mt-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
                                         <span className="leading-snug">
                                           Berlaku untuk <strong>{targetUpdatingCount} santri (Belum Dinilai)</strong>
@@ -3677,7 +3677,7 @@ export default function RealtimeEvaluationSheet({
                                     {/* Baris 1: Penilaian Capaian (Skor Nilai) */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                       <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="text-[11px] font-bold text-slate-700">
+                                        <span className="text-xs font-bold text-slate-700">
                                           Penilaian Capaian:
                                         </span>
                                       </div>
@@ -3687,7 +3687,7 @@ export default function RealtimeEvaluationSheet({
                                             key={s}
                                             type="button"
                                             onClick={() => handleScoreChange(item.id, s)}
-                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                                 state.score === s
                                                   ? 'bg-teal-600 text-white shadow-2xs font-bold ring-2 ring-teal-600/20'
                                                   : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -3701,7 +3701,7 @@ export default function RealtimeEvaluationSheet({
 
                                     {/* Baris 2: Catatan Khusus Guru untuk Sub-Capaian ini */}
                                     <div className="space-y-1 pt-1.5 border-t border-slate-200/60">
-                                      <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                                         <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
                                         <span>Catatan Khusus (Opsional):</span>
                                       </label>
@@ -3719,7 +3719,7 @@ export default function RealtimeEvaluationSheet({
                                 {itemStatus === 'IN_PROGRESS' && (
                                   <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/70 space-y-2 animate-fade-in">
                                     <div className="space-y-1">
-                                      <label className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                                      <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                                         <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
                                         <span>Catatan Kemajuan / Estafet Sesi Berikutnya:</span>
                                       </label>
@@ -3760,13 +3760,13 @@ export default function RealtimeEvaluationSheet({
                         <>
                           <ChevronDown className="w-4 h-4 text-teal-600" />
                           <span>Lihat Lebih Banyak</span>
-                          <span className="text-[10px] font-semibold text-teal-700/90 bg-teal-100/80 px-2 py-0.5 rounded-full border border-teal-300/60">
+                          <span className="text-[11px] font-semibold text-teal-700/90 bg-teal-100/80 px-2 py-0.5 rounded-full border border-teal-300/60">
                             +{Math.min(5, Math.max(0, totalCount - loadedMaterials.length))} materi
                           </span>
                         </>
                       )}
                     </button>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-xs text-slate-500">
                       Menampilkan {loadedMaterials.length} dari {totalCount} materi kurikulum
                     </span>
                   </div>
@@ -3776,7 +3776,7 @@ export default function RealtimeEvaluationSheet({
                 <div ref={sentinelRef} className="h-1 w-full pointer-events-none" />
 
                 {!hasMore && loadedMaterials.length > 0 && materialFilterMode !== 'SCHEDULED' && (
-                  <div className="text-center text-[11px] text-slate-400 py-3">
+                  <div className="text-center text-xs text-slate-500 py-3">
                     <span>• Seluruh materi kurikulum telah dimuat ({loadedMaterials.length} materi) •</span>
                   </div>
                 )}
@@ -3901,7 +3901,7 @@ export default function RealtimeEvaluationSheet({
                     type="button"
                     onClick={handleSaveHandoverNotes}
                     disabled={isSavingHandover}
-                    className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer shadow-2xs"
+                    className="text-xs font-bold text-teal-700 hover:text-teal-800 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer shadow-2xs"
                   >
                     {isSavingHandover ? 'Menyimpan...' : 'Simpan Handover'}
                   </button>
@@ -3935,7 +3935,7 @@ export default function RealtimeEvaluationSheet({
                   className="w-full px-3 py-2 rounded-xl bg-white border border-teal-200/80 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
                 />
                 {handoverSuccessMessage && (
-                  <p className="text-[11px] font-semibold text-emerald-700 animate-fade-in">
+                  <p className="text-xs font-semibold text-emerald-700 animate-fade-in">
                     ✓ {handoverSuccessMessage}
                   </p>
                 )}
@@ -4016,7 +4016,7 @@ export default function RealtimeEvaluationSheet({
                     Pilih Santri yang Hadir
                   </h3>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Centang santri yang akan dinilai bersamaan dengan nilai yang sama
                 </p>
               </div>
@@ -4044,7 +4044,7 @@ export default function RealtimeEvaluationSheet({
                   <button
                     type="button"
                     onClick={() => setModalStudentSearch('')}
-                    className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-600 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -4057,7 +4057,7 @@ export default function RealtimeEvaluationSheet({
                   <button
                     type="button"
                     onClick={() => setModalGenFilter('ALL')}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
                       modalGenFilter === 'ALL'
                         ? 'bg-teal-600 text-white shadow-2xs'
                         : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -4072,7 +4072,7 @@ export default function RealtimeEvaluationSheet({
                         key={gen.id}
                         type="button"
                         onClick={() => setModalGenFilter(gen.id)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
                           modalGenFilter === gen.id
                             ? 'bg-teal-600 text-white shadow-2xs'
                             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -4093,7 +4093,7 @@ export default function RealtimeEvaluationSheet({
                       const visibleIds = modalFilteredStudents.map((s) => s.id);
                       setModalSelectedStudentIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
                     }}
-                    className="text-[11px] font-bold text-teal-700 hover:text-teal-900 cursor-pointer"
+                    className="text-xs font-bold text-teal-700 hover:text-teal-900 cursor-pointer"
                   >
                     Pilih Semua di Tampilan ({modalFilteredStudents.length})
                   </button>
@@ -4104,7 +4104,7 @@ export default function RealtimeEvaluationSheet({
                       const visibleIds = new Set(modalFilteredStudents.map((s) => s.id));
                       setModalSelectedStudentIds((prev) => prev.filter((id) => !visibleIds.has(id)));
                     }}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-700 cursor-pointer"
                   >
                     Hapus Pilihan di Tampilan
                   </button>
@@ -4121,7 +4121,7 @@ export default function RealtimeEvaluationSheet({
                 <div className="py-8 text-center text-xs text-slate-500 space-y-1">
                   <UserX className="w-6 h-6 text-slate-400 mx-auto" />
                   <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Tidak ada santri yang cocok dengan kata kunci pencarian
                   </p>
                 </div>
@@ -4161,10 +4161,10 @@ export default function RealtimeEvaluationSheet({
                           <p className={`text-xs font-bold truncate ${isChecked ? 'text-teal-950' : 'text-slate-900'}`}>
                             {s.fullName}
                           </p>
-                          <p className="text-[10px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                          <p className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
                             <span>{s.generationName || 'Santri'}</span>
                             {s.className && (
-                              <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[9px] border border-slate-200/80">
+                              <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold text-[11px] border border-slate-200/80">
                                 {s.className}
                               </span>
                             )}
@@ -4232,7 +4232,7 @@ export default function RealtimeEvaluationSheet({
                   <h3 className="text-sm sm:text-base font-bold text-slate-900">
                     Filter Materi Pembelajaran
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Saring materi berdasarkan jenjang, bulan, dan status penilaian
                   </p>
                 </div>
@@ -4301,7 +4301,7 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftGenFilterIds(availableGenerations.map((g) => g.id))}
-                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                        className="text-xs font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
                       >
                         Pilih Semua
                       </button>
@@ -4309,7 +4309,7 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftGenFilterIds([])}
-                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
                       >
                         Reset
                       </button>
@@ -4340,7 +4340,7 @@ export default function RealtimeEvaluationSheet({
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-bold">{gen.name}</span>
                               {isCurrentStudentGen && (
-                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-md bg-teal-100 text-teal-800 border border-teal-200">
+                                <span className="text-[11px] font-extrabold px-1.5 py-0.2 rounded-md bg-teal-100 text-teal-800 border border-teal-200">
                                   Jenjang Santri
                                 </span>
                               )}
@@ -4373,14 +4373,14 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftMonthFilters([currentMonth])}
-                        className="text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-md border border-teal-200 transition-colors cursor-pointer"
+                        className="text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-md border border-teal-200 transition-colors cursor-pointer"
                       >
                         Bulan Ini ({MONTH_NAMES[currentMonth - 1]})
                       </button>
                       <button
                         type="button"
                         onClick={() => setDraftMonthFilters([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
-                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                        className="text-xs font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
                       >
                         Semua
                       </button>
@@ -4388,7 +4388,7 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftMonthFilters([])}
-                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
                       >
                         Reset
                       </button>
@@ -4431,7 +4431,7 @@ export default function RealtimeEvaluationSheet({
                           </div>
                           {isNow && (
                             <div className="mt-1">
-                              <span className="text-[9px] font-bold text-teal-700 bg-teal-100/70 px-1.5 py-0.2 rounded">
+                              <span className="text-[11px] font-bold text-teal-700 bg-teal-100/70 px-1.5 py-0.2 rounded">
                                 Bulan Ini
                               </span>
                             </div>
@@ -4454,7 +4454,7 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftStatusFilters(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'])}
-                        className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
+                        className="text-xs font-semibold text-teal-700 hover:text-teal-800 underline cursor-pointer"
                       >
                         Pilih Semua
                       </button>
@@ -4462,7 +4462,7 @@ export default function RealtimeEvaluationSheet({
                       <button
                         type="button"
                         onClick={() => setDraftStatusFilters([])}
-                        className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline cursor-pointer"
                       >
                         Reset
                       </button>
@@ -4495,11 +4495,11 @@ export default function RealtimeEvaluationSheet({
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-900">Belum Dinilai</span>
-                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-slate-200 text-slate-700">
+                                <span className="text-[11px] font-bold px-2 py-0.2 rounded-full bg-slate-200 text-slate-700">
                                   Belum Dimulai
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 Materi belum ada catatan penilaian santri atau checklist belum tersentuh
                               </p>
                             </div>
@@ -4542,11 +4542,11 @@ export default function RealtimeEvaluationSheet({
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-900">Proses</span>
-                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                <span className="text-[11px] font-bold px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                                   Berjalan
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 Materi sebagian tuntas atau ada catatan guru tapi belum tuntas 100%
                               </p>
                             </div>
@@ -4589,11 +4589,11 @@ export default function RealtimeEvaluationSheet({
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-900">Tuntas</span>
-                                <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span className="text-[11px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                                   Selesai 100%
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 Seluruh checklist capaian materi telah berhasil dituntaskan oleh santri
                               </p>
                             </div>
@@ -4624,7 +4624,7 @@ export default function RealtimeEvaluationSheet({
                 className={`inline-flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer ${
                   totalDraftAdvancedFilters > 0
                     ? 'text-rose-600 hover:text-rose-700'
-                    : 'text-slate-400 cursor-not-allowed'
+                    : 'text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -4682,7 +4682,7 @@ export default function RealtimeEvaluationSheet({
                     {activeAudienceMat.title}
                   </h4>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md inline-block mt-1 ${
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md inline-block mt-1 ${
                       !activeAudienceMat.targetGenerationId
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : 'bg-indigo-100 text-indigo-800 border border-indigo-300'
@@ -4708,7 +4708,7 @@ export default function RealtimeEvaluationSheet({
                 <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                   🌐 Berlaku untuk Semua Santri Sesi
                 </p>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Penilaian materi ini akan diberikan kepada seluruh{' '}
                   <strong className="text-emerald-950 font-bold">{bulkSelectedStudentIds.length} santri terpilih</strong> tanpa
                   memandang jenjang kelas.
@@ -4719,7 +4719,7 @@ export default function RealtimeEvaluationSheet({
                     .map((s) => (
                       <span
                         key={s.id}
-                        className="text-[10px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
+                        className="text-[11px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
                       >
                         {s.fullName}
                       </span>
@@ -4750,7 +4750,7 @@ export default function RealtimeEvaluationSheet({
                       .map((s) => (
                         <span
                           key={s.id}
-                          className="text-[10px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
+                          className="text-[11px] font-semibold bg-white text-emerald-900 border border-emerald-200/80 px-2 py-0.5 rounded-md shadow-2xs"
                         >
                           {s.fullName}
                         </span>
@@ -4760,7 +4760,7 @@ export default function RealtimeEvaluationSheet({
                         bulkSelectedStudentIds.includes(s.id) &&
                         s.generationId === activeAudienceMat.targetGenerationId
                     ).length === 0 && (
-                      <span className="text-[11px] text-slate-400 italic">
+                      <span className="text-xs text-slate-500 italic">
                         Tidak ada santri terpilih di jenjang ini.
                       </span>
                     )}
@@ -4774,7 +4774,7 @@ export default function RealtimeEvaluationSheet({
                     s.generationId !== activeAudienceMat.targetGenerationId
                 ).length > 0 && (
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
-                    <p className="font-semibold text-slate-700 flex items-center gap-1.5 text-[11px]">
+                    <p className="font-semibold text-slate-700 flex items-center gap-1.5 text-xs">
                       <span className="w-2 h-2 rounded-full bg-slate-400"></span>
                       Dilewati Otomatis ({
                         students.filter(
@@ -4784,7 +4784,7 @@ export default function RealtimeEvaluationSheet({
                         ).length
                       } Santri Jenjang Lain):
                     </p>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Santri dari jenjang berbeda tidak akan dinilai atau terpengaruh pada materi ini saat disimpan.
                     </p>
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pt-0.5">
@@ -4797,7 +4797,7 @@ export default function RealtimeEvaluationSheet({
                         .map((s) => (
                           <span
                             key={s.id}
-                            className="text-[10px] font-medium bg-white text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded"
+                            className="text-[11px] font-medium bg-white text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded"
                           >
                             {s.fullName}
                           </span>
@@ -4834,7 +4834,7 @@ export default function RealtimeEvaluationSheet({
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
                     Status Santri: {activeItemDetail.item.itemTitle}
                   </h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {details.relevantStudents.length} santri dalam cakupan penilaian
                   </p>
                 </div>
@@ -4849,14 +4849,14 @@ export default function RealtimeEvaluationSheet({
 
               {/* Kelompok 1: Tuntas */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-emerald-700 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     Tuntas ({details.completed.length})
                   </span>
                 </div>
                 {details.completed.length === 0 ? (
-                  <p className="text-[10px] text-slate-400 italic pl-3.5">Belum ada santri tuntas</p>
+                  <p className="text-xs text-slate-500 italic pl-3.5">Belum ada santri tuntas</p>
                 ) : (
                   <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                     {details.completed.map(({ student, score, feedback, isJustModified }) => (
@@ -4869,24 +4869,24 @@ export default function RealtimeEvaluationSheet({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-bold text-[11px] truncate">{student.fullName}</span>
+                          <span className="font-bold text-xs truncate">{student.fullName}</span>
                           <div className="flex items-center gap-1 shrink-0">
                             {isJustModified ? (
-                              <span className="text-[9px] font-extrabold bg-teal-600 text-white px-1.5 py-0.2 rounded-full">
+                              <span className="text-[11px] font-extrabold bg-teal-600 text-white px-1.5 py-0.2 rounded-full">
                                 Baru Diperbarui
                               </span>
                             ) : (
-                              <span className="text-[9px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                              <span className="text-[11px] font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
                                 Sudah Tuntas (Nilai Tetap)
                               </span>
                             )}
-                            <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white px-1.5 py-0.2 rounded border border-emerald-200">
+                            <span className="text-[11px] font-mono font-bold text-emerald-700 bg-white px-1.5 py-0.2 rounded border border-emerald-200">
                               {score || 85}
                             </span>
                           </div>
                         </div>
                         {feedback && (
-                          <p className="text-[10px] text-slate-600 flex items-start gap-1 pl-0.5 italic mt-0.5">
+                          <p className="text-xs text-slate-600 flex items-start gap-1 pl-0.5 italic mt-0.5">
                             <MessageSquare className="w-2.5 h-2.5 text-teal-600 shrink-0 mt-0.5" />
                             <span className="line-clamp-2">{feedback}</span>
                           </p>
@@ -4899,14 +4899,14 @@ export default function RealtimeEvaluationSheet({
 
               {/* Kelompok 2: Dalam Proses */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-amber-700 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                     Dalam Proses ({details.inProgress.length})
                   </span>
                 </div>
                 {details.inProgress.length === 0 ? (
-                  <p className="text-[10px] text-slate-400 italic pl-3.5">Tidak ada santri dalam proses</p>
+                  <p className="text-xs text-slate-500 italic pl-3.5">Tidak ada santri dalam proses</p>
                 ) : (
                   <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
                     {details.inProgress.map(({ student, feedback, isJustModified }) => (
@@ -4919,15 +4919,15 @@ export default function RealtimeEvaluationSheet({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="font-bold text-[11px] truncate">{student.fullName}</span>
+                          <span className="font-bold text-xs truncate">{student.fullName}</span>
                           {isJustModified && (
-                            <span className="text-[9px] font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full">
+                            <span className="text-[11px] font-extrabold bg-amber-500 text-white px-1.5 py-0.2 rounded-full">
                               Baru Diperbarui
                             </span>
                           )}
                         </div>
                         {feedback && (
-                          <p className="text-[10px] text-amber-900 flex items-start gap-1 pl-0.5 italic mt-0.5">
+                          <p className="text-xs text-amber-900 flex items-start gap-1 pl-0.5 italic mt-0.5">
                             <MessageSquare className="w-2.5 h-2.5 text-amber-600 shrink-0 mt-0.5" />
                             <span className="line-clamp-2">{feedback}</span>
                           </p>
@@ -4940,7 +4940,7 @@ export default function RealtimeEvaluationSheet({
 
               {/* Kelompok 3: Belum Tuntas */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-600 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-slate-300"></span>
                     Belum Tuntas ({details.notStarted.length})
@@ -4951,14 +4951,14 @@ export default function RealtimeEvaluationSheet({
                     {details.notStarted.map(({ student }) => (
                       <span
                         key={student.id}
-                        className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"
+                        className="text-[11px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"
                       >
                         {student.fullName}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-slate-400 italic pl-3.5">Semua santri telah dimulai</p>
+                  <p className="text-xs text-slate-500 italic pl-3.5">Semua santri telah dimulai</p>
                 )}
               </div>
             </div>

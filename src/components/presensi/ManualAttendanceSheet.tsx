@@ -407,7 +407,7 @@ export default function ManualAttendanceSheet({
                   type="button"
                   onClick={() => syncNow()}
                   disabled={isSyncing}
-                  className="ml-1 text-[11px] underline font-extrabold hover:text-amber-950 cursor-pointer flex items-center gap-1"
+                  className="ml-1 text-xs underline font-extrabold hover:text-amber-950 cursor-pointer flex items-center gap-1"
                 >
                   <CloudUpload className="w-3 h-3" />
                   <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkron Sekarang'}</span>
@@ -440,11 +440,11 @@ export default function ManualAttendanceSheet({
             <div>
               <div className="text-xs sm:text-sm font-bold text-amber-900 flex items-center gap-2">
                 <span>{pendingLeaveCount} Pengajuan Surat Izin Digital dari Orang Tua</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500 text-white animate-pulse">
                   Perlu Verifikasi
                 </span>
               </div>
-              <p className="text-[11px] text-amber-700 mt-0.5">
+              <p className="text-xs text-amber-700 mt-0.5">
                 Wali santri telah mengajukan keterangan izin/sakit mandiri. Silakan periksa rincian alasan & bukti lampiran untuk menyetujui.
               </p>
             </div>
@@ -476,7 +476,7 @@ export default function ManualAttendanceSheet({
         {/* Filter per Kelas jika sesi gabungan (>1 kelas) */}
         {classes.length > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 tab-scrollbar">
-            <span className="text-[11px] font-bold text-slate-500 shrink-0">Filter Kelas:</span>
+            <span className="text-xs font-bold text-slate-500 shrink-0">Filter Kelas:</span>
             <button
               type="button"
               onClick={() => setFilterClassId('ALL')}
@@ -602,7 +602,7 @@ export default function ManualAttendanceSheet({
       {/* Daftar Santri & Tombol 1-Tap */}
       <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/70 overflow-hidden bg-white">
         {filteredStudents.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
+          <div className="p-8 text-center text-slate-500 text-xs">
             Tidak ada santri yang cocok dengan kriteria pencarian atau filter.
           </div>
         ) : (
@@ -624,10 +624,10 @@ export default function ManualAttendanceSheet({
                     <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
                       {student.fullName}
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
                       <span>{student.generationName || 'Santri'}</span>
                       {classes.length > 1 && student.className && (
-                        <span className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200/80 text-[10px]">
+                        <span className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200/80 text-[11px]">
                           {student.className}
                         </span>
                       )}
@@ -644,7 +644,7 @@ export default function ManualAttendanceSheet({
                               setSelectedReviewStudent(student);
                               setReviewNoteInput('');
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 font-bold border border-amber-300 text-[10px] hover:bg-amber-200 transition-colors cursor-pointer shadow-2xs animate-pulse"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 font-bold border border-amber-300 text-xs hover:bg-amber-200 transition-colors cursor-pointer shadow-2xs animate-pulse"
                             title="Klik untuk meninjau surat izin dan bukti foto dari orang tua"
                           >
                             <FileText className="w-2.5 h-2.5 text-amber-700" />
@@ -657,7 +657,7 @@ export default function ManualAttendanceSheet({
                               setSelectedReviewStudent(student);
                               setReviewNoteInput('');
                             }}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-teal-50 text-teal-700 font-semibold border border-teal-200 text-[10px] hover:bg-teal-100 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-teal-50 text-teal-700 font-semibold border border-teal-200 text-xs hover:bg-teal-100 transition-colors cursor-pointer"
                           >
                             <Check className="w-2.5 h-2.5 text-teal-600" />
                             <span>Izin Disetujui</span>
@@ -669,7 +669,7 @@ export default function ManualAttendanceSheet({
                               setSelectedReviewStudent(student);
                               setReviewNoteInput('');
                             }}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-rose-50 text-rose-700 font-semibold border border-rose-200 text-[10px] hover:bg-rose-100 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-rose-50 text-rose-700 font-semibold border border-rose-200 text-xs hover:bg-rose-100 transition-colors cursor-pointer"
                           >
                             <X className="w-2.5 h-2.5 text-rose-600" />
                             <span>Izin Ditolak</span>
@@ -685,7 +685,7 @@ export default function ManualAttendanceSheet({
                               request: student.studentAbsenceRequest!,
                             })
                           }
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 text-[10px] hover:bg-indigo-100 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200 text-xs hover:bg-indigo-100 transition-colors cursor-pointer"
                           title="Klik untuk melihat catatan & dokumen pendukung"
                         >
                           <FileText className="w-2.5 h-2.5 text-indigo-600" />
@@ -700,7 +700,7 @@ export default function ManualAttendanceSheet({
                         </span>
                       )}
                       {isPendingSave && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200/60 animate-pulse">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200/60 animate-pulse">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" />
                           <span>Menyimpan...</span>
                         </span>
@@ -719,7 +719,7 @@ export default function ManualAttendanceSheet({
                       isHadir
                         ? 'bg-teal-600/20 text-teal-700 border-teal-600 shadow-2xs font-bold cursor-default'
                         : isPendingSave
-                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                        ? 'bg-slate-50 text-slate-600 border-slate-200 cursor-not-allowed opacity-60'
                         : 'bg-white hover:bg-teal-50/80 text-teal-700 border-teal-200/80 cursor-pointer active:scale-95'
                     }`}
                   >
@@ -735,7 +735,7 @@ export default function ManualAttendanceSheet({
                       isIzin
                         ? 'bg-amber-600/20 text-amber-800 border-amber-600 shadow-2xs font-bold cursor-default'
                         : isPendingSave
-                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                        ? 'bg-slate-50 text-slate-600 border-slate-200 cursor-not-allowed opacity-60'
                         : 'bg-white hover:bg-amber-50/80 text-amber-700 border-amber-200/80 cursor-pointer active:scale-95'
                     }`}
                   >
@@ -751,7 +751,7 @@ export default function ManualAttendanceSheet({
                       isSakit
                         ? 'bg-blue-600/20 text-blue-800 border-blue-600 shadow-2xs font-bold cursor-default'
                         : isPendingSave
-                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                        ? 'bg-slate-50 text-slate-600 border-slate-200 cursor-not-allowed opacity-60'
                         : 'bg-white hover:bg-blue-50/80 text-blue-700 border-blue-200/80 cursor-pointer active:scale-95'
                     }`}
                   >
@@ -767,7 +767,7 @@ export default function ManualAttendanceSheet({
                       isAlpa
                         ? 'bg-rose-600/20 text-rose-800 border-rose-600 shadow-2xs font-bold cursor-default'
                         : isPendingSave
-                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                        ? 'bg-slate-50 text-slate-600 border-slate-200 cursor-not-allowed opacity-60'
                         : 'bg-white hover:bg-rose-50/80 text-rose-700 border-rose-200/80 cursor-pointer active:scale-95'
                     }`}
                   >
@@ -795,7 +795,7 @@ export default function ManualAttendanceSheet({
                   <h3 className="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">
                     Surat Izin Digital Santri
                   </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Verifikasi permohonan ketidakhadiran dari wali santri
                   </p>
                 </div>
@@ -819,11 +819,11 @@ export default function ManualAttendanceSheet({
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Nama Santri Binaan
                     </span>
                     <div className="text-sm font-bold text-slate-900">{selectedReviewStudent.fullName}</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-xs text-slate-500">
                       {selectedReviewStudent.generationName || 'Santri'}
                       {selectedReviewStudent.className ? ` • ${selectedReviewStudent.className}` : ''}
                     </div>
@@ -845,7 +845,7 @@ export default function ManualAttendanceSheet({
 
                 <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
                   <span>Diajukan oleh: <strong className="text-slate-800">{selectedReviewStudent.absenceConfirmation.parentName || 'Orang Tua / Wali'}</strong></span>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
                     selectedReviewStudent.absenceConfirmation.status === 'PENDING'
                       ? 'bg-amber-100 text-amber-800 border border-amber-300'
                       : selectedReviewStudent.absenceConfirmation.status === 'CONFIRMED'
@@ -882,7 +882,7 @@ export default function ManualAttendanceSheet({
                         href={selectedReviewStudent.absenceConfirmation.attachmentUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:underline"
                       >
                         <span>Buka Gambar Ukuran Penuh</span>
                         <ExternalLink className="w-3 h-3" />
@@ -890,7 +890,7 @@ export default function ManualAttendanceSheet({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-600">
                     Tidak ada lampiran foto surat dokter atau surat izin.
                   </div>
                 )}
@@ -971,13 +971,13 @@ export default function ManualAttendanceSheet({
                   <h3 className="text-sm font-bold text-slate-900">
                     Izin Mandiri Santri
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
+                  <p className="text-xs text-slate-500 font-medium">
                     {selectedAbsenceModal.studentName}
                   </p>
                 </div>
               </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
                   selectedAbsenceModal.request.absenceType === 'SAKIT'
                     ? 'bg-rose-50 text-rose-700 border-rose-200'
                     : 'bg-amber-50 text-amber-700 border-amber-200'
@@ -989,7 +989,7 @@ export default function ManualAttendanceSheet({
 
             <div className="space-y-3 text-xs">
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-1">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
                   Keterangan Alasan:
                 </p>
                 <p className="font-medium text-slate-800 italic">
@@ -999,7 +999,7 @@ export default function ManualAttendanceSheet({
 
               {selectedAbsenceModal.request.approverNames && (
                 <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 space-y-1">
-                  <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                  <p className="text-xs text-emerald-800 font-bold uppercase tracking-wider">
                     Dikonfirmasi Oleh:
                   </p>
                   <p className="font-semibold text-emerald-950">
@@ -1010,7 +1010,7 @@ export default function ManualAttendanceSheet({
 
               {selectedAbsenceModal.request.attachmentUrl && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
                     Foto Dokumen Pendukung:
                   </p>
                   <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">

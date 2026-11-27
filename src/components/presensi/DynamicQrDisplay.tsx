@@ -332,7 +332,7 @@ export default function DynamicQrDisplay({
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-teal-500/10 via-teal-500/20 to-emerald-500/10 border border-teal-200/80 flex items-center justify-center text-teal-700 shadow-sm">
             <QrCode className="w-10 h-10 text-teal-600" />
           </div>
-          <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow-xs">
+          <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold shadow-xs">
             Siap
           </span>
         </div>
@@ -356,7 +356,7 @@ export default function DynamicQrDisplay({
             <span>Mulai Tampilkan QR Code</span>
           </button>
 
-          <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400 font-medium pt-1">
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-500 font-medium pt-1">
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
               <span>Anti-Titip Presensi</span>
@@ -389,7 +389,7 @@ export default function DynamicQrDisplay({
       {/* Frame QR Code Display */}
       <div className="relative p-3.5 sm:p-4 rounded-3xl bg-white border border-teal-200/70 shadow-sm group">
         {isLoading && !qrDataUrl && (
-          <div className="w-60 h-60 sm:w-68 sm:h-68 flex flex-col items-center justify-center gap-2.5 text-slate-400">
+          <div className="w-60 h-60 sm:w-68 sm:h-68 flex flex-col items-center justify-center gap-2.5 text-slate-500">
             <RefreshCw className="w-7 h-7 animate-spin text-teal-600" />
             <span className="text-xs font-semibold">Menyiapkan kode QR aman...</span>
           </div>
@@ -441,7 +441,7 @@ export default function DynamicQrDisplay({
           />
         </div>
 
-        <p className="text-[11px] text-slate-400 font-medium leading-tight">
+        <p className="text-xs text-slate-500 font-medium leading-tight">
           Arahkan santri memindai QR code ini melalui kamera aplikasi.
         </p>
       </div>

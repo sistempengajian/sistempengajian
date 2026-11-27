@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import type { Html5Qrcode as Html5QrcodeType } from 'html5-qrcode';
 import {
   Camera,
   CheckCircle2,
@@ -32,7 +32,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const isCooldownRef = useRef<boolean>(false);
   const isStartingRef = useRef<boolean>(false);
   const isUnmountedRef = useRef<boolean>(false);
@@ -160,6 +160,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
         }
       }
 
+      const { Html5Qrcode } = await import('html5-qrcode');
       const scanner = new Html5Qrcode('batch-reader');
       scannerRef.current = scanner;
 
@@ -255,13 +256,13 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
             />
 
             {!isScanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-3 bg-slate-900/95 backdrop-blur-xs z-10">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-300 gap-3 bg-slate-900/95 backdrop-blur-xs z-10">
                 <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-teal-400 border border-slate-700 shadow-sm">
                   <QrCode className="w-7 h-7" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-slate-200">Kamera Belum Aktif</p>
-                  <p className="text-xs text-slate-400 leading-relaxed max-w-[220px]">
+                  <p className="text-xs text-slate-500 leading-relaxed max-w-[220px]">
                     Klik tombol &quot;Mulai Scan QR Code&quot; untuk menyalakan kamera pemindai.
                   </p>
                 </div>
@@ -318,7 +319,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
               <button
                 type="button"
                 onClick={() => setScannedList([])}
-                className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer font-medium"
+                className="text-xs text-slate-500 hover:text-slate-600 cursor-pointer font-medium"
               >
                 Bersihkan Riwayat
               </button>
@@ -327,7 +328,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
 
           <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/70 max-h-[290px] overflow-y-auto bg-white">
             {scannedList.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
+              <div className="p-8 text-center text-slate-500 text-xs">
                 Belum ada kartu santri yang dipindai pada sesi ini.
               </div>
             ) : (
@@ -342,7 +343,7 @@ export default function BatchCardScanner({ sessionId, onScanSuccess }: BatchCard
                     </div>
                     <span className="font-bold text-slate-900">{item.name}</span>
                   </div>
-                  <span className="font-mono text-slate-400 text-[11px]">{item.time}</span>
+                  <span className="font-mono text-slate-500 text-xs">{item.time}</span>
                 </div>
               ))
             )}
