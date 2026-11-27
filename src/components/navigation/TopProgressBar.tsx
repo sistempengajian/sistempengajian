@@ -282,7 +282,7 @@ export default function TopProgressBar() {
             </div>
 
             {/* Indikator Halus Kunci Layar */}
-            <span className="text-[10px] text-slate-400 font-normal mt-2">
+            <span className="text-xs text-slate-500 font-normal mt-2">
               Mohon tunggu sebentar...
             </span>
           </div>

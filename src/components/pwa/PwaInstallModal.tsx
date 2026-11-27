@@ -62,7 +62,7 @@ export default function PwaInstallModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-600 hover:text-slate-600 transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -106,7 +106,7 @@ export default function PwaInstallModal({
                     </div>
                     <div>
                       <span>Ketuk tombol <strong>Bagikan (Share)</strong></span>
-                      <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-medium mt-0.5">
+                      <div className="flex items-center gap-1 text-xs text-emerald-700 font-medium mt-0.5">
                         <Share className="w-3.5 h-3.5" />
                         <span>Ikon kotak dengan panah atas di bilah bawah Safari</span>
                       </div>
@@ -153,7 +153,7 @@ export default function PwaInstallModal({
                     </div>
                     <div>
                       <span>Ketuk tombol <strong>menu titik tiga (⋮)</strong> di pojok kanan atas browser Chrome.</span>
-                      <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-medium mt-0.5">
+                      <div className="flex items-center gap-1 text-xs text-emerald-700 font-medium mt-0.5">
                         <MoreVertical className="w-3.5 h-3.5" />
                         <span>Menu opsi browser</span>
                       </div>

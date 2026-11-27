@@ -35,12 +35,12 @@ export default function PwaProfileInstallCard() {
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-bold text-slate-900">Aplikasi SiPanji (PWA Mobile)</h3>
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                 <Sparkles className="w-2.5 h-2.5" />
                 <span>PWA</span>
               </span>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Pasang pintasan aplikasi di Layar Utama HP untuk pengalaman terbaik
             </p>
           </div>
@@ -55,7 +55,7 @@ export default function PwaProfileInstallCard() {
               <h4 className="text-xs font-bold text-emerald-900">
                 Aplikasi Aktif dalam Mode PWA Standalone
               </h4>
-              <p className="text-[11px] text-emerald-800 leading-relaxed">
+              <p className="text-xs text-emerald-800 leading-relaxed">
                 Anda sedang menggunakan SiPanji sebagai aplikasi terpasang di perangkat ini. Anda
                 menikmati tampilan layar penuh, transisi instan, dan performa optimal.
               </p>
@@ -67,20 +67,20 @@ export default function PwaProfileInstallCard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-150 flex items-center gap-2.5 text-slate-700">
                 <Maximize2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-[11px] font-medium">Layar penuh tanpa bilah browser</span>
+                <span className="text-xs font-medium">Layar penuh tanpa bilah browser</span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-150 flex items-center gap-2.5 text-slate-700">
                 <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-[11px] font-medium">Akses langsung dari ikon Home Screen</span>
+                <span className="text-xs font-medium">Akses langsung dari ikon Home Screen</span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-150 flex items-center gap-2.5 text-slate-700">
                 <WifiOff className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="text-[11px] font-medium">Cache offline cerdas &amp; hemat kuota</span>
+                <span className="text-xs font-medium">Cache offline cerdas &amp; hemat kuota</span>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-              <div className="text-[11px] text-slate-500">
+              <div className="text-xs text-slate-500">
                 {isInstalled
                   ? 'Aplikasi terdeteksi sudah terpasang di perangkat ini.'
                   : 'Pasang sekarang tanpa perlu mengunduh lewat Play Store / App Store.'}

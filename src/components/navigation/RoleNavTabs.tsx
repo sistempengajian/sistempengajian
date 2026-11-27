@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { trackRoleSwitch } from '@/lib/telemetry-client';
 import {
   ShieldCheck,
   GraduationCap,
@@ -106,26 +108,29 @@ export default function RoleNavTabs({
 }: RoleNavTabsProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const modalPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  useFocusTrap(isModalOpen && mounted, modalPanelRef, () => setIsModalOpen(false));
+
   useEffect(() => {
     if (isModalOpen) {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setIsModalOpen(false);
-      };
-      window.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
       return () => {
-        window.removeEventListener('keydown', handleKeyDown);
         document.body.style.overflow = 'unset';
+        document.body.classList.remove('modal-open');
       };
     }
   }, [isModalOpen]);
 
   const handleRoleClick = (e: React.MouseEvent, roleTab: RoleTabItem) => {
+    if (roleTab.id !== activeRole) {
+      trackRoleSwitch(activeRole, roleTab.id);
+    }
     if (onRoleChange) {
       e.preventDefault();
       setIsModalOpen(false);
@@ -164,11 +169,11 @@ export default function RoleNavTabs({
                 <p className="text-sm font-bold text-slate-900 truncate">
                   {activeTabItem.label}
                 </p>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/70">
+                <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/70">
                   {activeTabItem.badge}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5 truncate hidden sm:block">
+              <p className="text-xs text-slate-500 mt-0.5 truncate hidden sm:block">
                 {activeTabItem.subtitle}
               </p>
             </div>
@@ -180,7 +185,8 @@ export default function RoleNavTabs({
               e.stopPropagation();
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center justify-center gap-1.5 p-2 min-[481px]:px-3.5 min-[481px]:py-2 rounded-xl bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-700 text-xs font-bold transition-all border border-teal-200/70 shrink-0 cursor-pointer shadow-2xs"
+            aria-label="Ganti Peran"
+            className="min-w-[44px] min-h-[44px] sm:min-h-[38px] inline-flex items-center justify-center gap-1.5 p-2 min-[481px]:px-3.5 min-[481px]:py-2 rounded-xl bg-teal-50 hover:bg-teal-100 active:scale-95 text-teal-700 text-xs font-bold transition-all border border-teal-200/70 shrink-0 cursor-pointer shadow-2xs"
           >
             <span className="max-[480px]:hidden">Ganti Peran</span>
             <ChevronDown className="w-3.5 h-3.5 text-teal-600 transition-transform group-hover:translate-y-0.5" />
@@ -190,12 +196,18 @@ export default function RoleNavTabs({
         {/* Modal Bawah (Bottom Sheet) */}
         {mounted && isModalOpen && createPortal(
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
             className="fixed inset-0 z-[60] flex flex-col items-center justify-end sm:justify-center bg-slate-900/50 backdrop-blur-xs animate-fade-in"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsModalOpen(false);
             }}
           >
-            <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[80vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95">
+            <div
+              ref={modalPanelRef}
+              className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl border border-slate-200/80 flex flex-col max-h-[85vh] sm:max-h-[80vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95"
+            >
               {/* Drag Handle (Mobile) */}
               <div className="flex-shrink-0 pt-3 pb-1 flex justify-center sm:hidden">
                 <div className="w-10 h-1 bg-slate-300 rounded-full" />
@@ -209,14 +221,14 @@ export default function RoleNavTabs({
                       {title}
                     </h3>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
                     {description}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-base leading-none cursor-pointer transition-colors shrink-0"
+                  className="min-w-[44px] min-h-[44px] -mr-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-base leading-none cursor-pointer transition-colors shrink-0"
                   aria-label="Tutup modal"
                 >
                   <X className="w-4 h-4" />
@@ -256,7 +268,7 @@ export default function RoleNavTabs({
                               {roleTab.label}
                             </p>
                             <span
-                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isSelected
+                              className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isSelected
                                 ? 'bg-teal-100 text-teal-800'
                                 : 'bg-slate-100 text-slate-600'
                                 }`}
@@ -264,11 +276,11 @@ export default function RoleNavTabs({
                               {roleTab.badge}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
                             {roleTab.subtitle}
                           </p>
                           {isSelected && (
-                            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-teal-700">
+                            <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-teal-700">
                               <CheckCircle2 className="w-3 h-3" />
                               <span>Sedang Aktif</span>
                             </div>
@@ -320,12 +332,12 @@ export default function RoleNavTabs({
               <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
                 {title}
               </h2>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                 <Sparkles className="w-3 h-3 text-purple-500" />
                 {availableRoles.length} Peran Aktif
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block">
+            <p className="text-xs text-slate-500 hidden sm:block">
               {description}
             </p>
           </div>
@@ -334,7 +346,7 @@ export default function RoleNavTabs({
         {activeTabItem && (
           <div className="flex items-center gap-1.5 self-start sm:self-center text-[11px] text-slate-600 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200/70">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-400">Tampilan aktif:</span>
+            <span className="text-slate-500">Tampilan aktif:</span>
             <span className="font-bold text-slate-800">{activeTabItem.label}</span>
           </div>
         )}
@@ -376,7 +388,7 @@ export default function RoleNavTabs({
                     {roleTab.label}
                   </span>
                   <span
-                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isActive
+                    className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isActive
                       ? theme.activeBadge
                       : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200/80'
                       }`}
@@ -386,14 +398,14 @@ export default function RoleNavTabs({
                 </div>
 
                 <p
-                  className={`text-[11px] leading-tight line-clamp-1 mt-0.5 ${isActive ? 'text-white/80' : 'text-slate-500'
+                  className={`text-xs leading-tight line-clamp-1 mt-0.5 ${isActive ? 'text-white/80' : 'text-slate-500'
                     }`}
                 >
                   {roleTab.subtitle}
                 </p>
 
                 {isActive && (
-                  <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-white/90">
+                  <div className="flex items-center gap-1 mt-1 text-xs font-semibold text-white/90">
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Sedang Dibuka</span>
                   </div>
