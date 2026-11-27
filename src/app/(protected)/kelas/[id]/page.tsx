@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import {
   School,
   ArrowLeft,
@@ -19,10 +19,11 @@ import {
   Award,
 } from 'lucide-react';
 import { TierLevel } from '@prisma/client';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getClassDetail } from '../queries';
 import { ClassNotificationSettingsCard } from '@/components/kelas/ClassNotificationSettingsCard';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -42,20 +43,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function DetailKelasPage({ params }: PageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
+  const { effectiveUserId } = await requireProtectedAuth();
 
   const { id } = await params;
 
   let detailData;
   try {
-    detailData = await getClassDetail(authUser.id, id);
+    detailData = await getClassDetail(effectiveUserId, id);
   } catch (error) {
     console.error('Failed to load class detail:', error);
     notFound();
@@ -90,7 +84,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
   })();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <PageContainer variant="wide" className="py-6 sm:py-8 space-y-6">
       {/* 1. Header Detail */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -109,11 +103,11 @@ export default async function DetailKelasPage({ params }: PageProps) {
                 {classData.generation.name} ({classData.generation.minAge}-{classData.generation.maxAge} thn)
               </span>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${tierColorClass}`}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${tierColorClass}`}
               >
                 {classData.tierLevel}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold border border-slate-200">
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
                 TP {classData.academicYear}
               </span>
             </div>
@@ -138,7 +132,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Wilayah Binaan */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <span>Wilayah Binaan</span>
           </div>
@@ -155,7 +149,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
 
         {/* Wali Kelas Pengampu */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold">
             <UserCheck className="w-4 h-4 text-teal-600" />
             <span>Wali Kelas Pengampu</span>
           </div>
@@ -180,14 +174,14 @@ export default async function DetailKelasPage({ params }: PageProps) {
           ) : (
             <div>
               <h3 className="text-sm font-bold text-slate-500">Belum Ditugaskan</h3>
-              <p className="text-xs text-slate-400">Silakan tentukan wali kelas</p>
+              <p className="text-xs text-slate-500">Silakan tentukan wali kelas</p>
             </div>
           )}
         </div>
 
         {/* Statistik Ruang */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-          <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold">
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span>Aktivitas Pembelajaran</span>
           </div>
@@ -213,7 +207,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
         initialEnabled={classData.waNotificationEnabled ?? true}
         initialScope={classData.waRecipientScope ?? 'BOTH'}
         initialParentOption={classData.waParentOption ?? 'ALL_PARENTS'}
-        canEdit={userPermissions.canEdit || classData.homeroomTeacherId === authUser.id}
+        canEdit={userPermissions.canEdit || classData.homeroomTeacherId === effectiveUserId}
       />
 
       {/* 3. Daftar Santri Binaan */}
@@ -238,7 +232,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
         </div>
 
         {students.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-400 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+          <div className="p-8 text-center text-xs text-slate-600 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
             Belum ada santri terdaftar pada jenjang {classData.generation.name} di wilayah {classData.organization.name}.
           </div>
         ) : (
@@ -255,7 +249,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
                   <h4 className="text-xs font-bold text-slate-800 truncate">
                     {student.fullName}
                   </h4>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                     <span>{student.gender === 'MALE' ? 'Ikhwan' : 'Akhwat'}</span>
                     <span>&bull;</span>
                     <span>{student.phoneNumber || 'Tanpa no. HP'}</span>
@@ -288,7 +282,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
           </div>
 
           {schedules.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-400 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+            <div className="p-6 text-center text-xs text-slate-600 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
               Belum ada sesi pengajian untuk kelas ini.
             </div>
           ) : (
@@ -305,7 +299,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
                       <h4 className="font-bold text-slate-800 group-hover:text-sky-700 transition-colors truncate">
                         {sch.title}
                       </h4>
-                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
                         <span className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
                           <span>{sch.venuePlaceName}</span>
@@ -326,7 +320,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">
                         {sch.status === 'ACTIVE'
                           ? 'Berlangsung'
                           : sch.status === 'SCHEDULED'
@@ -361,7 +355,7 @@ export default async function DetailKelasPage({ params }: PageProps) {
           </div>
 
           {assignments.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-400 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+            <div className="p-6 text-center text-xs text-slate-600 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
               Belum ada tugas yang ditugaskan ke kelas ini.
             </div>
           ) : (
@@ -373,11 +367,11 @@ export default async function DetailKelasPage({ params }: PageProps) {
                 >
                   <div>
                     <h4 className="font-bold text-slate-800">{asg.title}</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {asg.submissionsCount} pengumpulan &bull; +{asg.pointsReward} poin
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 shrink-0">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 shrink-0">
                     {asg.taskType}
                   </span>
                 </div>
@@ -386,6 +380,6 @@ export default async function DetailKelasPage({ params }: PageProps) {
           )}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

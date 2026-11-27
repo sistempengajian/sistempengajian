@@ -82,14 +82,14 @@ export default function ClassCard({
             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${genColorClass}`}
           >
             <span>{generation.name}</span>
-            <span className="opacity-60 text-[10px]">
+            <span className="opacity-60 text-xs">
               ({generation.minAge}-{generation.maxAge} thn)
             </span>
           </span>
 
           {/* Badge Tingkat Wilayah */}
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${tierColorClass}`}
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase border ${tierColorClass}`}
           >
             {tierLevel === TierLevel.KELOMPOK
               ? 'Kelompok'
@@ -127,7 +127,7 @@ export default function ClassCard({
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
               homeroomTeacher
                 ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                : 'bg-slate-100 text-slate-400 border-slate-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200'
             }`}
           >
             {homeroomTeacher ? (
@@ -143,7 +143,7 @@ export default function ClassCard({
                 {homeroomTeacher ? homeroomTeacher.fullName : 'Belum Ditugaskan'}
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 block truncate">
+            <span className="text-xs text-slate-500 block truncate">
               {homeroomTeacher
                 ? homeroomTeacher.phoneNumber
                   ? `Wali Kelas • ${homeroomTeacher.phoneNumber}`
@@ -169,7 +169,7 @@ export default function ClassCard({
         {/* Ringkasan Jumlah Santri, Jadwal, & Tugas */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Santri
             </span>
             <span className="text-xs sm:text-sm font-black text-slate-800 block mt-0.5">
@@ -178,7 +178,7 @@ export default function ClassCard({
           </div>
 
           <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Jadwal
             </span>
             <span className="text-xs sm:text-sm font-black text-slate-800 block mt-0.5">
@@ -187,7 +187,7 @@ export default function ClassCard({
           </div>
 
           <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Tugas
             </span>
             <span className="text-xs sm:text-sm font-black text-slate-800 block mt-0.5">

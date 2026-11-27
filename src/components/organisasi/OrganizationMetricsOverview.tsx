@@ -61,7 +61,7 @@ export default function OrganizationMetricsOverview({
             className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-md border border-slate-200/70 p-3.5 sm:p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 group"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-500 truncate">
+              <span className="text-xs font-semibold text-slate-500 truncate">
                 {item.label}
               </span>
               <div
@@ -75,7 +75,7 @@ export default function OrganizationMetricsOverview({
               <span className={`text-base sm:text-xl font-black ${item.valColor} block tracking-tight`}>
                 {item.value}
               </span>
-              <span className="text-[10px] sm:text-[11px] text-slate-400 block truncate">
+              <span className="text-xs text-slate-500 block truncate">
                 {item.subtext}
               </span>
             </div>

@@ -22,6 +22,7 @@ import UserTableView from './UserTableView';
 import LinkParentChildModal from './LinkParentChildModal';
 import DeleteUserModal from './DeleteUserModal';
 import { fetchUsersOverviewAction } from '@/app/(protected)/users/actions';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface UserManagementViewProps {
   initialData: UsersOverviewData;
@@ -249,7 +250,7 @@ export default function UserManagementView({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 animate-fade-in">
+    <PageContainer variant="wide" className="space-y-5 sm:space-y-6 animate-fade-in">
       {/* Header Halaman */}
       <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/60 p-4 sm:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -343,7 +344,7 @@ export default function UserManagementView({
           />
         ) : (
           <div className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center shadow-xs space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
               <UserX className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-800">
@@ -373,7 +374,7 @@ export default function UserManagementView({
             </div>
           ) : (
             <div className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center shadow-xs space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
                 <UserX className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-800">
@@ -401,7 +402,7 @@ export default function UserManagementView({
         )}
 
         {!hasMore && !isLoadingInitial && users.length > 0 && (
-          <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-400 font-medium">
+          <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-500 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
             <span>
               Menampilkan seluruh {users.length} dari {totalCount} akun pengguna
@@ -432,7 +433,7 @@ export default function UserManagementView({
         user={selectedUserForDelete}
         onSuccess={handleDeleteSuccess}
       />
-    </div>
+    </PageContainer>
   );
 }
 

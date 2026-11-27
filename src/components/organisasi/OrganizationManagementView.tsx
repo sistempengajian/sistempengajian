@@ -22,6 +22,7 @@ import OrganizationMetricsOverview from './OrganizationMetricsOverview';
 import OrganizationCard from './OrganizationCard';
 import OrganizationTreeView from './OrganizationTreeView';
 import DeleteOrganizationModal from './DeleteOrganizationModal';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface OrganizationManagementViewProps {
   initialData: OrganizationsOverviewData;
@@ -77,7 +78,7 @@ export default function OrganizationManagementView({
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 animate-fade-in">
+    <PageContainer variant="medium" className="space-y-5 sm:space-y-6 animate-fade-in">
 
       {/* Header Halaman: Mobile-friendly Stack */}
       <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/60 p-4 sm:p-6 shadow-xs">
@@ -203,7 +204,7 @@ export default function OrganizationManagementView({
                 title="Tampilan Kartu Grid"
               >
                 <LayoutGrid className="w-4 h-4" />
-                <span className="hidden sm:inline text-[11px]">Kartu</span>
+                <span className="hidden sm:inline text-xs">Kartu</span>
               </button>
 
               <button
@@ -217,7 +218,7 @@ export default function OrganizationManagementView({
                 title="Tampilan Pohon Hierarki"
               >
                 <GitFork className="w-4 h-4" />
-                <span className="hidden sm:inline text-[11px]">Hierarki</span>
+                <span className="hidden sm:inline text-xs">Hierarki</span>
               </button>
             </div>
           </div>
@@ -236,7 +237,7 @@ export default function OrganizationManagementView({
             />
           </div>
 
-          <span className="text-[11px] font-semibold text-slate-500 self-end sm:self-center">
+          <span className="text-xs font-semibold text-slate-500 self-end sm:self-center">
             Menampilkan {filteredOrganizations.length} dari {organizations.length} tingkatan wilayah
           </span>
         </div>
@@ -273,7 +274,7 @@ export default function OrganizationManagementView({
             </div>
           ) : (
             <div className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center shadow-xs space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
                 <Search className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-800">
@@ -299,6 +300,6 @@ export default function OrganizationManagementView({
         org={orgToDelete}
         onSuccess={handleDeleteSuccess}
       />
-    </div>
+    </PageContainer>
   );
 }

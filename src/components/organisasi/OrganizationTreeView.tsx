@@ -94,7 +94,7 @@ function TreeNodeItem({
               <span className="text-xs font-black text-slate-900 truncate">
                 {node.name}
               </span>
-              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${config.badgeBg}`}>
+              <span className={`px-1.5 py-0.2 rounded text-[11px] font-bold border ${config.badgeBg}`}>
                 {config.label}
               </span>
             </div>
@@ -102,7 +102,7 @@ function TreeNodeItem({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline-block">
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline-block">
             {node.stats.users} Santri/User
           </span>
 
@@ -156,7 +156,7 @@ export default function OrganizationTreeView({
           <h3 className="text-xs sm:text-sm font-bold text-slate-800">
             Struktur Pohon Hierarki Wilayah
           </h3>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-500">
             Relasi bertingkat: Daerah &rarr; Desa &rarr; Kelompok Binaan
           </p>
         </div>

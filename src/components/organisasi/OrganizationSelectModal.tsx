@@ -225,7 +225,7 @@ export default function OrganizationSelectModal({
                 <Layers className="w-3 h-3" />
                 <span>Semua</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-black ${
                     selectedTypeTab === 'ALL'
                       ? 'bg-slate-700 text-slate-100'
                       : 'bg-slate-100 text-slate-600'
@@ -257,7 +257,7 @@ export default function OrganizationSelectModal({
                     <IconComponent className="w-3 h-3" />
                     <span>{config.label}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                      className={`text-[11px] px-1.5 py-0.2 rounded-full font-black ${
                         isSelected
                           ? 'bg-white/20 text-white'
                           : 'bg-slate-100 text-slate-600'
@@ -313,7 +313,7 @@ export default function OrganizationSelectModal({
                           {org.name}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${config.badgeClass}`}
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${config.badgeClass}`}
                         >
                           {config.label}
                         </span>
@@ -321,14 +321,14 @@ export default function OrganizationSelectModal({
 
                       {/* Parent hierarchy info */}
                       {org.parentName ? (
-                        <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5 flex items-center gap-1">
+                        <p className="text-xs font-medium text-slate-500 truncate mt-0.5 flex items-center gap-1">
                           <span>Induk:</span>
                           <span className="text-slate-700 font-semibold">
                             {org.parentName}
                           </span>
                         </p>
                       ) : (
-                        <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+                        <p className="text-xs font-medium text-slate-500 mt-0.5">
                           Tingkat Pusat Wilayah
                         </p>
                       )}
@@ -353,14 +353,14 @@ export default function OrganizationSelectModal({
             })
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center space-y-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
                 <Building2 className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
                 <p className="text-xs sm:text-sm font-bold text-slate-700">
                   Tidak Ada Wilayah Ditemukan
                 </p>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                <p className="text-xs text-slate-500 max-w-xs mx-auto">
                   {searchQuery
                     ? `Tidak ada wilayah binaan yang cocok dengan pencarian "${searchQuery}".`
                     : 'Belum ada data wilayah binaan yang tersedia dalam kategori ini.'}
@@ -381,7 +381,7 @@ export default function OrganizationSelectModal({
 
         {/* Footer Modal */}
         <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2 shrink-0">
-          <span className="text-[11px] font-semibold text-slate-500">
+          <span className="text-xs font-semibold text-slate-500">
             Menampilkan {filteredOrganizations.length} dari {organizations.length} wilayah
           </span>
 

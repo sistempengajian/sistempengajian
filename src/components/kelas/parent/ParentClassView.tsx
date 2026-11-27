@@ -248,19 +248,19 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
             {/* Ringkasan Statistik Ananda */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
               <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-                <span className="block text-[11px] text-slate-500 font-medium">Kehadiran</span>
+                <span className="block text-xs text-slate-500 font-medium">Kehadiran</span>
                 <span className="text-lg sm:text-xl font-extrabold text-indigo-700">
                   {currentAttendanceSummary.percentage}%
                 </span>
               </div>
               <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-                <span className="block text-[11px] text-slate-500 font-medium">Hadir / Sesi</span>
+                <span className="block text-xs text-slate-500 font-medium">Hadir / Sesi</span>
                 <span className="text-lg sm:text-xl font-extrabold text-slate-900">
                   {currentAttendanceSummary.attendedCount} / {currentAttendanceSummary.totalSessions}
                 </span>
               </div>
               <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-                <span className="block text-[11px] text-slate-500 font-medium">Izin / Sakit</span>
+                <span className="block text-xs text-slate-500 font-medium">Izin / Sakit</span>
                 <span className="text-lg sm:text-xl font-extrabold text-slate-900">
                   {currentAttendanceSummary.permissionCount}
                 </span>
@@ -281,7 +281,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                     <p className="font-extrabold text-xs sm:text-sm truncate">
                       Laporan Perkembangan &amp; Rapor Ananda
                     </p>
-                    <p className="text-[10px] sm:text-[11px] text-teal-100 font-normal truncate">
+                    <p className="text-xs text-teal-100 font-normal truncate">
                       Rekap presensi, penguasaan materi, karakter &amp; cetak PDF
                     </p>
                   </div>
@@ -334,7 +334,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
               ) : (
                 <button
                   disabled
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-400 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shrink-0"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>Kontak Belum Ada</span>
@@ -366,7 +366,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
                         {item.taskTitle}
                       </h4>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         Diserahkan: {new Date(item.submittedAt).toLocaleDateString('id-ID', {
                           day: 'numeric',
                           month: 'short',
@@ -500,7 +500,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {/* Status Sesi */}
                               <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                                   isOngoing
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse'
                                     : sch.status === 'COMPLETED'
@@ -518,32 +518,32 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                               {/* Status Presensi Santri */}
                               {(isPast || sch.attendanceStatus) && (
                                 sch.attendanceStatus === 'HADIR' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                     Hadir
                                   </span>
                                 ) : sch.attendanceStatus === 'TERLAMBAT' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                     <Clock className="w-3 h-3 text-amber-600" />
                                     Terlambat
                                   </span>
                                 ) : sch.attendanceStatus === 'IZIN' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                                     <FileText className="w-3 h-3 text-indigo-600" />
                                     Izin
                                   </span>
                                 ) : sch.attendanceStatus === 'SAKIT' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                     <AlertCircle className="w-3 h-3 text-blue-600" />
                                     Sakit
                                   </span>
                                 ) : sch.attendanceStatus === 'ALPA' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                                     <XCircle className="w-3 h-3 text-rose-600" />
                                     Alpa
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
                                     <HelpCircle className="w-3 h-3 text-slate-400" />
                                     Belum Presensi
                                   </span>
@@ -551,7 +551,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                               )}
 
                               {sch.isCombined && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                                   <Users className="w-2.5 h-2.5 text-amber-600" />
                                   <span>Gabungan</span>
                                 </span>
@@ -559,7 +559,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                             </div>
 
                             {sch.className && !sch.isCombined && (
-                              <span className="text-[10px] font-medium text-slate-400 truncate max-w-[120px]">
+                              <span className="text-xs font-medium text-slate-500 truncate max-w-[120px]">
                                 {sch.className}
                               </span>
                             )}
@@ -662,7 +662,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                             {upcomingSchedules.map(renderParentCard)}
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-400 text-center py-6">
+                          <p className="text-xs text-slate-500 text-center py-6">
                             Tidak ada sesi pengajian mendatang untuk ananda pada periode ini.
                           </p>
                         )
@@ -675,7 +675,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                             {pastSchedules.map(renderParentCard)}
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-400 text-center py-6">
+                          <p className="text-xs text-slate-500 text-center py-6">
                             Tidak ada catatan sesi terlewat untuk ananda pada periode ini.
                           </p>
                         )
@@ -686,7 +686,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
               </div>
             ) : (
               <div className="text-center py-8 space-y-2">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Tidak ditemukan sesi pengajian pada periode yang dipilih.
                 </p>
                 <button
@@ -733,7 +733,7 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
             <div className="flex-shrink-0 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900">Ganti Data Kelas Anak</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Pilih ananda untuk melihat ruang kelas, jadwal & tugas
                 </p>
               </div>
@@ -781,11 +781,11 @@ export default function ParentClassView({ data }: ParentClassViewProps) {
                         <p className="text-sm font-bold text-slate-900 truncate">
                           {child.fullName}
                         </p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">
                           {childClass} {childOrg ? `• ${childOrg}` : ''}
                         </p>
                         {childGen && (
-                          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 mt-1">
+                          <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60 mt-1">
                             {childGen}
                           </span>
                         )}

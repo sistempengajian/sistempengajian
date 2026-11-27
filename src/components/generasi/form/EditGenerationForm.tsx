@@ -292,7 +292,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                   <label className="block text-xs font-bold text-slate-700">
                     Kode Unik Identifikasi
                   </label>
-                  <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200/60">
                     <Lock className="w-3 h-3 text-slate-400" />
                     Terkunci Permanen
                   </span>
@@ -305,7 +305,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm text-slate-500 font-mono font-bold tracking-wider cursor-not-allowed"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   Kode identifikasi ini tidak dapat diubah setelah dibuat demi menjaga integritas relasi foreign key pada data santri, kelas, dan modul materi kurikulum yang telah ada.
                 </p>
               </div>
@@ -422,11 +422,11 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-800">Notifikasi Grup WhatsApp Jenjang</h2>
-                    <p className="text-[11px] text-slate-500">Pengingat H-1 dan rangkuman jadwal mingguan ke grup WA santri/wali</p>
+                    <p className="text-xs text-slate-500">Pengingat H-1 dan rangkuman jadwal mingguan ke grup WA santri/wali</p>
                   </div>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                   WAHA GATEWAY
                 </span>
               </div>
@@ -449,7 +449,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                   <button
                     type="button"
                     onClick={() => setTestFeedback(null)}
-                    className="text-slate-400 hover:text-slate-600 font-bold ml-1 text-xs"
+                    className="text-slate-500 hover:text-slate-600 font-bold ml-1 text-xs"
                   >
                     ✕
                   </button>
@@ -480,7 +480,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                       type="button"
                       onClick={fetchWahaGroups}
                       disabled={isLoadingGroups}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 disabled:text-slate-400 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 disabled:text-slate-400 transition-colors cursor-pointer"
                     >
                       {isLoadingGroups ? (
                         <>
@@ -507,12 +507,12 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                   {/* Dropdown Selector jika grup berhasil ditarik dari WAHA */}
                   {showGroupPicker && availableGroups.length > 0 && (
                     <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 mt-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-600">
                         <span>Pilih dari Grup WA yang Terdeteksi ({availableGroups.length}):</span>
                         <button
                           type="button"
                           onClick={() => setShowGroupPicker(false)}
-                          className="text-slate-400 hover:text-slate-600"
+                          className="text-slate-500 hover:text-slate-600"
                         >
                           Tutup
                         </button>
@@ -542,7 +542,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                     </div>
                   )}
 
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     ID grup berakhiran <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">@g.us</code>. Sistem mengirimkan pengingat tanpa membuka tautan token login pribadi ke grup.
                   </p>
                 </div>
@@ -562,7 +562,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                       <Bell className="w-3.5 h-3.5 text-amber-500" />
                       <span>Pengingat Sesi H-1 Otomatis ke Grup</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Otomatis memposting ringkasan pengajian esok hari ke grup jenjang ini ~20 jam sebelum sesi dimulai.
                     </p>
                   </div>
@@ -580,7 +580,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                       <CalendarDays className="w-3.5 h-3.5 text-sky-500" />
                       <span>Rangkuman Jadwal 1 Minggu ke Depan (Weekly Digest)</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Otomatis mengirimkan daftar seluruh sesi pengajian jenjang ini (Senin s/d Ahad) setiap Ahad sore (17:00 WIB).
                     </p>
                   </div>
@@ -590,7 +590,7 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
               {/* Uji Coba & Aksi Cepat Manual */}
               {whatsappGroupId && (
                 <div className="pt-2 border-t border-slate-100 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 block">
+                  <span className="text-xs font-bold text-slate-600 block">
                     Aksi Uji Coba &amp; Pengiriman Manual:
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
@@ -650,21 +650,21 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-emerald-800">
                     <span className="text-base font-black block">{generation.studentCount}</span>
-                    <span className="text-[10px] font-semibold text-emerald-600 block">Santri</span>
+                    <span className="text-xs font-semibold text-emerald-600 block">Santri</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-sky-50/70 border border-sky-100 text-sky-800">
                     <span className="text-base font-black block">{generation.classCount}</span>
-                    <span className="text-[10px] font-semibold text-sky-600 block">Kelas</span>
+                    <span className="text-xs font-semibold text-sky-600 block">Kelas</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-purple-50/70 border border-purple-100 text-purple-800">
                     <span className="text-base font-black block">{generation.materialCount}</span>
-                    <span className="text-[10px] font-semibold text-purple-600 block">Materi</span>
+                    <span className="text-xs font-semibold text-purple-600 block">Materi</span>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   Perubahan rentang usia akan memengaruhi rekomendasi kelas santri dan pengurutan modul kurikulum pada jenjang ini.
                 </p>
               </div>
@@ -683,10 +683,10 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                     </span>
 
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold font-mono tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                         {generation.code}
                       </span>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${selectedTheme.badgeClass}`}>
+                      <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${selectedTheme.badgeClass}`}>
                         {minAge !== '' && maxAge !== '' ? `${minAge} - ${maxAge} Thn` : 'Rentang Usia'}
                       </span>
                     </div>
@@ -704,15 +704,15 @@ export default function EditGenerationForm({ generation }: EditGenerationFormPro
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">{generation.studentCount}</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Santri</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Santri</span>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">{generation.classCount}</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Kelas</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Kelas</span>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">{generation.materialCount}</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Materi</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Materi</span>
                   </div>
                 </div>
 

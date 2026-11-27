@@ -1,8 +1,5 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
 import {
   getClassesOverview,
   getStudentClassData,
@@ -17,6 +14,8 @@ import {
   HomeroomTeacherClassData,
   ParentClassData,
 } from '@/components/kelas/types';
+import { requireProtectedAuth } from '@/lib/auth';
+import { resolveGlobalActiveRole } from '@/lib/role-context-server';
 
 export const metadata: Metadata = {
   title: 'Kelas Pengajian | Sistem Pengajian',
@@ -27,20 +26,8 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-import { getEffectiveAuthUser } from '@/lib/auth';
-
 export default async function KelasPage({ searchParams }: PageProps) {
-  const { authUser, dbUser } = await getEffectiveAuthUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  if (!dbUser) {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect('/login?auth_error=' + encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan login kembali.'));
-  }
+  const { dbUser } = await requireProtectedAuth('full');
 
   const currentUser = {
     id: dbUser.id,
@@ -149,27 +136,19 @@ export default async function KelasPage({ searchParams }: PageProps) {
     });
   }
 
-  // 3. Tentukan Role Tab yang Sedang Aktif
+  // 3. Tentukan Role Tab yang Sedang Aktif (prioritas: ?role= eksplisit -> cookie global -> default)
   const resolvedSearchParams = await searchParams;
-  const roleQuery = (
+  const rawRoleParam =
     typeof resolvedSearchParams.role === 'string'
       ? resolvedSearchParams.role
       : typeof resolvedSearchParams.view === 'string'
-      ? resolvedSearchParams.view
-      : ''
-  ).toLowerCase();
+        ? resolvedSearchParams.view
+        : undefined;
 
-  let activeRole: RoleTabId;
-  const matchedRole = availableRoles.find(
-    (r) => r.id === roleQuery || (roleQuery === 'manage' && r.id === 'manage')
-  );
-
-  if (matchedRole) {
-    activeRole = matchedRole.id;
-  } else {
-    // Default prioritas:
-    activeRole = availableRoles[0].id;
-  }
+  const { activeRole } = await resolveGlobalActiveRole({
+    searchParamRole: rawRoleParam,
+    availableRoleIds: availableRoles.map((r) => r.id),
+  });
 
   // 4. Pre-fetch Data Paralel untuk Semua Role yang Tersedia (Zero Delay Switch)
   const roleDataMap: {

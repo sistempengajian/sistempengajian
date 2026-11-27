@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getOrganizationsData } from './queries';
 import OrganizationManagementView from '@/components/organisasi/OrganizationManagementView';
 
@@ -10,14 +10,8 @@ export const metadata: Metadata = {
   description: 'Pengaturan hierarki wilayah pengajian: Daerah, Desa, dan Kelompok binaan.',
 };
 
-import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
-
 export default async function OrganisasiPage() {
-  const { authUser: user, effectiveUserId } = await getEffectiveAuthUser();
-
-  if (!user || !effectiveUserId) {
-    redirect('/login');
-  }
+  const { effectiveUserId } = await requireProtectedAuth();
 
   const data = await getOrganizationsData(effectiveUserId);
   if (!data.userPermissions.canView) {

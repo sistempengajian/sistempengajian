@@ -35,7 +35,7 @@ export default function ClassTableView({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
               <th className="py-3.5 px-4 sm:px-6">Nama Kelas & Jenjang</th>
               <th className="py-3.5 px-4">Wilayah Binaan</th>
               <th className="py-3.5 px-4">Wali Kelas Pengampu</th>
@@ -88,12 +88,12 @@ export default function ClassTableView({
                       </Link>
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${genColorClass}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${genColorClass}`}
                         >
                           {cls.generation.name} ({cls.generation.minAge}-{cls.generation.maxAge} thn)
                         </span>
                         <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${tierColorClass}`}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold uppercase border ${tierColorClass}`}
                         >
                           {cls.tierLevel}
                         </span>
@@ -110,7 +110,7 @@ export default function ClassTableView({
                           {cls.organization.name}
                         </span>
                         {cls.organization.parent && (
-                          <span className="text-[10px] text-slate-400 truncate">
+                          <span className="text-xs text-slate-500 truncate">
                             {cls.organization.parent.name}
                           </span>
                         )}
@@ -125,7 +125,7 @@ export default function ClassTableView({
                         className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
                           cls.homeroomTeacher
                             ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}
                       >
                         {cls.homeroomTeacher ? (
@@ -140,7 +140,7 @@ export default function ClassTableView({
                             ? cls.homeroomTeacher.fullName
                             : 'Belum Ditugaskan'}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate">
+                        <span className="text-xs text-slate-500 truncate">
                           {cls.homeroomTeacher?.phoneNumber || 'Tidak ada kontak'}
                         </span>
                       </div>

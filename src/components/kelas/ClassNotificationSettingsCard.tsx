@@ -106,7 +106,7 @@ export function ClassNotificationSettingsCard({
             className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
               enabled
                 ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                : 'bg-slate-100 text-slate-400'
+                : 'bg-slate-100 text-slate-600'
             }`}
           >
             {enabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
@@ -117,7 +117,7 @@ export function ClassNotificationSettingsCard({
                 Notifikasi WhatsApp Otomatis
               </h3>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
                   enabled
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                     : 'bg-slate-100 text-slate-600 border border-slate-200'
@@ -181,7 +181,7 @@ export function ClassNotificationSettingsCard({
               <Users className="w-3.5 h-3.5 text-emerald-600" />
               <span>Target Penerima Notifikasi</span>
             </label>
-            <span className="text-[11px] text-slate-400">Pilih sasaran kontak pengumuman</span>
+            <span className="text-xs text-slate-500">Pilih sasaran kontak pengumuman</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -203,7 +203,7 @@ export function ClassNotificationSettingsCard({
                 </div>
                 {scope === 'BOTH' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-xs text-slate-500 leading-snug">
                 Santri dan Orang Tua/Wali sama-sama menerima pengumuman jadwal.
               </p>
             </button>
@@ -226,10 +226,10 @@ export function ClassNotificationSettingsCard({
                 </div>
                 {scope === 'PARENTS_ONLY' && <CheckCircle2 className="w-4 h-4 text-teal-600" />}
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-xs text-slate-500 leading-snug">
                 Pesan hanya ditujukan ke WhatsApp Orang Tua/Wali santri.
               </p>
-              <span className="inline-flex self-start px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800 text-[9px] font-bold">
+              <span className="inline-flex self-start px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800 text-[11px] font-bold">
                 Rekomendasi Caberawit
               </span>
             </button>
@@ -252,7 +252,7 @@ export function ClassNotificationSettingsCard({
                 </div>
                 {scope === 'STUDENTS_ONLY' && <CheckCircle2 className="w-4 h-4 text-sky-600" />}
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-xs text-slate-500 leading-snug">
                 Pesan hanya dikirim ke WhatsApp santri sendiri (kelas mandiri/dewasa).
               </p>
             </button>
@@ -267,7 +267,7 @@ export function ClassNotificationSettingsCard({
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
                 <span>Opsi Pengiriman ke Orang Tua</span>
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-xs text-slate-500">
                 Tentukan jumlah kontak ortu yang menerima notifikasi
               </span>
             </div>
@@ -290,7 +290,7 @@ export function ClassNotificationSettingsCard({
                 />
                 <div className="text-xs">
                   <p className="font-bold text-slate-800">Kedua Orang Tua (Ayah & Ibu)</p>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
+                  <p className="text-slate-500 text-xs mt-0.5">
                     Notifikasi dikirim ke seluruh kontak orang tua/wali yang terdaftar di sistem.
                   </p>
                 </div>
@@ -313,7 +313,7 @@ export function ClassNotificationSettingsCard({
                 />
                 <div className="text-xs">
                   <p className="font-bold text-slate-800">Salah Satu Saja</p>
-                  <p className="text-slate-500 text-[11px] mt-0.5">
+                  <p className="text-slate-500 text-xs mt-0.5">
                     Hanya kirim ke 1 orang tua per santri agar tidak terjadi dobel pesan ke satu keluarga.
                   </p>
                 </div>
@@ -323,7 +323,7 @@ export function ClassNotificationSettingsCard({
         )}
 
         {/* Info Box Perlindungan Guru */}
-        <div className="flex items-start gap-2.5 text-[11px] text-slate-500 bg-slate-50/50 p-3 rounded-xl border border-slate-200/60">
+        <div className="flex items-start gap-2.5 text-xs text-slate-500 bg-slate-50/50 p-3 rounded-xl border border-slate-200/60">
           <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
             <strong>Catatan Pengajar:</strong> Pesan pengingat jadwal tugas mengajar untuk Ustadz/Ustadzah dan Badal

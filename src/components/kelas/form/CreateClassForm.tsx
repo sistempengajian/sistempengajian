@@ -172,7 +172,7 @@ export default function CreateClassForm({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Informasi Ruang Kelas</h2>
-              <p className="text-[11px] text-slate-500">Nama kelas identik dan tahun ajaran aktif</p>
+              <p className="text-xs text-slate-500">Nama kelas identik dan tahun ajaran aktif</p>
             </div>
           </div>
 
@@ -186,7 +186,7 @@ export default function CreateClassForm({
                 <button
                   type="button"
                   onClick={handleAutoSuggestName}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
                 >
                   <Sparkles className="w-3 h-3" />
                   <span>Saran Nama Otomatis</span>
@@ -224,7 +224,7 @@ export default function CreateClassForm({
                   ))}
                 </datalist>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-500">
                 Format standar: YYYY/YYYY (misal: 2026/2027)
               </p>
             </div>
@@ -239,7 +239,7 @@ export default function CreateClassForm({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Jenjang Generasi & Wilayah Binaan</h2>
-              <p className="text-[11px] text-slate-500">Rentang usia santri dan teritorial pengajian</p>
+              <p className="text-xs text-slate-500">Rentang usia santri dan teritorial pengajian</p>
             </div>
           </div>
 
@@ -280,7 +280,7 @@ export default function CreateClassForm({
                           <span className="text-xs font-bold text-slate-800 block truncate">
                             {gen.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 block">
+                          <span className="text-xs text-slate-500 block">
                             Usia {gen.minAge} - {gen.maxAge} tahun
                           </span>
                         </div>
@@ -335,7 +335,7 @@ export default function CreateClassForm({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Wali Kelas Pengampu</h2>
-              <p className="text-[11px] text-slate-500">Penanggung jawab pembinaan santri dan presensi</p>
+              <p className="text-xs text-slate-500">Penanggung jawab pembinaan santri dan presensi</p>
             </div>
           </div>
 
@@ -369,7 +369,7 @@ export default function CreateClassForm({
                   <span className="text-xs font-semibold text-slate-700 block">
                     Belum Ditugaskan
                   </span>
-                  <span className="text-[10px] text-slate-400 block">
+                  <span className="text-xs text-slate-500 block">
                     Wali kelas dapat ditunjuk kemudian
                   </span>
                 </div>
@@ -382,7 +382,7 @@ export default function CreateClassForm({
             {/* Daftar Guru Tersedia */}
             <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
               {filteredTeachers.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+                <div className="p-4 text-center text-xs text-slate-600 rounded-xl bg-slate-50 border border-dashed border-slate-200">
                   Tidak ada guru atau pengajar yang cocok.
                 </div>
               ) : (
@@ -408,12 +408,12 @@ export default function CreateClassForm({
                               {teacher.fullName}
                             </span>
                             {teacher.currentAssignedClassesCount > 0 && (
-                              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-semibold bg-slate-200/80 text-slate-600">
+                              <span className="px-1.5 py-0.2 rounded-full text-[11px] font-semibold bg-slate-200/80 text-slate-600">
                                 Mengampu {teacher.currentAssignedClassesCount} kelas
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
                             <span>{teacher.phoneNumber || 'Tidak ada nomor'}</span>
                             {teacher.organizationName && (
                               <>

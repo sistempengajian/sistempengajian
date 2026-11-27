@@ -212,7 +212,7 @@ export default function CreateGenerationForm() {
                     Kode Unik Identifikasi <span className="text-rose-500">*</span>
                   </label>
                   {isCodeManuallyEdited && (
-                    <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                    <span className="text-[11px] text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
                       Kustom Manual
                     </span>
                   )}
@@ -227,12 +227,12 @@ export default function CreateGenerationForm() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 font-mono uppercase font-bold tracking-wider transition-all"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
                       SLUG
                     </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Otomatis terisi dari nama jenjang. Kode ini bersifat permanen dan digunakan sebagai referensi internal sistem kurikulum &amp; kelas.
                 </p>
               </div>
@@ -339,7 +339,7 @@ export default function CreateGenerationForm() {
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all resize-none"
                 />
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Deskripsi ini akan ditampilkan sebagai panduan kurikulum santri dan orang tua.
                 </p>
               </div>
@@ -354,11 +354,11 @@ export default function CreateGenerationForm() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-800">Notifikasi Grup WhatsApp Jenjang</h2>
-                    <p className="text-[11px] text-slate-500">Pengingat H-1 dan rangkuman jadwal sepekan (opsional)</p>
+                    <p className="text-xs text-slate-500">Pengingat H-1 dan rangkuman jadwal sepekan (opsional)</p>
                   </div>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold font-mono tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                   WAHA GATEWAY
                 </span>
               </div>
@@ -388,7 +388,7 @@ export default function CreateGenerationForm() {
                     onChange={(e) => setWhatsappGroupId(e.target.value)}
                     className="w-full px-4 py-2.5 font-mono rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/60 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 font-medium transition-all"
                   />
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     ID grup berakhiran <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">@g.us</code>. Dapat diisi atau disesuaikan kemudian melalui halaman edit.
                   </p>
                 </div>
@@ -407,7 +407,7 @@ export default function CreateGenerationForm() {
                       <Bell className="w-3.5 h-3.5 text-amber-500" />
                       <span>Pengingat Sesi H-1 Otomatis ke Grup</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Otomatis memposting ringkasan pengajian esok hari ke grup jenjang ini ~20 jam sebelum sesi dimulai.
                     </p>
                   </div>
@@ -425,7 +425,7 @@ export default function CreateGenerationForm() {
                       <CalendarDays className="w-3.5 h-3.5 text-sky-500" />
                       <span>Rangkuman Jadwal 1 Minggu ke Depan (Weekly Digest)</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Otomatis mengirimkan daftar seluruh sesi pengajian jenjang ini (Senin s/d Ahad) setiap Ahad sore (17:00 WIB).
                     </p>
                   </div>
@@ -453,10 +453,10 @@ export default function CreateGenerationForm() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold font-mono tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                         {code.trim() || 'KODE_SLUG'}
                       </span>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${selectedTheme.badgeClass}`}>
+                      <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${selectedTheme.badgeClass}`}>
                         {minAge !== '' && maxAge !== '' ? `${minAge} - ${maxAge} Thn` : 'Rentang Usia'}
                       </span>
                     </div>
@@ -475,15 +475,15 @@ export default function CreateGenerationForm() {
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">0</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Santri</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Santri</span>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">0</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Kelas</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Kelas</span>
                   </div>
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-sm font-black text-slate-800 block">0</span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Materi</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Materi</span>
                   </div>
                 </div>
 
@@ -500,7 +500,7 @@ export default function CreateGenerationForm() {
                   <Info className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Pedoman Jenjang Generasi</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-amber-800">
+                <p className="text-xs leading-relaxed text-amber-800">
                   Pastikan rentang usia tidak tumpang tindih secara drastis dengan jenjang lain demi memudahkan pemantauan absensi, evaluasi nilai ujian, dan pembagian kelas binaan di masjid/kelompok.
                 </p>
               </div>

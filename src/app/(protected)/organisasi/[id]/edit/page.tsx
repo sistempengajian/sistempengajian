@@ -1,7 +1,7 @@
 import React from 'react';
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getOrganizationById } from '../../queries';
 import EditOrganizationForm from '@/components/organisasi/form/EditOrganizationForm';
 
@@ -34,19 +34,11 @@ export default async function EditOrganisasiPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
+  const { effectiveUserId } = await requireProtectedAuth();
 
   const { canEdit, organization, parentOptions } = await getOrganizationById(
     id,
-    authUser.id
+    effectiveUserId
   );
 
   if (!canEdit) {

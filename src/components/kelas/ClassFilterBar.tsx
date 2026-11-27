@@ -84,7 +84,7 @@ export default function ClassFilterBar({
             <button
               type="button"
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600 p-1 cursor-pointer"
               title="Hapus pencarian"
             >
               <X className="w-3.5 h-3.5" />
@@ -198,7 +198,7 @@ export default function ClassFilterBar({
         </div>
 
         {/* Indikator Jumlah Hasil */}
-        <span className="text-[11px] font-semibold text-slate-400 shrink-0 hidden sm:inline">
+        <span className="text-xs font-semibold text-slate-500 shrink-0 hidden sm:inline">
           Menampilkan <strong className="text-slate-700">{filteredResults}</strong> dari{' '}
           <strong className="text-slate-700">{totalResults}</strong> kelas
         </span>

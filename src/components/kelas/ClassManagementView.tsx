@@ -23,6 +23,7 @@ import ClassFilterBar from './ClassFilterBar';
 import ClassCard from './ClassCard';
 import ClassTableView from './ClassTableView';
 import DeleteClassModal from './DeleteClassModal';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface ClassManagementViewProps {
   initialData: ClassesOverviewData;
@@ -204,7 +205,7 @@ export default function ClassManagementView({ initialData }: ClassManagementView
     Boolean(selectedAcademicYear && selectedAcademicYear !== 'ALL');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <PageContainer variant="wide" className="py-6 sm:py-8 space-y-6">
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -346,7 +347,7 @@ export default function ClassManagementView({ initialData }: ClassManagementView
       {/* 5. Pagination Info + Load More */}
       {!isPending && classes.length > 0 && (
         <div className="flex flex-col items-center gap-3 pt-2">
-          <p className="text-xs text-slate-400 font-medium">
+          <p className="text-xs text-slate-500 font-medium">
             Menampilkan{' '}
             <span className="text-slate-600 font-bold">{classes.length}</span>{' '}
             dari{' '}
@@ -389,6 +390,6 @@ export default function ClassManagementView({ initialData }: ClassManagementView
         }}
         onSuccess={handleDeleteSuccess}
       />
-    </div>
+    </PageContainer>
   );
 }

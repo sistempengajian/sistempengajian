@@ -180,7 +180,7 @@ export default function EditOrganizationForm({
             <div className="rounded-3xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700">Tingkatan Wilayah</span>
-                <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
+                <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200">
                   <Lock className="w-3 h-3 text-slate-400" />
                   Terkunci Permanen
                 </span>
@@ -194,7 +194,7 @@ export default function EditOrganizationForm({
                   <span className="text-xs font-black text-slate-900 block">
                     {config.fullName}
                   </span>
-                  <span className="text-[11px] text-slate-500 block">
+                  <span className="text-xs text-slate-500 block">
                     Tingkat hierarki organisasi bersifat tetap demi menjaga integritas data santri dan kelas.
                   </span>
                 </div>
@@ -253,7 +253,7 @@ export default function EditOrganizationForm({
                     }
                   />
 
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Pilihan induk wilayah telah disaring untuk mencegah hierarki melingkar (*circular dependency*).
                   </p>
                 </div>
@@ -276,14 +276,14 @@ export default function EditOrganizationForm({
                     <span className="text-sm sm:text-base font-black block">
                       {organization.studentCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-emerald-600 block">Santri</span>
+                    <span className="text-xs font-semibold text-emerald-600 block">Santri</span>
                   </div>
 
                   <div className="p-2.5 rounded-2xl bg-sky-50/70 border border-sky-100 text-sky-800">
                     <span className="text-sm sm:text-base font-black block">
                       {organization.teacherCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-sky-600 block">Pengajar</span>
+                    <span className="text-xs font-semibold text-sky-600 block">Pengajar</span>
                   </div>
 
                   <div className="p-2.5 rounded-2xl bg-purple-50/70 border border-purple-100 text-purple-800">
@@ -294,13 +294,13 @@ export default function EditOrganizationForm({
                           ? `${organization.childrenCount} Klp`
                           : `${organization.classCount} Kelas`}
                     </span>
-                    <span className="text-[10px] font-semibold text-purple-600 block">
+                    <span className="text-xs font-semibold text-purple-600 block">
                       {organization.type === 'KELOMPOK' ? 'Kelas' : 'Binaan'}
                     </span>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   Perubahan nama atau induk wilayah akan otomatis memperbarui tampilan jadwal, presensi, dan hierarki pembinaan santri terkait.
                 </p>
               </div>
@@ -318,13 +318,13 @@ export default function EditOrganizationForm({
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${config.badgeBg}`}
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${config.badgeBg}`}
                       >
                         {config.fullName}
                       </span>
 
                       {parentDisplay && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[200px]">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[200px]">
                           <GitBranch className="w-3 h-3 text-slate-400 shrink-0" />
                           <span className="truncate">{parentDisplay}</span>
                         </span>
@@ -348,14 +348,14 @@ export default function EditOrganizationForm({
                     <span className="text-xs sm:text-sm font-black text-slate-800 block">
                       {organization.studentCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Santri</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Santri</span>
                   </div>
 
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
                     <span className="text-xs sm:text-sm font-black text-slate-800 block">
                       {organization.teacherCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">Pengajar</span>
+                    <span className="text-xs font-semibold text-slate-500 block">Pengajar</span>
                   </div>
 
                   <div className="p-2 rounded-xl bg-slate-50 border border-slate-150">
@@ -366,7 +366,7 @@ export default function EditOrganizationForm({
                           ? `${organization.childrenCount} Klp`
                           : `${organization.classCount} Kelas`}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-500 block">
+                    <span className="text-xs font-semibold text-slate-500 block">
                       {organization.type === 'KELOMPOK' ? 'Kelas' : 'Binaan'}
                     </span>
                   </div>

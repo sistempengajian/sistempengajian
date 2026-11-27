@@ -102,7 +102,7 @@ export default function DeleteUserModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl text-slate-600 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -132,10 +132,10 @@ export default function DeleteUserModal({
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Akun Memiliki Riwayat Historis Aktif</span>
               </div>
-              <p className="text-[11px] leading-relaxed text-amber-800">
+              <p className="text-xs leading-relaxed text-amber-800">
                 Akun ini tidak disarankan untuk dihapus permanen karena memiliki data historis pengajian:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] font-semibold text-amber-900 pl-1">
+              <ul className="list-disc list-inside space-y-1 text-xs font-semibold text-amber-900 pl-1">
                 {user.stats.attendancesCount > 0 && (
                   <li>{user.stats.attendancesCount} Rekam data presensi</li>
                 )}
@@ -149,7 +149,7 @@ export default function DeleteUserModal({
                   <li>{user.stats.classesCount} Penugasan wali kelas binaan</li>
                 )}
               </ul>
-              <p className="text-[11px] text-amber-900 font-bold pt-1">
+              <p className="text-xs text-amber-900 font-bold pt-1">
                 Rekomendasi Aman: Nonaktifkan atau Tangguhkan akun agar data statistik dan nilai santri tetap utuh.
               </p>
             </div>
@@ -159,7 +159,7 @@ export default function DeleteUserModal({
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Aman untuk Dihapus</span>
               </div>
-              <p className="text-[11px] leading-relaxed">
+              <p className="text-xs leading-relaxed">
                 Akun ini belum memiliki riwayat presensi atau pengerjaan tugas. Apakah Anda yakin ingin menghapus akun ini secara permanen?
               </p>
             </div>

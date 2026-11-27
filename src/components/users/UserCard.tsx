@@ -141,7 +141,7 @@ export default function UserCard({
                 {user.fullName}
               </h3>
 
-              <div className="flex items-center gap-2 text-[11px] text-slate-500 truncate flex-wrap">
+              <div className="flex items-center gap-2 text-xs text-slate-500 truncate flex-wrap">
                 {user.username && (
                   <span className="font-semibold text-slate-600 truncate">
                     @{user.username}
@@ -160,7 +160,7 @@ export default function UserCard({
           {/* Status Badge */}
           <div className="shrink-0">
             <span
-              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 ${
+              className={`px-2 py-0.5 rounded-md text-[11px] font-bold border flex items-center gap-1 ${
                 isStatusActive
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : isSuspended
@@ -195,7 +195,7 @@ export default function UserCard({
             return (
               <span
                 key={r.id}
-                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${config.bg} ${config.text} ${config.border} shadow-2xs`}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${config.bg} ${config.text} ${config.border} shadow-2xs`}
               >
                 {config.label}
               </span>
@@ -203,7 +203,7 @@ export default function UserCard({
           })}
 
           {user.generation && (
-            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shadow-2xs">
+            <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shadow-2xs">
               <Sparkles className="w-2.5 h-2.5 text-purple-500" />
               <span>{user.generation.name}</span>
             </span>
@@ -216,7 +216,7 @@ export default function UserCard({
           {user.organization ? (
             <div className="flex items-center gap-1.5 text-slate-600 truncate">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate text-[11px] font-semibold">
+              <span className="truncate text-xs font-semibold">
                 {user.organization.name}
                 {user.organization.parentName
                   ? ` (${user.organization.parentName})`
@@ -224,7 +224,7 @@ export default function UserCard({
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] italic">
+            <div className="flex items-center gap-1.5 text-slate-500 text-xs italic">
               <MapPin className="w-3.5 h-3.5 text-slate-300 shrink-0" />
               <span>Wilayah belum ditentukan</span>
             </div>
@@ -232,8 +232,8 @@ export default function UserCard({
 
           {/* Relasi Santri -> Orang Tua */}
           {isSantri && (
-            <div className="p-2 rounded-xl bg-slate-50/80 border border-slate-150/70 text-[11px] space-y-1">
-              <span className="font-semibold text-slate-500 block text-[10px]">
+            <div className="p-2 rounded-xl bg-slate-50/80 border border-slate-150/70 text-xs space-y-1">
+              <span className="font-semibold text-slate-500 block text-xs">
                 Orang Tua / Wali:
               </span>
               {user.parents && user.parents.length > 0 ? (
@@ -247,7 +247,7 @@ export default function UserCard({
                         {p.parent.fullName} ({p.relationshipType})
                       </span>
                       {p.parent.phoneNumber && (
-                        <span className="text-[10px] font-normal text-slate-500 shrink-0">
+                        <span className="text-xs font-normal text-slate-500 shrink-0">
                           {p.parent.phoneNumber}
                         </span>
                       )}
@@ -264,8 +264,8 @@ export default function UserCard({
 
           {/* Relasi Orang Tua -> Anak Santri */}
           {isOrangTua && (
-            <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/70 text-[11px] space-y-1">
-              <span className="font-semibold text-amber-900 block text-[10px]">
+            <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/70 text-xs space-y-1">
+              <span className="font-semibold text-amber-900 block text-xs">
                 Anak Santri Terdaftar ({user.children?.length || 0}):
               </span>
               {user.children && user.children.length > 0 ? (
@@ -277,7 +277,7 @@ export default function UserCard({
                     >
                       <span className="truncate">{c.student.fullName}</span>
                       {c.student.generation && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                        <span className="text-[11px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
                           {c.student.generation.name}
                         </span>
                       )}
@@ -316,7 +316,7 @@ export default function UserCard({
               title="Tautkan Akun Orang Tua"
             >
               <Link2 className="w-3 h-3 text-emerald-600" />
-              <span className="text-[11px]">Tautkan Ortu</span>
+              <span className="text-xs">Tautkan Ortu</span>
             </button>
           )}
         </div>
@@ -329,7 +329,7 @@ export default function UserCard({
               title="Edit Profil Pengguna"
             >
               <Pencil className="w-3 h-3" />
-              <span className="text-[11px]">Edit</span>
+              <span className="text-xs">Edit</span>
             </Link>
           )}
 

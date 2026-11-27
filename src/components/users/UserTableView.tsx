@@ -79,7 +79,7 @@ export default function UserTableView({
     <div className="rounded-3xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs text-slate-600">
-          <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          <thead className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
             <tr>
               <th className="py-3.5 px-4">Pengguna</th>
               <th className="py-3.5 px-3">Peran (Roles)</th>
@@ -127,7 +127,7 @@ export default function UserTableView({
                         <span className="font-bold text-slate-900 block truncate max-w-[180px]">
                           {user.fullName}
                         </span>
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 truncate">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
                           {user.username && <span>@{user.username}</span>}
                           {user.phoneNumber && (
                             <>
@@ -149,7 +149,7 @@ export default function UserTableView({
                         return (
                           <span
                             key={r.id}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${config.bg} ${config.text} ${config.border}`}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${config.bg} ${config.text} ${config.border}`}
                           >
                             {config.label}
                           </span>
@@ -161,29 +161,29 @@ export default function UserTableView({
                   {/* Kolom 3: Wilayah */}
                   <td className="py-3 px-3">
                     {user.organization ? (
-                      <div className="text-[11px] space-y-0.5">
+                      <div className="text-xs space-y-0.5">
                         <span className="font-semibold text-slate-800 block truncate max-w-[160px]">
                           {user.organization.name}
                         </span>
-                        <span className="text-[10px] text-slate-400 block truncate max-w-[160px]">
+                        <span className="text-xs text-slate-500 block truncate max-w-[160px]">
                           {user.organization.parentName ||
                             user.organization.type}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 italic text-[11px]">-</span>
+                      <span className="text-slate-400 italic text-xs">-</span>
                     )}
                   </td>
 
                   {/* Kolom 4: Jenjang / Relasi Ortu-Anak */}
                   <td className="py-3 px-3">
                     {user.generation ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                         <Sparkles className="w-2.5 h-2.5 text-purple-500" />
                         <span>{user.generation.name}</span>
                       </span>
                     ) : user.parents && user.parents.length > 0 ? (
-                      <span className="text-[11px] font-semibold text-slate-600 block truncate max-w-[150px]">
+                      <span className="text-xs font-semibold text-slate-600 block truncate max-w-[150px]">
                         Ortu: {user.parents[0].parent.fullName}
                       </span>
                     ) : user.children && user.children.length > 0 ? (
@@ -191,14 +191,14 @@ export default function UserTableView({
                         {user.children.length} Anak Santri
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-[11px]">-</span>
+                      <span className="text-slate-400 text-xs">-</span>
                     )}
                   </td>
 
                   {/* Kolom 5: Status */}
                   <td className="py-3 px-3">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${
                         isStatusActive
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : isSuspended

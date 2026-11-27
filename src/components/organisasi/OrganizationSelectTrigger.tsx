@@ -82,7 +82,7 @@ export default function OrganizationSelectTrigger({
             </span>
             {selectedOrg && (
               <span
-                className={`text-[9px] px-1.5 py-0.2 rounded font-bold border shrink-0 ${config?.badgeClass}`}
+                className={`text-[11px] px-1.5 py-0.2 rounded font-bold border shrink-0 ${config?.badgeClass}`}
               >
                 {config?.label}
               </span>
@@ -96,7 +96,7 @@ export default function OrganizationSelectTrigger({
                   e.stopPropagation();
                   onClear();
                 }}
-                className="w-4 h-4 rounded-md hover:bg-slate-200 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-4 h-4 rounded-md hover:bg-slate-200 text-slate-600 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
                 title="Hapus Wilayah"
               >
                 <X className="w-3 h-3" />
@@ -137,36 +137,36 @@ export default function OrganizationSelectTrigger({
                   {selectedOrg.name}
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${config?.badgeClass}`}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${config?.badgeClass}`}
                 >
                   {config?.label}
                 </span>
               </div>
 
               {selectedOrg.parentName ? (
-                <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
+                <p className="text-xs font-medium text-slate-500 truncate mt-0.5">
                   Induk Pengayom:{' '}
                   <span className="text-slate-700 font-semibold">
                     {selectedOrg.parentName}
                   </span>
                 </p>
               ) : (
-                <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+                <p className="text-xs font-medium text-slate-500 mt-0.5">
                   Tingkat Pusat Wilayah (Tanpa Induk)
                 </p>
               )}
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-3 text-slate-400 py-1 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 group-hover:text-slate-600 transition-colors">
+          <div className="flex items-center gap-3 text-slate-500 py-1 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0 group-hover:text-slate-600 transition-colors">
               <MapPin className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <span className="text-xs sm:text-sm font-semibold text-slate-600 block truncate">
                 {placeholder}
               </span>
-              <span className="text-[11px] text-slate-400 block truncate">
+              <span className="text-xs text-slate-500 block truncate">
                 Klik untuk mencari dan memilih dari daftar wilayah binaan
               </span>
             </div>
@@ -181,7 +181,7 @@ export default function OrganizationSelectTrigger({
                 e.stopPropagation();
                 onClear();
               }}
-              className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
               title="Hapus Pilihan"
             >
               <X className="w-4 h-4" />

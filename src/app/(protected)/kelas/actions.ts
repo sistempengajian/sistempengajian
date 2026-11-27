@@ -2,12 +2,13 @@
 
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TierLevel, UserRole } from '@prisma/client';
 import { getScopedOrganizationIds } from '@/lib/scoped-access';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { CACHE_TAGS, invalidateUserProfileCache } from '@/lib/cache';
 
 const classSchema = z.object({
   name: z
@@ -197,6 +198,8 @@ export async function createClass(
       console.error('Failed to write audit log for createClass:', e);
     }
 
+    await invalidateUserProfileCache(cleanTeacherId);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/kelas');
     revalidatePath('/dashboard');
     return { success: true, message: `Kelas "${name}" berhasil dibuat.` };
@@ -380,6 +383,8 @@ export async function updateClass(
       console.error('Failed to write audit log for updateClass:', e);
     }
 
+    await invalidateUserProfileCache(oldHomeroomTeacherId, cleanTeacherId);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/kelas');
     revalidatePath(`/kelas/${classId}`);
     revalidatePath('/dashboard');
@@ -499,6 +504,8 @@ export async function deleteClass(
       console.error('Failed to write audit log for deleteClass:', e);
     }
 
+    await invalidateUserProfileCache(targetClass.homeroomTeacherId);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/kelas');
     revalidatePath('/dashboard');
     return { success: true, message: `Kelas "${targetClass.name}" berhasil dihapus secara permanen.` };

@@ -318,7 +318,7 @@ export default function CreateUserForm({
                     1. Tentukan Peran Pengguna
                   </h2>
                 </div>
-                <span className="text-[10px] text-slate-400 font-semibold">
+                <span className="text-xs text-slate-500 font-semibold">
                   (Dapat memilih lebih dari satu)
                 </span>
               </div>
@@ -345,7 +345,7 @@ export default function CreateUserForm({
                           <span className="text-xs font-black text-slate-900 block truncate">
                             {roleItem.label}
                           </span>
-                          <span className="text-[10px] text-slate-500 block leading-tight">
+                          <span className="text-xs text-slate-500 block leading-tight">
                             {roleItem.description}
                           </span>
                         </div>
@@ -516,7 +516,7 @@ export default function CreateUserForm({
                   />
 
                   {allowedOrganizations.length === 0 && (
-                    <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                    <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>
                         Belum ada wilayah binaan tingkat{' '}
@@ -560,7 +560,7 @@ export default function CreateUserForm({
                     4. Kredensial Akses Login
                   </h2>
                 </div>
-                <span className="text-[10px] text-slate-400 font-semibold">
+                <span className="text-xs text-slate-500 font-semibold">
                   (Opsional jika santri tidak login mandiri)
                 </span>
               </div>
@@ -684,7 +684,7 @@ export default function CreateUserForm({
                     <h3 className="text-base font-black text-slate-900 truncate">
                       {fullName.trim() || 'Nama Calon Pengguna'}
                     </h3>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 truncate">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
                       <span>@{username.trim() || 'username'}</span>
                       {phoneNumber && <span>• {phoneNumber}</span>}
                     </div>
@@ -698,7 +698,7 @@ export default function CreateUserForm({
                     return (
                       <span
                         key={role}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${theme.badgeBg}`}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${theme.badgeBg}`}
                       >
                         {theme.label}
                       </span>
@@ -706,7 +706,7 @@ export default function CreateUserForm({
                   })}
 
                   {isSantri && selectedGen && (
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
                       <Sparkles className="w-2.5 h-2.5" />
                       <span>{selectedGen.name}</span>
                     </span>
@@ -717,14 +717,14 @@ export default function CreateUserForm({
                 <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
                   <div className="flex items-center gap-1.5 text-slate-600 truncate">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate text-[11px]">
+                    <span className="truncate text-xs">
                       {selectedOrg ? selectedOrg.name : 'Wilayah belum dipilih'}
                     </span>
                   </div>
 
                   {isSantri && parentName.trim() && (
-                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-150 text-[11px]">
-                      <span className="text-[10px] text-slate-400 block font-semibold">
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-150 text-xs">
+                      <span className="text-xs text-slate-500 block font-semibold">
                         Orang Tua / Wali:
                       </span>
                       <span className="font-bold text-slate-700">
@@ -740,7 +740,7 @@ export default function CreateUserForm({
                 <span className="font-bold text-slate-800 block">
                   Informasi Hak Akses:
                 </span>
-                <p className="text-[11px] leading-relaxed text-slate-500">
+                <p className="text-xs leading-relaxed text-slate-500">
                   Data yang Anda daftarkan akan otomatis disesuaikan dengan wewenang wilayah pembinaan akun pengelola Anda.
                 </p>
               </div>

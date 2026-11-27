@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getGenerationsData } from './queries';
 import GenerationManagementView from '@/components/generasi/GenerationManagementView';
 
@@ -11,16 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function GenerasiPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { effectiveUserId } = await requireProtectedAuth();
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  const data = await getGenerationsData(user.id);
+  const data = await getGenerationsData(effectiveUserId);
   if (!data.userPermissions.canView) {
     redirect('/dashboard');
   }

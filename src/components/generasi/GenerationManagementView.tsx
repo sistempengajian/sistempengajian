@@ -18,6 +18,7 @@ import {
 import GenerationMetricsOverview from './GenerationMetricsOverview';
 import GenerationCard from './GenerationCard';
 import DeleteGenerationModal from './DeleteGenerationModal';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface GenerationManagementViewProps {
   initialData: GenerationsOverviewData;
@@ -68,7 +69,7 @@ export default function GenerationManagementView({
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 animate-fade-in">
+    <PageContainer variant="medium" className="space-y-5 sm:space-y-6 animate-fade-in">
 
       {/* Header Halaman */}
       <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/60 p-5 sm:p-6 shadow-xs">
@@ -155,7 +156,7 @@ export default function GenerationManagementView({
         </div>
       ) : (
         <div className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center shadow-xs space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
             <Search className="w-6 h-6" />
           </div>
           <h3 className="text-sm font-bold text-slate-800">
@@ -179,6 +180,6 @@ export default function GenerationManagementView({
         generation={generationToDelete}
         onSuccess={handleDeleteSuccess}
       />
-    </div>
+    </PageContainer>
   );
 }

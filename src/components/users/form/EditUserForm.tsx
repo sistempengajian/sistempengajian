@@ -284,7 +284,7 @@ export default function EditUserForm({
                 Edit Pengguna: {user.fullName}
               </h1>
               <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${status === 'ACTIVE'
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${status === 'ACTIVE'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : status === 'SUSPENDED'
                     ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -326,7 +326,7 @@ export default function EditUserForm({
                     1. Peran Pengguna (Roles)
                   </h2>
                 </div>
-                <span className="text-[10px] text-slate-400 font-semibold">
+                <span className="text-xs text-slate-500 font-semibold">
                   (Dapat memilih lebih dari satu)
                 </span>
               </div>
@@ -352,7 +352,7 @@ export default function EditUserForm({
                           <span className="text-xs font-black text-slate-900 block truncate">
                             {roleItem.label}
                           </span>
-                          <span className="text-[10px] text-slate-500 block leading-tight">
+                          <span className="text-xs text-slate-500 block leading-tight">
                             {roleItem.description}
                           </span>
                         </div>
@@ -539,7 +539,7 @@ export default function EditUserForm({
                   />
 
                   {allowedOrganizations.length === 0 && (
-                    <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
+                    <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 flex items-center gap-2">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>
                         Belum ada wilayah binaan tingkat{' '}
@@ -582,12 +582,12 @@ export default function EditUserForm({
                     4. Akun Login &amp; Reset Kata Sandi
                   </h2>
                 </div>
-                <span className="text-[10px] text-slate-400 font-semibold">
+                <span className="text-xs text-slate-500 font-semibold">
                   (Otentikasi Akun)
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 Alamat email custom dan kata sandi baru yang Anda simpan di sini akan disinkronkan ke database dan dapat langsung digunakan oleh pengguna untuk masuk ke sistem via menu <strong>Login Email/Password</strong>.
               </p>
 
@@ -609,7 +609,7 @@ export default function EditUserForm({
                       className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 text-xs sm:text-sm text-slate-800 font-medium transition-all"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 block">
+                  <span className="text-xs text-slate-500 block">
                     Format email valid (contoh: user@gmail.com / user@pengajian.app).
                   </span>
                 </div>
@@ -633,13 +633,13 @@ export default function EditUserForm({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-600 transition-colors cursor-pointer"
                       title={showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <span className="text-[10px] text-slate-400 block">
+                  <span className="text-xs text-slate-500 block">
                     Minimal 6 karakter. Kosongkan jika tetap menggunakan sandi lama.
                   </span>
                 </div>
@@ -662,7 +662,7 @@ export default function EditUserForm({
                     <span className="text-sm sm:text-base font-black block">
                       {user.stats.attendancesCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-emerald-600 block">
+                    <span className="text-xs font-semibold text-emerald-600 block">
                       Presensi
                     </span>
                   </div>
@@ -671,7 +671,7 @@ export default function EditUserForm({
                     <span className="text-sm sm:text-base font-black block">
                       {user.stats.submissionsCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-sky-600 block">
+                    <span className="text-xs font-semibold text-sky-600 block">
                       Tugas Selesai
                     </span>
                   </div>
@@ -680,7 +680,7 @@ export default function EditUserForm({
                     <span className="text-sm sm:text-base font-black block">
                       {user.stats.classesCount}
                     </span>
-                    <span className="text-[10px] font-semibold text-purple-600 block">
+                    <span className="text-xs font-semibold text-purple-600 block">
                       Kelas Binaan
                     </span>
                   </div>
@@ -708,7 +708,7 @@ export default function EditUserForm({
                     <h3 className="text-base font-black text-slate-900 truncate">
                       {fullName.trim() || user.fullName}
                     </h3>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 truncate">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
                       <span>@{username.trim() || 'username'}</span>
                       {phoneNumber && <span>• {phoneNumber}</span>}
                     </div>
@@ -722,7 +722,7 @@ export default function EditUserForm({
                     return (
                       <span
                         key={role}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${theme.badgeBg}`}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${theme.badgeBg}`}
                       >
                         {theme.label}
                       </span>
@@ -730,7 +730,7 @@ export default function EditUserForm({
                   })}
 
                   {isSantri && selectedGen && (
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
                       <Sparkles className="w-2.5 h-2.5" />
                       <span>{selectedGen.name}</span>
                     </span>
@@ -741,7 +741,7 @@ export default function EditUserForm({
                 <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
                   <div className="flex items-center gap-1.5 text-slate-600 truncate">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate text-[11px]">
+                    <span className="truncate text-xs">
                       {selectedOrg ? selectedOrg.name : 'Wilayah belum dipilih'}
                     </span>
                   </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getGenerationById } from '../../queries';
 import EditGenerationForm from '@/components/generasi/form/EditGenerationForm';
 
@@ -32,17 +32,9 @@ export default async function EditGenerasiPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { effectiveUserId } = await requireProtectedAuth();
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  const { canEdit, generation } = await getGenerationById(id, authUser.id);
+  const { canEdit, generation } = await getGenerationById(id, effectiveUserId);
 
   if (!canEdit) {
     redirect('/generasi');

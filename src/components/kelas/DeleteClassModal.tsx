@@ -71,7 +71,7 @@ export default function DeleteClassModal({
             type="button"
             onClick={onClose}
             disabled={isDeleting}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1 rounded-xl text-slate-600 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -122,7 +122,7 @@ export default function DeleteClassModal({
                 <li>{classData._count.assignments} Tugas santri</li>
               )}
             </ul>
-            <p className="text-[11px] text-amber-600 italic">
+            <p className="text-xs text-amber-600 italic">
               Silakan pindahkan atau hapus jadwal dan tugas di kelas ini terlebih dahulu sebelum menghapus kelas demi menjaga keutuhan data riwayat presensi & nilai santri.
             </p>
           </div>

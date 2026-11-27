@@ -4,11 +4,11 @@ import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { UserRole, ParentRelationType, Gender } from '@prisma/client';
 import { CreateUserInput, UpdateUserInput } from '@/components/users/types';
 import { getEffectiveAuthUser } from '@/lib/auth';
-import { invalidateCache, cacheKey } from '@/lib/cache';
+import { invalidateCache, invalidateUserProfileCache, cacheKey, CACHE_TAGS } from '@/lib/cache';
 import {
   getScopedOrganizationIds,
   getManageableRoles,
@@ -478,9 +478,12 @@ export async function createUser(input: CreateUserInput) {
             relationshipType: rel.relationshipType || 'WALI',
           },
         });
+        await invalidateUserProfileCache(targetParentId);
       }
     }
 
+    await invalidateUserProfileCache(createdUser.id);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/users');
     revalidatePath('/dashboard');
 
@@ -701,6 +704,8 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
       });
     });
 
+    await invalidateUserProfileCache(userId);
+    revalidateTag(CACHE_TAGS.upcomingScheduleUser(userId));
     revalidatePath('/users');
     revalidatePath(`/users/${userId}/edit`);
     revalidatePath('/dashboard');
@@ -919,7 +924,9 @@ export async function linkParentChild(
         where: { id: existing.id },
         data: { relationshipType },
       });
+      await invalidateUserProfileCache(studentUserId, parentUserId);
       revalidatePath('/users');
+      revalidatePath('/dashboard');
       return { success: true, message: 'Tipe hubungan orang tua dan santri berhasil diperbarui.' };
     }
 
@@ -943,7 +950,10 @@ export async function linkParentChild(
       });
     }
 
+    await invalidateUserProfileCache(studentUserId, parentUserId);
+    revalidateTag(CACHE_TAGS.upcomingScheduleUser(parentUserId));
     revalidatePath('/users');
+    revalidatePath('/dashboard');
     return { success: true, message: 'Santri berhasil ditautkan ke akun orang tua.' };
   } catch (error: any) {
     return {
@@ -965,11 +975,18 @@ export async function unlinkParentChild(relationId: string) {
 
     await getAuthenticatedManager();
 
-    await prisma.studentParentRelation.delete({
+    const deletedRelation = await prisma.studentParentRelation.delete({
       where: { id: relationId },
+      select: { studentUserId: true, parentUserId: true },
     });
 
+    await invalidateUserProfileCache(
+      deletedRelation.studentUserId,
+      deletedRelation.parentUserId
+    );
+    revalidateTag(CACHE_TAGS.upcomingScheduleUser(deletedRelation.parentUserId));
     revalidatePath('/users');
+    revalidatePath('/dashboard');
     return { success: true, message: 'Hubungan tautan orang tua berhasil diputuskan.' };
   } catch (error: any) {
     return {
@@ -1118,6 +1135,8 @@ export async function deleteUser(userId: string) {
       console.warn('Supabase Auth user delete skipped or failed:', authErr.message);
     }
 
+    await invalidateUserProfileCache(userId);
+    revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
     revalidatePath('/users');
     revalidatePath('/dashboard');
 

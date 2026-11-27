@@ -68,7 +68,7 @@ export default function DeleteOrganizationModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl text-slate-600 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -84,7 +84,7 @@ export default function DeleteOrganizationModal({
               <h4 className="text-base font-black text-slate-900">
                 {org.name}
               </h4>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                 {org.type}
               </span>
             </div>
@@ -102,17 +102,17 @@ export default function DeleteOrganizationModal({
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Tidak Dapat Dihapus (Safety Guard)</span>
               </div>
-              <p className="text-[11px] leading-relaxed text-amber-800">
+              <p className="text-xs leading-relaxed text-amber-800">
                 Tingkatan wilayah ini masih memiliki data yang terhubung dalam sistem:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] font-semibold text-amber-900 pl-1">
+              <ul className="list-disc list-inside space-y-1 text-xs font-semibold text-amber-900 pl-1">
                 {org.childrenCount > 0 && <li>{org.childrenCount} Sub-wilayah binaan</li>}
                 {org.userCount > 0 && <li>{org.userCount} Santri / Pengguna terdaftar</li>}
                 {org.classCount > 0 && <li>{org.classCount} Kelas binaan aktif</li>}
                 {org.materialCount > 0 && <li>{org.materialCount} Modul kurikulum materi</li>}
                 {org.scheduleCount > 0 && <li>{org.scheduleCount} Jadwal pengajian</li>}
               </ul>
-              <p className="text-[10px] text-amber-700 italic pt-1">
+              <p className="text-xs text-amber-700 italic pt-1">
                 Silakan pindahkan santri, kelas, atau sub-wilayah terlebih dahulu sebelum menghapus tingkatan ini demi keutuhan data.
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function DeleteOrganizationModal({
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Aman untuk Dihapus</span>
               </div>
-              <p className="text-[11px] leading-relaxed">
+              <p className="text-xs leading-relaxed">
                 Tingkatan wilayah ini kosong (tidak ada santri, kelas, kurikulum, maupun sub-wilayah yang tertaut). Apakah Anda yakin ingin menghapus data ini secara permanen?
               </p>
             </div>

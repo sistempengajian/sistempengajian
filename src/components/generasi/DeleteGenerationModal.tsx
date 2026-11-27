@@ -71,7 +71,7 @@ export default function DeleteGenerationModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>

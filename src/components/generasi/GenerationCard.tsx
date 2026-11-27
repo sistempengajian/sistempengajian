@@ -135,12 +135,12 @@ export default function GenerationCard({
 
             <div className="flex items-center gap-2 flex-wrap pt-0.5">
               <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-wider border ${theme.badgeCode}`}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono tracking-wider border ${theme.badgeCode}`}
               >
                 {generation.code}
               </span>
               <span
-                className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${theme.badgeAge}`}
+                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${theme.badgeAge}`}
               >
                 {generation.minAge} - {generation.maxAge} Tahun
               </span>
@@ -163,7 +163,7 @@ export default function GenerationCard({
         {/* Status Notifikasi WhatsApp Grup */}
         <div className="pt-1">
           {generation.whatsappGroupId ? (
-            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-800 text-[11px] font-semibold">
+            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-800 text-xs font-semibold">
               <div className="flex items-center gap-1.5 min-w-0">
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="truncate" title={generation.whatsappGroupName || generation.whatsappGroupId}>
@@ -172,19 +172,19 @@ export default function GenerationCard({
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {generation.waGroupH1Enabled && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-200/80 text-emerald-800 text-[9px] font-black uppercase">
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-200/80 text-emerald-800 text-[11px] font-black uppercase">
                     H-1
                   </span>
                 )}
                 {generation.waGroupWeeklyEnabled && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-sky-200/80 text-sky-800 text-[9px] font-black uppercase">
+                  <span className="px-1.5 py-0.5 rounded-md bg-sky-200/80 text-sky-800 text-[11px] font-black uppercase">
                     Mingguan
                   </span>
                 )}
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-400 text-[11px]">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 text-[11px]">
               <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="truncate">Grup WA: Belum diatur</span>
             </div>
@@ -199,7 +199,7 @@ export default function GenerationCard({
             <span className="text-sm sm:text-base font-black text-slate-800 block">
               {generation.studentCount}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               Santri
             </span>
           </div>
@@ -210,7 +210,7 @@ export default function GenerationCard({
             <span className="text-sm sm:text-base font-black text-slate-800 block">
               {generation.classCount}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               Kelas
             </span>
           </div>
@@ -221,7 +221,7 @@ export default function GenerationCard({
             <span className="text-sm sm:text-base font-black text-slate-800 block">
               {generation.materialCount}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               Materi
             </span>
           </div>

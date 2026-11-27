@@ -1,8 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getClassFormReferenceData } from '../queries';
 import CreateClassForm from '@/components/kelas/form/CreateClassForm';
 
@@ -12,29 +11,13 @@ export const metadata: Metadata = {
 };
 
 export default async function TambahKelasPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { dbUser } = await requireProtectedAuth();
 
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  const currentUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      id: true,
-      organizationId: true,
-      roles: {
-        select: { role: true },
-      },
-    },
-  });
-
-  if (!currentUser) {
-    redirect('/login');
-  }
+  const currentUser = {
+    id: dbUser.id,
+    organizationId: dbUser.organizationId,
+    roles: dbUser.roles,
+  };
 
   const roleCodes = currentUser.roles.map((r) => r.role);
   const isManager =

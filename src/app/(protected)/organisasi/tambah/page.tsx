@@ -1,8 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getParentOptions } from '../queries';
 import CreateOrganizationForm from '@/components/organisasi/form/CreateOrganizationForm';
 
@@ -12,23 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function TambahOrganisasiPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { dbUser, effectiveUserId } = await requireProtectedAuth();
 
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  const userProfile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      roles: { select: { role: true } },
-    },
-  });
-
-  const roleCodes = userProfile?.roles.map((r) => r.role) || [];
+  const roleCodes = dbUser.roles.map((r) => r.role);
   const isAdmin = roleCodes.includes('ADMIN_MASTER');
   const isPjDaerah = roleCodes.includes('PJ_DAERAH');
   const isPjDesa = roleCodes.includes('PJ_DESA');
@@ -38,7 +23,7 @@ export default async function TambahOrganisasiPage() {
     redirect('/organisasi');
   }
 
-  const { daerahList, desaList } = await getParentOptions(authUser.id);
+  const { daerahList, desaList } = await getParentOptions(effectiveUserId);
 
   return (
     <CreateOrganizationForm

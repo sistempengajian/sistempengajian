@@ -77,12 +77,12 @@ export default function OrganizationCard({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${config.badgeBg}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${config.badgeBg}`}>
                 {config.fullName}
               </span>
 
               {org.parentName && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70 truncate max-w-[200px]">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/70 truncate max-w-[200px]">
                   <GitBranch className="w-3 h-3 text-slate-400 shrink-0" />
                   <span className="truncate">{org.parentName}</span>
                 </span>
@@ -107,7 +107,7 @@ export default function OrganizationCard({
             <span className="text-xs sm:text-sm font-black text-slate-800 block">
               {org.studentCount}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               Santri
             </span>
           </div>
@@ -116,7 +116,7 @@ export default function OrganizationCard({
             <span className="text-xs sm:text-sm font-black text-slate-800 block">
               {org.teacherCount}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               Pengajar
             </span>
           </div>
@@ -129,7 +129,7 @@ export default function OrganizationCard({
                 ? `${org.childrenCount} Klp`
                 : `${org.classCount} Kelas`}
             </span>
-            <span className="text-[10px] font-semibold text-slate-500 block truncate">
+            <span className="text-xs font-semibold text-slate-500 block truncate">
               {org.type === 'KELOMPOK' ? 'Kelas' : 'Binaan'}
             </span>
           </div>

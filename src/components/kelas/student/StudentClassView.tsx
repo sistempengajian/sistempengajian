@@ -115,7 +115,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
             <div className="flex flex-wrap items-center gap-1.5">
               {/* Status Sesi Pengajian */}
               <span
-                className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                className={`text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
                   isOngoing
                     ? 'bg-emerald-500 text-white animate-pulse'
                     : sch.status === 'SCHEDULED'
@@ -133,32 +133,32 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
               {/* Status Presensi Santri (Ditampilkan pada sesi terlewat/selesai atau bila santri sudah presensi) */}
               {(isPast || sch.attendanceStatus) && (
                 sch.attendanceStatus === 'HADIR' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                     Hadir
                   </span>
                 ) : sch.attendanceStatus === 'TERLAMBAT' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
                     <Clock className="w-3 h-3 text-amber-600" />
                     Terlambat
                   </span>
                 ) : sch.attendanceStatus === 'IZIN' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                     <FileText className="w-3 h-3 text-indigo-600" />
                     Izin
                   </span>
                 ) : sch.attendanceStatus === 'SAKIT' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
                     <AlertCircle className="w-3 h-3 text-blue-600" />
                     Sakit
                   </span>
                 ) : sch.attendanceStatus === 'ALPA' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80">
                     <XCircle className="w-3 h-3 text-rose-600" />
                     Tidak Hadir (Alpa)
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/80">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/80">
                     <HelpCircle className="w-3 h-3 text-slate-400" />
                     Belum Presensi
                   </span>
@@ -167,7 +167,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
             </div>
 
             {sch.scheduleType && (
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-xs text-slate-500 font-medium">
                 {sch.scheduleType}
               </span>
             )}
@@ -214,7 +214,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
             </div>
 
             {sch.teacherName && (
-              <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>Pengajar: {sch.teacherName}</span>
               </div>
@@ -306,7 +306,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
               {student.organization?.name || 'Kelompok Binaan'}
             </span>
             {student.organization?.parent && (
-              <span className="text-slate-400 text-xs">
+              <span className="text-slate-500 text-xs">
                 • Tingkat {student.organization.parent.name}
               </span>
             )}
@@ -316,19 +316,19 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
         {/* Quick KPI Stat Cards */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
           <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-            <span className="block text-[11px] text-slate-500 font-medium">Presensi</span>
+            <span className="block text-xs text-slate-500 font-medium">Presensi</span>
             <span className="text-lg sm:text-xl font-extrabold text-emerald-700">
               {attendanceSummary.percentage}%
             </span>
           </div>
           <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-            <span className="block text-[11px] text-slate-500 font-medium">Tugas Aktif</span>
+            <span className="block text-xs text-slate-500 font-medium">Tugas Aktif</span>
             <span className="text-lg sm:text-xl font-extrabold text-slate-900">
               {assignments.length}
             </span>
           </div>
           <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/60 text-center">
-            <span className="block text-[11px] text-slate-500 font-medium">Teman Kelas</span>
+            <span className="block text-xs text-slate-500 font-medium">Teman Kelas</span>
             <span className="text-lg sm:text-xl font-extrabold text-slate-900">
               {classmates.length + 1}
             </span>
@@ -403,7 +403,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
           ) : (
             <button
               disabled
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-400 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs sm:text-sm font-semibold cursor-not-allowed select-none shrink-0"
             >
               <MessageCircle className="w-4 h-4" />
               <span>Kontak Tidak Tersedia</span>
@@ -572,7 +572,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                   <div className="text-center py-10 bg-white/70 rounded-2xl border border-slate-200/80 p-6">
                     <CalendarDays className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <h4 className="text-sm font-bold text-slate-700">Tidak Ada Sesi Mendatang</h4>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                       Belum ada sesi pengajian mendatang untuk filter periode yang dipilih.
                     </p>
                   </div>
@@ -589,7 +589,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                   <div className="text-center py-10 bg-white/70 rounded-2xl border border-slate-200/80 p-6">
                     <CalendarDays className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <h4 className="text-sm font-bold text-slate-700">Tidak Ada Sesi Terlewat</h4>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                       Belum ada catatan riwayat sesi pengajian terlewat untuk periode yang dipilih.
                     </p>
                   </div>
@@ -601,7 +601,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
               <CalendarDays className="w-10 h-10 text-slate-300 mx-auto" />
               <div>
                 <h4 className="text-sm font-bold text-slate-700">Tidak Ada Sesi Pengajian</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                   Tidak ditemukan sesi pengajian pada filter periode yang dipilih.
                 </p>
               </div>
@@ -640,7 +640,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                             {task.taskType === 'AUDIO_MEMORIZATION'
                               ? 'Setoran Hafalan'
                               : task.taskType === 'DAILY_HABIT'
@@ -651,12 +651,12 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                           </span>
 
                           {task.requiresParentVerification && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                               Verifikasi Orang Tua
                             </span>
                           )}
 
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
                             <Sparkles className="w-2.5 h-2.5 text-emerald-500" />
                             +{task.pointsReward} Poin
                           </span>
@@ -667,7 +667,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                         </h3>
 
                         {task.dueDate && (
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-500">
                             Batas: {new Date(task.dueDate).toLocaleDateString('id-ID', {
                               day: 'numeric',
                               month: 'short',
@@ -713,7 +713,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
             <div className="text-center py-10 bg-white/70 rounded-2xl border border-slate-200/80 p-6">
               <CheckSquare className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <h4 className="text-sm font-bold text-slate-700">Tidak Ada Tugas Tertunda</h4>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Alhamdulillah! Semua tugas kelas telah diselesaikan atau belum ada tugas baru yang diberikan.
               </p>
             </div>
@@ -728,7 +728,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
             <h3 className="text-sm font-bold text-slate-900">
               Daftar Teman Mengaji ({classmates.length} Santri)
             </h3>
-            <span className="text-xs text-slate-400">Jenjang yang sama</span>
+            <span className="text-xs text-slate-500">Jenjang yang sama</span>
           </div>
 
           {classmates.length > 0 ? (
@@ -743,7 +743,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-800 truncate">{c.fullName}</p>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-xs text-slate-500">
                       {c.gender === 'MALE' ? 'Ikhwan' : 'Akhwat'}
                     </span>
                   </div>
@@ -751,7 +751,7 @@ export default function StudentClassView({ data, initialTab = 'jadwal' }: Studen
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-400 text-center py-6">
+            <p className="text-xs text-slate-500 text-center py-6">
               Belum ada santri lain yang terdaftar di kelompok & jenjang ini.
             </p>
           )}
