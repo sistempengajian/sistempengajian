@@ -134,6 +134,12 @@ const ROLE_USER_CIRCLE_MAP: Record<RoleTheme['roleKey'], string> = {
   ADMIN_MASTER: 'bg-purple-50 border-purple-200/80 text-purple-600',
 };
 
+const TIME_FORMATTER_WIB = new Intl.DateTimeFormat('id-ID', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Asia/Jakarta',
+});
+
 const TIER_BADGE_MAP: Record<TierLevel, { label: string; className: string }> = {
   DAERAH: {
     label: 'Daerah',
@@ -149,7 +155,7 @@ const TIER_BADGE_MAP: Record<TierLevel, { label: string; className: string }> = 
   },
 };
 
-export default function ScheduleCard({
+function ScheduleCard({
   schedule,
   canManage,
   currentUserId = null,
@@ -297,16 +303,8 @@ export default function ScheduleCard({
 
   const materialsCount = schedule.scheduleMaterials?.length ?? 0;
   const isCombined = (schedule.targetClasses?.length ?? 0) > 1;
-  const startTimeText = start.toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Jakarta',
-  });
-  const endTimeText = end.toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Jakarta',
-  });
+  const startTimeText = TIME_FORMATTER_WIB.format(start);
+  const endTimeText = TIME_FORMATTER_WIB.format(end);
 
   return (
     <div className="group relative p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 bg-white/95 hover:border-slate-300/90 transition-all duration-200 shadow-[0_6px_18px_-6px_rgba(15,23,42,0.07)] hover:shadow-[0_10px_24px_-6px_rgba(15,23,42,0.11)] space-y-2.5">
@@ -733,3 +731,5 @@ export default function ScheduleCard({
     </div>
   );
 }
+
+export default React.memo(ScheduleCard);

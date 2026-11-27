@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   Clock,
   Plus,
   CalendarCheck,
-  ChevronUp,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -41,7 +46,36 @@ interface SessionListSheetProps {
   hasOverlayAbove?: boolean;
 }
 
+type SnapPhase = 'idle' | 'dragging' | 'expanding' | 'expanded' | 'collapsing';
+
 const SHEET_TRANSITION = 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)';
+const ANIMATION_FALLBACK_MS = 340;
+
+const FULL_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+const COMPACT_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+function getLiveSheetTranslateY(el: HTMLElement | null, fallbackY: number): number {
+  if (!el || typeof window === 'undefined') return fallbackY;
+  const transformValue = window.getComputedStyle(el).transform;
+  if (!transformValue || transformValue === 'none') return fallbackY;
+  try {
+    const matrix = new DOMMatrix(transformValue);
+    return Number.isFinite(matrix.m42) ? matrix.m42 : fallbackY;
+  } catch {
+    return fallbackY;
+  }
+}
 
 /**
  * Panel daftar sesi terpisah di bawah kalender yang dapat ditarik ke atas
@@ -70,7 +104,7 @@ export default function SessionListSheet({
 }: SessionListSheetProps) {
   const [mounted, setMounted] = useState(false);
   const [isPortalMounted, setIsPortalMounted] = useState(false);
-  const [isDraggingSheet, setIsDraggingSheet] = useState(false);
+  const [isFocusTrapReady, setIsFocusTrapReady] = useState(false);
 
   const peekCardRef = useRef<HTMLDivElement>(null);
   const portalSheetRef = useRef<HTMLDivElement>(null);
@@ -78,8 +112,13 @@ export default function SessionListSheet({
   const scrollListRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionCleanupRef = useRef<(() => void) | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  const snapPhaseRef = useRef<SnapPhase>('idle');
+  const currentYRef = useRef<number>(0);
   const initialTranslateYRef = useRef<number>(0);
-  const isClosingRef = useRef<boolean>(false);
+  const collapseTargetYRef = useRef<number>(0);
 
   const dragCtxRef = useRef<{
     mode: 'idle' | 'pending-up' | 'up' | 'down';
@@ -99,93 +138,220 @@ export default function SessionListSheet({
     currentTranslateY: 0,
   });
 
-  useEffect(() => {
-    setMounted(true);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (animTimerRef.current) clearTimeout(animTimerRef.current);
-    };
+  const cancelPendingRaf = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   }, []);
 
-  const clearAnimTimer = () => {
-    if (animTimerRef.current) {
+  const clearAnimListeners = useCallback(() => {
+    if (animTimerRef.current !== null) {
       clearTimeout(animTimerRef.current);
       animTimerRef.current = null;
     }
-  };
-
-  const applySheetTransform = useCallback((translateY: number, withTransition: boolean) => {
-    const sheet = portalSheetRef.current;
-    const backdrop = backdropRef.current;
-    if (sheet) {
-      sheet.style.transition = withTransition ? SHEET_TRANSITION : 'none';
-      sheet.style.transform = `translate3d(0, ${translateY}px, 0)`;
-    }
-    if (backdrop) {
-      backdrop.style.transition = withTransition ? 'opacity 250ms ease' : 'none';
-      const viewportH = typeof window !== 'undefined' ? window.innerHeight || 700 : 700;
-      const ratio = Math.max(0, Math.min(1, 1 - translateY / viewportH));
-      backdrop.style.opacity = String(ratio);
+    if (transitionCleanupRef.current) {
+      transitionCleanupRef.current();
+      transitionCleanupRef.current = null;
     }
   }, []);
 
-  // Sinkronisasi awal saat portal sheet baru terpasang dari mode drag atau tap
   useEffect(() => {
+    setMounted(true);
+    return () => {
+      cancelPendingRaf();
+      clearAnimListeners();
+      if (dragCleanupRef.current) {
+        dragCleanupRef.current();
+        dragCleanupRef.current = null;
+      }
+    };
+  }, [cancelPendingRaf, clearAnimListeners]);
+
+  const applySheetVisuals = useCallback(
+    (translateY: number, transitionValue: string) => {
+      currentYRef.current = translateY;
+      const sheet = portalSheetRef.current;
+      const backdrop = backdropRef.current;
+
+      if (sheet) {
+        sheet.style.transition = transitionValue;
+        sheet.style.transform = `translate3d(0, ${translateY}px, 0)`;
+        const radius = translateY > 2 ? '1.5rem' : '0px';
+        sheet.style.borderTopLeftRadius = radius;
+        sheet.style.borderTopRightRadius = radius;
+      }
+
+      if (backdrop) {
+        backdrop.style.transition =
+          transitionValue === 'none' ? 'none' : 'opacity 280ms ease-out';
+        if (snapPhaseRef.current === 'collapsing' && transitionValue !== 'none') {
+          backdrop.style.opacity = '0';
+        } else {
+          const viewportH =
+            typeof window !== 'undefined' && window.innerHeight > 0
+              ? window.innerHeight
+              : 700;
+          const progress = Math.max(0, Math.min(1, 1 - translateY / viewportH));
+          backdrop.style.opacity = String(progress);
+        }
+      }
+    },
+    []
+  );
+
+  const animateSheetTo = useCallback(
+    (
+      targetY: number,
+      targetPhase: 'expanding' | 'collapsing',
+      onComplete: () => void
+    ) => {
+      cancelPendingRaf();
+      clearAnimListeners();
+      snapPhaseRef.current = targetPhase;
+
+      const sheet = portalSheetRef.current;
+      if (!sheet) {
+        onComplete();
+        return;
+      }
+
+      const liveY = getLiveSheetTranslateY(sheet, currentYRef.current);
+      if (Math.abs(targetY - liveY) < 1) {
+        applySheetVisuals(targetY, 'none');
+        onComplete();
+        return;
+      }
+
+      // Kunci posisi saat ini dulu lalu flush layout satu kali agar transisi dimulai dari titik tepat
+      applySheetVisuals(liveY, 'none');
+      sheet.getBoundingClientRect();
+
+      let finished = false;
+      const finalize = () => {
+        if (finished) return;
+        finished = true;
+        clearAnimListeners();
+        onComplete();
+      };
+
+      const onTransitionEnd = (ev: TransitionEvent) => {
+        if (ev.target === sheet && ev.propertyName === 'transform') {
+          finalize();
+        }
+      };
+
+      sheet.addEventListener('transitionend', onTransitionEnd);
+      transitionCleanupRef.current = () => {
+        sheet.removeEventListener('transitionend', onTransitionEnd);
+      };
+      animTimerRef.current = setTimeout(finalize, ANIMATION_FALLBACK_MS);
+
+      applySheetVisuals(targetY, SHEET_TRANSITION);
+    },
+    [applySheetVisuals, cancelPendingRaf, clearAnimListeners]
+  );
+
+  const finishExpand = useCallback(() => {
+    setIsFocusTrapReady(false);
+    if (!portalSheetRef.current) {
+      snapPhaseRef.current = 'expanding';
+      initialTranslateYRef.current = currentYRef.current;
+      return;
+    }
+
+    animateSheetTo(0, 'expanding', () => {
+      snapPhaseRef.current = 'expanded';
+      setIsFocusTrapReady(true);
+      onExpandedChange(true);
+    });
+  }, [animateSheetTo, onExpandedChange]);
+
+  const finishCollapse = useCallback(
+    (customTargetY?: number) => {
+      setIsFocusTrapReady(false);
+      const targetY =
+        customTargetY ??
+        (typeof window !== 'undefined' ? Math.max(window.innerHeight, 600) : 800);
+      collapseTargetYRef.current = targetY;
+
+      if (!portalSheetRef.current) {
+        snapPhaseRef.current = 'idle';
+        setIsPortalMounted(false);
+        onExpandedChange(false);
+        return;
+      }
+
+      animateSheetTo(targetY, 'collapsing', () => {
+        snapPhaseRef.current = 'idle';
+        currentYRef.current = 0;
+        setIsPortalMounted(false);
+        onExpandedChange(false);
+      });
+    },
+    [animateSheetTo, onExpandedChange]
+  );
+
+  // Tempatkan posisi awal sebelum frame pertama di-paint saat portal baru mounted
+  useLayoutEffect(() => {
     if (!isPortalMounted) return;
     const sheet = portalSheetRef.current;
     if (!sheet) return;
 
-    if (dragCtxRef.current.mode === 'up') {
-      applySheetTransform(dragCtxRef.current.currentTranslateY, false);
-    } else if (!isClosingRef.current) {
-      applySheetTransform(initialTranslateYRef.current, false);
-      const raf = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          applySheetTransform(0, true);
-        });
-      });
-      return () => cancelAnimationFrame(raf);
+    if (snapPhaseRef.current === 'dragging') {
+      applySheetVisuals(currentYRef.current, 'none');
+      return;
     }
-  }, [isPortalMounted, applySheetTransform]);
 
-  const finishExpand = useCallback(() => {
-    clearAnimTimer();
-    isClosingRef.current = false;
-    setIsDraggingSheet(false);
-    applySheetTransform(0, true);
-    onExpandedChange(true);
-  }, [applySheetTransform, onExpandedChange]);
+    if (snapPhaseRef.current === 'expanding' || snapPhaseRef.current === 'collapsing') {
+      applySheetVisuals(initialTranslateYRef.current, 'none');
+    }
+  }, [isPortalMounted, applySheetVisuals]);
 
-  const finishCollapse = useCallback(() => {
-    clearAnimTimer();
-    isClosingRef.current = true;
-    setIsDraggingSheet(false);
-    const targetY =
-      typeof window !== 'undefined'
-        ? Math.max(window.innerHeight, 600)
-        : 800;
-    applySheetTransform(targetY, true);
-    onExpandedChange(false);
+  // Mulai animasi slide satu frame setelah posisi awal di-paint oleh browser
+  useEffect(() => {
+    if (!isPortalMounted) return;
 
-    animTimerRef.current = setTimeout(() => {
-      isClosingRef.current = false;
-      setIsPortalMounted(false);
-    }, 260);
-  }, [applySheetTransform, onExpandedChange]);
+    if (snapPhaseRef.current === 'expanding') {
+      cancelPendingRaf();
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (snapPhaseRef.current === 'expanding') {
+          finishExpand();
+        }
+      });
+    } else if (snapPhaseRef.current === 'collapsing') {
+      cancelPendingRaf();
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (snapPhaseRef.current === 'collapsing') {
+          finishCollapse(collapseTargetYRef.current);
+        }
+      });
+    }
+  }, [isPortalMounted, cancelPendingRaf, finishExpand, finishCollapse]);
 
   const handleOpenFullscreen = useCallback(() => {
-    clearAnimTimer();
-    isClosingRef.current = false;
+    cancelPendingRaf();
+    clearAnimListeners();
+    setIsFocusTrapReady(false);
+
+    if (isPortalMounted && portalSheetRef.current) {
+      finishExpand();
+      return;
+    }
+
     const rectTop =
       peekCardRef.current?.getBoundingClientRect().top ??
       (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.45) : 360);
-    initialTranslateYRef.current = Math.max(0, rectTop);
+    const startOffset = Math.max(0, rectTop);
+    initialTranslateYRef.current = startOffset;
+    currentYRef.current = startOffset;
+    snapPhaseRef.current = 'expanding';
     setIsPortalMounted(true);
-    onExpandedChange(true);
-  }, [onExpandedChange]);
+  }, [cancelPendingRaf, clearAnimListeners, finishExpand, isPortalMounted]);
 
   const handleCloseFullscreen = useCallback(() => {
-    // Abaikan jika ada modal lain yang berada paling atas di DOM
     if (typeof document !== 'undefined') {
       const openDialogs = document.querySelectorAll('[aria-modal="true"]');
       const topmostDialog = openDialogs[openDialogs.length - 1];
@@ -198,7 +364,7 @@ export default function SessionListSheet({
 
   useBodyModalLock(isPortalMounted || isExpanded);
   useFocusTrap(
-    isPortalMounted && isExpanded && !hasOverlayAbove,
+    isPortalMounted && isFocusTrapReady && !hasOverlayAbove,
     portalSheetRef,
     handleCloseFullscreen
   );
@@ -206,8 +372,12 @@ export default function SessionListSheet({
   // Gestur tarik ke atas dari Handle Peek Card
   const handlePeekPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('button, a, input')) return;
-    clearAnimTimer();
-    isClosingRef.current = false;
+    if (dragCleanupRef.current) {
+      dragCleanupRef.current();
+      dragCleanupRef.current = null;
+    }
+    cancelPendingRaf();
+    clearAnimListeners();
 
     const startTop =
       peekCardRef.current?.getBoundingClientRect().top ??
@@ -235,9 +405,12 @@ export default function SessionListSheet({
       if (c.mode === 'pending-up') {
         if (dy < -8) {
           c.mode = 'up';
-          c.currentTranslateY = Math.max(0, c.startTop + dy);
-          initialTranslateYRef.current = c.currentTranslateY;
-          setIsDraggingSheet(true);
+          const nextY = Math.max(0, Math.min(window.innerHeight, c.startTop + dy));
+          c.currentTranslateY = nextY;
+          initialTranslateYRef.current = nextY;
+          currentYRef.current = nextY;
+          snapPhaseRef.current = 'dragging';
+          setIsFocusTrapReady(false);
           setIsPortalMounted(true);
         }
         return;
@@ -246,44 +419,53 @@ export default function SessionListSheet({
       if (c.mode === 'up') {
         const nextY = Math.max(0, Math.min(window.innerHeight, c.startTop + dy));
         c.currentTranslateY = nextY;
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        cancelPendingRaf();
         rafRef.current = requestAnimationFrame(() => {
-          applySheetTransform(nextY, false);
+          rafRef.current = null;
+          if (snapPhaseRef.current === 'dragging') {
+            applySheetVisuals(nextY, 'none');
+          }
         });
       }
     };
 
-    const onEnd = () => {
+    const cleanup = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onEnd);
       window.removeEventListener('pointercancel', onEnd);
+      dragCleanupRef.current = null;
+    };
+
+    const onEnd = () => {
+      cleanup();
+      cancelPendingRaf();
 
       const c = dragCtxRef.current;
-      const totalDy = c.lastY - c.startY;
       const wasDraggingUp = c.mode === 'up';
+      const movedDistance = c.currentTranslateY - c.startTop;
+      const lastPos = c.currentTranslateY;
+      const velY = c.velocityY;
+      const startTopPos = c.startTop;
       c.mode = 'idle';
 
       if (!wasDraggingUp) return;
 
+      initialTranslateYRef.current = lastPos;
+      currentYRef.current = lastPos;
+
       const shouldExpand =
-        totalDy < -55 ||
-        c.velocityY < -0.35 ||
-        c.currentTranslateY < c.startTop * 0.65;
+        movedDistance < -55 ||
+        velY < -0.35 ||
+        lastPos < startTopPos * 0.65;
 
       if (shouldExpand) {
         finishExpand();
       } else {
-        setIsDraggingSheet(false);
-        isClosingRef.current = true;
-        applySheetTransform(c.startTop, true);
-        animTimerRef.current = setTimeout(() => {
-          isClosingRef.current = false;
-          setIsPortalMounted(false);
-          onExpandedChange(false);
-        }, 260);
+        finishCollapse(startTopPos);
       }
     };
 
+    dragCleanupRef.current = cleanup;
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onEnd);
     window.addEventListener('pointercancel', onEnd);
@@ -292,8 +474,16 @@ export default function SessionListSheet({
   // Gestur tarik ke bawah dari Handle Fullscreen Header
   const handleFullscreenHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('button, a, input')) return;
-    clearAnimTimer();
-    isClosingRef.current = false;
+    if (dragCleanupRef.current) {
+      dragCleanupRef.current();
+      dragCleanupRef.current = null;
+    }
+    cancelPendingRaf();
+    clearAnimListeners();
+
+    const startOffset = Math.max(0, getLiveSheetTranslateY(portalSheetRef.current, currentYRef.current));
+    snapPhaseRef.current = 'dragging';
+    setIsFocusTrapReady(false);
 
     const ctx = dragCtxRef.current;
     ctx.mode = 'down';
@@ -301,8 +491,8 @@ export default function SessionListSheet({
     ctx.lastY = e.clientY;
     ctx.lastTime = performance.now();
     ctx.velocityY = 0;
-    ctx.currentTranslateY = 0;
-    setIsDraggingSheet(true);
+    ctx.startTop = startOffset;
+    ctx.currentTranslateY = startOffset;
 
     const onMove = (moveEvent: PointerEvent) => {
       const c = dragCtxRef.current;
@@ -313,32 +503,42 @@ export default function SessionListSheet({
       c.lastY = moveEvent.clientY;
       c.lastTime = now;
 
-      const dy = Math.max(0, moveEvent.clientY - c.startY);
+      const dy = Math.max(0, c.startTop + (moveEvent.clientY - c.startY));
       c.currentTranslateY = dy;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cancelPendingRaf();
       rafRef.current = requestAnimationFrame(() => {
-        applySheetTransform(dy, false);
+        rafRef.current = null;
+        if (snapPhaseRef.current === 'dragging') {
+          applySheetVisuals(dy, 'none');
+        }
       });
     };
 
-    const onEnd = () => {
+    const cleanup = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onEnd);
       window.removeEventListener('pointercancel', onEnd);
+      dragCleanupRef.current = null;
+    };
+
+    const onEnd = () => {
+      cleanup();
+      cancelPendingRaf();
 
       const c = dragCtxRef.current;
       const dy = c.currentTranslateY;
       const velocityY = c.velocityY;
       c.mode = 'idle';
 
+      currentYRef.current = dy;
       if (dy > 95 || velocityY > 0.4) {
         finishCollapse();
       } else {
-        setIsDraggingSheet(false);
-        applySheetTransform(0, true);
+        finishExpand();
       }
     };
 
+    dragCleanupRef.current = cleanup;
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onEnd);
     window.addEventListener('pointercancel', onEnd);
@@ -393,14 +593,16 @@ export default function SessionListSheet({
     const dx = touch.clientX - state.startX;
 
     if (!state.engaged) {
-      // Abaikan jika user menggeser naik (scroll daftar) atau scroll horizontal
       if (dy < -4 || Math.abs(dx) > Math.abs(dy)) {
         state.tracking = false;
         return;
       }
       if (dy > 12 && (scrollListRef.current?.scrollTop ?? 0) <= 0) {
         state.engaged = true;
-        setIsDraggingSheet(true);
+        cancelPendingRaf();
+        clearAnimListeners();
+        snapPhaseRef.current = 'dragging';
+        setIsFocusTrapReady(false);
       } else {
         return;
       }
@@ -414,9 +616,12 @@ export default function SessionListSheet({
 
     const dragY = Math.max(0, dy);
     state.currentY = dragY;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    cancelPendingRaf();
     rafRef.current = requestAnimationFrame(() => {
-      applySheetTransform(dragY, false);
+      rafRef.current = null;
+      if (snapPhaseRef.current === 'dragging') {
+        applySheetVisuals(dragY, 'none');
+      }
     });
   };
 
@@ -428,28 +633,18 @@ export default function SessionListSheet({
     }
     state.tracking = false;
     state.engaged = false;
+    cancelPendingRaf();
 
+    currentYRef.current = state.currentY;
     if (state.currentY > 95 || state.velocityY > 0.4) {
       finishCollapse();
     } else {
-      setIsDraggingSheet(false);
-      applySheetTransform(0, true);
+      finishExpand();
     }
   };
 
-  const fullDateLabel = selectedDate.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const compactDateLabel = selectedDate.toLocaleDateString('id-ID', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const fullDateLabel = FULL_DATE_FORMATTER.format(selectedDate);
+  const compactDateLabel = COMPACT_DATE_FORMATTER.format(selectedDate);
 
   const today = new Date();
   const isToday =
@@ -508,14 +703,13 @@ export default function SessionListSheet({
       <section
         ref={peekCardRef}
         aria-label="Daftar Sesi Tanggal Terpilih"
-        className="rounded-3xl bg-white/95 backdrop-blur-md border border-white/95 shadow-[0_12px_30px_-8px_rgba(15,23,42,0.10)]"
+        className="rounded-3xl bg-white/95 border border-white/95 shadow-[0_12px_30px_-8px_rgba(15,23,42,0.10)]"
       >
         {/* Drag Handle Zone & Date Header */}
         <div
           onPointerDown={handlePeekPointerDown}
           className={`touch-none select-none cursor-grab active:cursor-grabbing rounded-t-3xl bg-gradient-to-b ${accent.sheetHeaderTint} border-b border-slate-200/60 px-4 sm:px-5 pt-2.5 pb-3`}
         >
-          {/* Centered Pill Handle + Pull Hint */}
           <div className="flex flex-col items-center justify-center pb-2">
             <div className="w-10 h-1 rounded-full bg-slate-300/90" />
           </div>
@@ -549,7 +743,6 @@ export default function SessionListSheet({
                 </button>
               )}
 
-
               <button
                 type="button"
                 onClick={handleOpenFullscreen}
@@ -572,10 +765,10 @@ export default function SessionListSheet({
         isPortalMounted &&
         createPortal(
           <div className="fixed inset-0 z-[55]">
-            {/* Backdrop lembut di belakang sheet yang sedang meluncur */}
+            {/* Backdrop solid translusen ringan tanpa blur per-frame agar transisi 60fps */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 bg-slate-900/35 backdrop-blur-xs opacity-0"
+              className="absolute inset-0 bg-slate-900/40 opacity-0"
               aria-hidden="true"
             />
 
@@ -585,14 +778,12 @@ export default function SessionListSheet({
               role="dialog"
               aria-modal="true"
               aria-label={`Daftar Sesi ${fullDateLabel}`}
-              className={`absolute inset-0 h-[100dvh] w-full bg-slate-50 flex flex-col overflow-hidden shadow-2xl will-change-transform ${
-                isDraggingSheet ? 'rounded-t-3xl' : 'rounded-none'
-              }`}
+              className="absolute inset-0 h-[100dvh] w-full bg-slate-50 flex flex-col overflow-hidden shadow-2xl will-change-transform"
             >
               {/* Sticky Header dengan Drag Handle, Tombol Kembali, < > Tanggal, & + Tambah */}
               <div
                 onPointerDown={handleFullscreenHeaderPointerDown}
-                className="shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs touch-none select-none cursor-grab active:cursor-grabbing pt-[max(0.5rem,env(safe-area-inset-top))]"
+                className="shrink-0 bg-white/[0.97] border-b border-slate-200/80 shadow-2xs touch-none select-none cursor-grab active:cursor-grabbing pt-[max(0.5rem,env(safe-area-inset-top))]"
               >
                 {/* Handle Tarik Turun */}
                 <div className="flex justify-center pt-1 pb-2">
@@ -604,7 +795,7 @@ export default function SessionListSheet({
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={finishCollapse}
+                      onClick={() => finishCollapse()}
                       aria-label="Tutup layar penuh dan kembali ke kalender"
                       title="Kembali ke kalender"
                       className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition-all active:scale-95 cursor-pointer shrink-0"

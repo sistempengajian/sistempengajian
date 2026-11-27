@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useTransition, useMemo, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import {
@@ -98,6 +98,74 @@ interface InteractiveCalendarProps {
   theme?: RoleTheme;
 }
 
+const AGENDA_DATE_FORMATTER = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+interface FloatingCreateScheduleFabProps {
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  hidden: boolean;
+  canManage: boolean;
+  buttonClassName: string;
+  onClick: () => void;
+}
+
+/**
+ * Tombol FAB mobile terisolasi agar IntersectionObserver saat scroll
+ * tidak memicu re-render daftar kalender atau ratusan kartu Agenda.
+ */
+const FloatingCreateScheduleFab = React.memo(function FloatingCreateScheduleFab({
+  anchorRef,
+  hidden,
+  canManage,
+  buttonClassName,
+  onClick,
+}: FloatingCreateScheduleFabProps) {
+  const [isScrolledPast, setIsScrolledPast] = useState(false);
+
+  useEffect(() => {
+    const target = anchorRef.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nextVisible = !entry.isIntersecting && entry.boundingClientRect.top < 80;
+        setIsScrolledPast((prev) => (prev === nextVisible ? prev : nextVisible));
+      },
+      { rootMargin: '-64px 0px 0px 0px', threshold: 0 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [anchorRef]);
+
+  const visible = isScrolledPast && !hidden;
+
+  return (
+    <div
+      aria-hidden={!visible}
+      className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom)+var(--pwa-banner-clearance,0px))] right-4 sm:hidden z-30 transition-[transform,opacity] duration-200 ease-out will-change-transform ${
+        visible
+          ? 'opacity-100 translate-y-0 pointer-events-auto'
+          : 'opacity-0 translate-y-4 pointer-events-none'
+      }`}
+    >
+      <button
+        type="button"
+        tabIndex={visible ? 0 : -1}
+        onClick={onClick}
+        className={`min-h-[44px] flex items-center gap-2 px-4 py-2.5 ${buttonClassName} text-white rounded-2xl font-bold text-xs shadow-lg border active:scale-95 transition-transform cursor-pointer`}
+      >
+        <Plus className="w-4 h-4" />
+        <span>{canManage ? 'Buat Jadwal' : 'Ajukan Jadwal'}</span>
+      </button>
+    </div>
+  );
+});
+
 export default function InteractiveCalendar({
   schedules = [],
   availableTeachers = [],
@@ -129,37 +197,17 @@ export default function InteractiveCalendar({
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<JadwalFilterState>(EMPTY_JADWAL_FILTERS);
 
-  // Modal & Mobile FAB States
+  // Modal & Mobile FAB Anchor States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [scheduleToEdit, setScheduleToEdit] = useState<ScheduleItem | null>(null);
   const [isRollingWorkflowOpen, setIsRollingWorkflowOpen] = useState(false);
   const [isRollingModalOpen, setIsRollingModalOpen] = useState(false);
-  const [showMobileFab, setShowMobileFab] = useState(false);
   const topActionsRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
   const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const { open: openConfirm, ConfirmModalComponent } = useConfirm();
-
-  // Tampilkan mobile FAB hanya setelah top bar "+ Buat Jadwal Baru" tergulir ke atas
-  useEffect(() => {
-    if (!canManage && !canPropose) {
-      setShowMobileFab(false);
-      return;
-    }
-
-    const target = topActionsRef.current;
-    if (!target || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setShowMobileFab(!entry.isIntersecting && entry.boundingClientRect.top < 80);
-      },
-      { rootMargin: '-64px 0px 0px 0px', threshold: 0.1 }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [canManage, canPropose]);
 
   // Prefetch sub-halaman rolling agar saat user mengklik menu atau tombol, transisi instan
   useEffect(() => {
@@ -270,37 +318,53 @@ export default function InteractiveCalendar({
     setSelectedDay(nextDate.getDate());
   };
 
-  const handleOpenCreateModal = (specificDay?: number) => {
+  const handleOpenCreateModal = useCallback((specificDay?: number) => {
     setScheduleToEdit(null);
     if (specificDay) {
       setSelectedDay(specificDay);
     }
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenEditModal = (schedule: ScheduleItem) => {
+  const handleOpenCreateForSelectedDay = useCallback(() => {
+    setScheduleToEdit(null);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleOpenCreateDefault = useCallback(() => {
+    handleOpenCreateModal();
+  }, [handleOpenCreateModal]);
+
+  const handleOpenEditModal = useCallback((schedule: ScheduleItem) => {
     setScheduleToEdit(schedule);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteSchedule = (scheduleId: string) => {
-    openConfirm(
-      {
-        title: 'Hapus Jadwal Pengajian?',
-        description: 'Apakah Anda yakin ingin menghapus jadwal pengajian ini?',
-        variant: 'danger',
-        confirmText: 'Ya, Hapus',
-      },
-      async () => {
-        startTransition(async () => {
-          const res = await deleteSchedule(scheduleId);
-          if (res.error) {
-            toast.error(res.error);
-          }
-        });
-      }
-    );
-  };
+  const handleOpenFilterModal = useCallback(() => {
+    setIsFilterSheetOpen(true);
+  }, []);
+
+  const handleDeleteSchedule = useCallback(
+    (scheduleId: string) => {
+      openConfirm(
+        {
+          title: 'Hapus Jadwal Pengajian?',
+          description: 'Apakah Anda yakin ingin menghapus jadwal pengajian ini?',
+          variant: 'danger',
+          confirmText: 'Ya, Hapus',
+        },
+        async () => {
+          startTransition(async () => {
+            const res = await deleteSchedule(scheduleId);
+            if (res.error) {
+              toastRef.current.error(res.error);
+            }
+          });
+        }
+      );
+    },
+    [openConfirm]
+  );
 
   const monthNames = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -627,8 +691,8 @@ export default function InteractiveCalendar({
           isExpanded={isSessionSheetExpanded}
           onExpandedChange={setIsSessionSheetExpanded}
           onShiftDay={handleShiftSelectedDay}
-          onOpenCreateModal={() => handleOpenCreateModal(selectedDay)}
-          onOpenFilterSheet={() => setIsFilterSheetOpen(true)}
+          onOpenCreateModal={handleOpenCreateForSelectedDay}
+          onOpenFilterSheet={handleOpenFilterModal}
           onEditSchedule={handleOpenEditModal}
           onDeleteSchedule={handleDeleteSchedule}
           hasOverlayAbove={
@@ -653,7 +717,7 @@ export default function InteractiveCalendar({
             return (
               <div
                 key={group.dateKey}
-                className="rounded-3xl bg-white/85 backdrop-blur-md border border-white/90 p-4 sm:p-5 shadow-[0_10px_28px_-8px_rgba(15,23,42,0.08)] space-y-3"
+                className="rounded-3xl bg-white/95 border border-white/90 p-4 sm:p-5 shadow-[0_10px_28px_-8px_rgba(15,23,42,0.08)] space-y-3"
               >
                 {/* Header Tanggal Agenda */}
                 <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
@@ -668,12 +732,7 @@ export default function InteractiveCalendar({
                       {group.dateObj.getDate()}
                     </div>
                     <h4 className="font-bold text-xs sm:text-sm text-slate-900">
-                      {group.dateObj.toLocaleDateString('id-ID', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
+                      {AGENDA_DATE_FORMATTER.format(group.dateObj)}
                     </h4>
                   </div>
 
@@ -731,25 +790,22 @@ export default function InteractiveCalendar({
         </div>
       )}
 
-      {/* Floating Action Button (FAB) untuk Mobile — otomatis di atas Floating BottomNav & PwaFloatingBanner */}
-      {(canManage || canPropose) &&
-        showMobileFab &&
-        !isSessionSheetExpanded &&
-        !isFilterSheetOpen &&
-        !isModalOpen &&
-        !isRollingWorkflowOpen &&
-        !isRollingModalOpen && (
-          <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom)+var(--pwa-banner-clearance,0px))] right-4 sm:hidden z-30 flex flex-col gap-2 items-end transition-[bottom] duration-200 animate-in fade-in slide-in-from-bottom-4">
-            <button
-              type="button"
-              onClick={() => handleOpenCreateModal()}
-              className={`min-h-[44px] flex items-center gap-2 px-4 py-2.5 ${accent.buttonPrimary} text-white rounded-2xl font-bold text-xs shadow-lg border active:scale-95 transition-all cursor-pointer`}
-            >
-              <Plus className="w-4 h-4" />
-              <span>{canManage ? 'Buat Jadwal' : 'Ajukan Jadwal'}</span>
-            </button>
-          </div>
-        )}
+      {/* Floating Action Button (FAB) Terisolasi untuk Mobile */}
+      {(canManage || canPropose) && (
+        <FloatingCreateScheduleFab
+          anchorRef={topActionsRef}
+          hidden={
+            isSessionSheetExpanded ||
+            isFilterSheetOpen ||
+            isModalOpen ||
+            isRollingWorkflowOpen ||
+            isRollingModalOpen
+          }
+          canManage={canManage}
+          buttonClassName={accent.buttonPrimary}
+          onClick={handleOpenCreateDefault}
+        />
+      )}
 
       {/* Modal Bottom Sheet Filter Multi-Select Gaya Shopee */}
       <JadwalFilterSheet
