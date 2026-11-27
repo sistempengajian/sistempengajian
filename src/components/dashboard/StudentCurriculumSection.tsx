@@ -1,139 +1,140 @@
 import React from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
-import { COMMON_THEME } from '@/lib/theme';
+import { BookOpen, CalendarCheck, Target, type LucideIcon } from 'lucide-react';
+import { TYPOGRAPHY } from '@/lib/design-tokens';
 import ProgressCircle from '@/components/dashboard/ProgressCircle';
+import Soft3DIcon, { type Soft3DColorScheme } from '@/components/dashboard/Soft3DIcon';
+import type { StudentCurriculumMetrics } from '@/app/(protected)/dashboard/queries';
 
 interface StudentCurriculumSectionProps {
   generationName?: string | null;
-  theme: {
+  theme?: {
     accentColor: string;
     accentBorder: string;
     [key: string]: any;
   };
-  studentMetrics: any;
+  studentMetrics: StudentCurriculumMetrics | null;
+}
+
+interface FloatingMetricCardItem {
+  key: string;
+  eyebrow: string;
+  eyebrowColor: string;
+  title: string;
+  subtitle: string;
+  percentage: number;
+  href: string;
+  icon: LucideIcon;
+  colorScheme: Soft3DColorScheme;
 }
 
 export default function StudentCurriculumSection({
   generationName,
-  theme,
   studentMetrics,
 }: StudentCurriculumSectionProps) {
+  const overall = studentMetrics?.overall ?? { completed: 0, total: 0, percentage: 0 };
+  const monthly = studentMetrics?.monthly ?? {
+    completed: 0,
+    total: 0,
+    percentage: 0,
+    source: 'NONE' as const,
+  };
+  const monthlyAttendance = studentMetrics?.monthlyAttendance ?? {
+    hadir: 0,
+    total: 0,
+    percentage: 0,
+    alpaCount: 0,
+  };
+  const monthLabel = studentMetrics?.monthLabel || 'Bulan Ini';
+
+  const cards: FloatingMetricCardItem[] = [
+    {
+      key: 'curriculum',
+      eyebrow: 'Kurikulum',
+      eyebrowColor: 'text-emerald-700',
+      title: `Jenjang ${generationName || 'Santri'}`,
+      subtitle:
+        overall.total > 0
+          ? `${overall.completed}/${overall.total} Materi`
+          : 'Belum ada materi',
+      percentage: overall.percentage,
+      href: '/kurikulum?role=student',
+      icon: BookOpen,
+      colorScheme: 'emerald',
+    },
+    {
+      key: 'target',
+      eyebrow: 'Target',
+      eyebrowColor: 'text-blue-700',
+      title: `Target ${monthLabel}`,
+      subtitle:
+        monthly.total > 0
+          ? `${monthly.completed}/${monthly.total} ${monthly.source === 'SCHEDULE' ? 'Terjadwal' : 'Materi'
+          }`
+          : 'Belum ada target',
+      percentage: monthly.percentage,
+      href: '/kurikulum?role=student',
+      icon: Target,
+      colorScheme: 'blue',
+    },
+    {
+      key: 'attendance',
+      eyebrow: 'Kehadiran',
+      eyebrowColor: 'text-rose-700',
+      title: `Presensi ${monthLabel}`,
+      subtitle:
+        monthlyAttendance.total > 0
+          ? `${monthlyAttendance.hadir}/${monthlyAttendance.total} Sesi${monthlyAttendance.alpaCount > 0
+            ? ` · ${monthlyAttendance.alpaCount} Alpa`
+            : ' Hadir'
+          }`
+          : 'Belum ada sesi',
+      percentage: monthlyAttendance.percentage,
+      href: '/laporan?role=student',
+      icon: CalendarCheck,
+      colorScheme: 'rose',
+    },
+  ];
+
   return (
-    <section className={COMMON_THEME.cardClassPadded}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className={COMMON_THEME.sectionTitleClass}>
-                Capaian Kurikulum &amp; Rapor Belajar {generationName || 'Caberawit'}
-              </h3>
+    <section aria-labelledby="student-curriculum-heading">
+      <h2 id="student-curriculum-heading" className="sr-only">
+        Capaian &amp; Kehadiran {generationName || 'Santri'}
+      </h2>
+
+      <div className="space-y-2.5 sm:space-y-3">
+        {cards.map((card) => (
+          <Link
+            key={card.key}
+            href={card.href}
+            prefetch={true}
+            className="group flex items-center justify-between gap-3.5 rounded-[22px] bg-white/95 border border-white/90 px-4 py-3.5 shadow-[0_8px_24px_-6px_rgba(15,23,42,0.08)] hover:border-slate-200 hover:shadow-[0_12px_28px_-6px_rgba(15,23,42,0.12)] active:scale-[0.99] transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <Soft3DIcon icon={card.icon} colorScheme={card.colorScheme} />
+
+              <div className="min-w-0 space-y-0.5">
+                <p className={`${TYPOGRAPHY.badge} uppercase tracking-wider ${card.eyebrowColor}`}>
+                  {card.eyebrow}
+                </p>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-snug">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium tabular-nums truncate">
+                  {card.subtitle}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">
-              Rekapitulasi target silabus &amp; standar kompetensi kelulusan santri
-            </p>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex justify-start gap-3 mb-4">
-        <Link
-          href="/laporan"
-          prefetch={true}
-          className={`px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50/90 ${theme.accentColor} border ${theme.accentBorder} font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 self-start sm:self-center shrink-0 cursor-pointer`}
-        >
-          <span>Buka Rapor Lengkap</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
-
-      <div className="space-y-3">
-        {/* Item 1: Kurikulum Wajib (Syarat Kelulusan) */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                Kurikulum Wajib (Syarat Kelulusan)
-              </h4>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  (studentMetrics?.mandatory.percentage ?? 0) >= 100
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                    : 'bg-amber-50 text-amber-700 border-amber-200/70'
-                }`}
-              >
-                {studentMetrics?.mandatory.percentage ?? 0}% Selesai
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-slate-500">
-              {studentMetrics?.mandatory.completed ?? 0} dari{' '}
-              {studentMetrics?.mandatory.total ?? 0} checklist standar kelulusan materi baku telah terpenuhi
-            </p>
-          </div>
-
-          <ProgressCircle
-            percentage={studentMetrics?.mandatory.percentage ?? 0}
-            size={48}
-          />
-        </div>
-
-        {/* Item 2: Modul Tambahan & Pengayaan */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                Modul Tambahan &amp; Pengayaan
-              </h4>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  (studentMetrics?.enrichment.percentage ?? 0) >= 100
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                    : 'bg-amber-50 text-amber-700 border-amber-200/70'
-                }`}
-              >
-                {studentMetrics?.enrichment.percentage ?? 0}% Selesai
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-slate-500">
-              {studentMetrics?.enrichment.completed ?? 0} dari{' '}
-              {studentMetrics?.enrichment.total ?? 0} checklist materi pilihan &amp; pengayaan halaqah
-            </p>
-          </div>
-
-          <ProgressCircle
-            percentage={studentMetrics?.enrichment.percentage ?? 0}
-            size={48}
-          />
-        </div>
-
-        {/* Item 3: Adab & Pembiasaan Harian */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white/40 hover:bg-white/60 backdrop-blur-sm border border-slate-200/50 flex items-center justify-between gap-3 transition-all shadow-2xs hover:shadow-xs">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                Adab &amp; Pembiasaan Harian
-              </h4>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  (studentMetrics?.adab.percentage ?? 100) >= 100
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                    : 'bg-amber-50 text-amber-700 border-amber-200/70'
-                }`}
-              >
-                {studentMetrics?.adab.percentage ?? 100}% Tuntas
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-slate-500">
-              {studentMetrics?.adab.completed ?? 0} dari{' '}
-              {studentMetrics?.adab.total ?? 0} target kehadiran &amp; kedisiplinan adab halaqah
-            </p>
-          </div>
-
-          <ProgressCircle
-            percentage={studentMetrics?.adab.percentage ?? 100}
-            size={48}
-          />
-        </div>
+            <ProgressCircle
+              percentage={card.percentage}
+              size={46}
+              strokeWidth={4}
+              colorScheme={card.colorScheme}
+              showPercentSymbol={false}
+            />
+          </Link>
+        ))}
       </div>
     </section>
   );

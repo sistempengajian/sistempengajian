@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { COMMON_THEME } from '@/lib/theme';
 
 interface AdminMasterControlSectionProps {
@@ -14,46 +15,63 @@ interface AdminMasterControlSectionProps {
 export default function AdminMasterControlSection({
   adminMetrics,
 }: AdminMasterControlSectionProps) {
+  const isDbNormal = (adminMetrics?.dbHealth ?? 'Normal') === 'Normal';
+
   return (
     <section className={COMMON_THEME.cardClassPadded}>
-      <div className="flex items-center gap-3 mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className={COMMON_THEME.sectionTitleClass}>
-              Pusat Kendali Admin Master
-            </h3>
-          </div>
-          <p className="text-xs text-slate-500 font-normal mt-0.5">
-            Monitoring integritas hierarki wilayah, dewan guru, dan database
-          </p>
-        </div>
-      </div>
+      <h2 className={`${COMMON_THEME.sectionTitleClass} mb-3`}>
+        Pusat Kendali Admin Master
+      </h2>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-150 rounded-2xl border border-slate-200/50 bg-white/40 backdrop-blur-sm py-3 text-center shadow-2xs">
-        <div className="py-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-200/80 rounded-xl border border-slate-200/80 bg-slate-50/90 py-2 text-center">
+        <Link
+          href="/organisasi"
+          prefetch={true}
+          className="py-2 px-2 hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          title="Kelola tingkatan wilayah"
+        >
           <div className="text-base sm:text-lg font-black text-slate-900">
             {adminMetrics?.totalWilayah ?? 0}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Wilayah Binaan</div>
-        </div>
-        <div className="py-1">
+          <div className="text-xs text-slate-600 font-medium">Wilayah Binaan</div>
+        </Link>
+        <Link
+          href="/users"
+          prefetch={true}
+          className="py-2 px-2 hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          title="Kelola data dewan guru"
+        >
           <div className="text-base sm:text-lg font-black text-slate-900">
             {adminMetrics?.totalDewanGuru ?? 0}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Dewan Guru</div>
-        </div>
-        <div className="py-1">
+          <div className="text-xs text-slate-600 font-medium">Dewan Guru</div>
+        </Link>
+        <Link
+          href="/users"
+          prefetch={true}
+          className="py-2 px-2 hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          title="Kelola data santri"
+        >
           <div className="text-base sm:text-lg font-black text-slate-900">
             {adminMetrics?.totalSantri ?? 0}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Total Santri</div>
-        </div>
-        <div className="py-1">
-          <div className="text-base sm:text-lg font-black text-emerald-600">
+          <div className="text-xs text-slate-600 font-medium">Total Santri</div>
+        </Link>
+        <Link
+          href="/analisis"
+          prefetch={true}
+          className="py-2 px-2 hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          title="Buka analitika eksekutif sistem"
+        >
+          <div
+            className={`text-base sm:text-lg font-black ${
+              isDbNormal ? 'text-emerald-600' : 'text-rose-600'
+            }`}
+          >
             {adminMetrics?.dbHealth ?? 'Normal'}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Status Database</div>
-        </div>
+          <div className="text-xs text-slate-600 font-medium">Status Database</div>
+        </Link>
       </div>
     </section>
   );

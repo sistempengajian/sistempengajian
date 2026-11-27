@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { COMMON_THEME } from '@/lib/theme';
+import { TOUCH_TARGET } from '@/lib/design-tokens';
 
 interface PjTerritoryMonitoringSectionProps {
   pjMetrics: {
@@ -19,44 +20,50 @@ export default function PjTerritoryMonitoringSection({
 }: PjTerritoryMonitoringSectionProps) {
   return (
     <section className={COMMON_THEME.cardClassPadded}>
-      <div className="flex items-center gap-3 mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className={COMMON_THEME.sectionTitleClass}>
-              Metrik Tata Kelola Wilayah
-            </h3>
-          </div>
-          <p className="text-xs text-slate-500 font-normal mt-0.5">
-            Pemantauan keaktifan santri &amp; approval sesi private remedial
-          </p>
-        </div>
-      </div>
+      <h2 className={`${COMMON_THEME.sectionTitleClass} mb-3`}>
+        Metrik Tata Kelola Wilayah
+      </h2>
 
-      <div className="grid grid-cols-3 divide-x divide-slate-150 rounded-2xl border border-slate-200/50 bg-white/40 backdrop-blur-sm py-3 text-center shadow-2xs">
-        <div>
+      <div className="grid grid-cols-3 divide-x divide-slate-200/80 rounded-xl border border-slate-200/80 bg-slate-50/90 py-2 text-center">
+        <Link
+          href="/users"
+          prefetch={true}
+          className="px-2 py-1.5 rounded-l-xl hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          title="Lihat daftar santri binaan"
+        >
           <div className="text-lg sm:text-xl font-black text-slate-900">
             {pjMetrics?.totalSantri ?? 0}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+          <div className="text-xs text-slate-600 font-medium mt-0.5">
             Santri Binaan
           </div>
-        </div>
-        <div>
+        </Link>
+        <Link
+          href="/analisis"
+          prefetch={true}
+          className="px-2 py-1.5 hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          title="Lihat analitika kehadiran wilayah"
+        >
           <div className="text-lg sm:text-xl font-black text-emerald-600">
             {pjMetrics?.attendanceRate ?? 0}%
           </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+          <div className="text-xs text-slate-600 font-medium mt-0.5">
             Rata-rata Hadir
           </div>
-        </div>
-        <div>
+        </Link>
+        <Link
+          href="/private-remedial"
+          prefetch={true}
+          className="px-2 py-1.5 rounded-r-xl hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+          title="Buka antrean approval private remedial"
+        >
           <div className="text-lg sm:text-xl font-black text-rose-600">
             {pendingApprovalsCount}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+          <div className="text-xs text-slate-600 font-medium mt-0.5">
             Pending Approval
           </div>
-        </div>
+        </Link>
       </div>
 
       {pendingApprovalsCount > 0 && (
@@ -70,7 +77,7 @@ export default function PjTerritoryMonitoringSection({
           <Link
             href="/private-remedial"
             prefetch={true}
-            className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 shadow-2xs"
+            className={`${TOUCH_TARGET.minButton} px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 shadow-2xs inline-flex items-center justify-center`}
           >
             Tinjau
           </Link>
