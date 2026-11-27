@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { withCache, cacheKey, CACHE_TTL } from '@/lib/cache';
@@ -170,3 +171,57 @@ export const getEffectiveAuthUser = cache(async () => {
     effectiveUserId: dbUser?.id || authUser.id,
   };
 });
+
+type LeanAuthResult = Awaited<ReturnType<typeof getAuthUserLean>>;
+type FullAuthResult = Awaited<ReturnType<typeof getEffectiveAuthUser>>;
+type ActiveProtectedResult<TDbUser> = {
+  authUser: NonNullable<LeanAuthResult['authUser']>;
+  dbUser: NonNullable<TDbUser>;
+  effectiveUserId: string;
+};
+
+/**
+ * Unified Auth Guard untuk seluruh halaman terlindungi (Server Components).
+ * Memastikan sesi Supabase valid, profil pengguna terdaftar di database, dan status akun ACTIVE.
+ */
+export async function requireProtectedAuth(
+  mode?: 'lean'
+): Promise<ActiveProtectedResult<LeanAuthResult['dbUser']>>;
+export async function requireProtectedAuth(
+  mode: 'full'
+): Promise<ActiveProtectedResult<FullAuthResult['dbUser']>>;
+export async function requireProtectedAuth(mode: 'lean' | 'full' = 'lean') {
+  const result = mode === 'full' ? await getEffectiveAuthUser() : await getAuthUserLean();
+
+  if (!result.authUser) {
+    redirect('/login');
+  }
+
+  if (!result.dbUser) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect(
+      '/login?auth_error=' +
+        encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan masuk kembali.')
+    );
+  }
+
+  if (result.dbUser.status !== 'ACTIVE') {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect(
+      '/login?auth_error=' +
+        encodeURIComponent(
+          `Akun Anda (${result.dbUser.fullName}) saat ini sedang ${
+            result.dbUser.status === 'SUSPENDED' ? 'ditangguhkan' : 'tidak aktif'
+          }. Silakan hubungi pengurus.`
+        )
+    );
+  }
+
+  return {
+    authUser: result.authUser,
+    dbUser: result.dbUser,
+    effectiveUserId: result.effectiveUserId || result.dbUser.id,
+  };
+}

@@ -48,3 +48,8 @@ export type { EmptyStateProps } from './EmptyState';
 export { default as ViewModeToggle } from './ViewModeToggle';
 export type { ViewModeToggleProps, ViewMode } from './ViewModeToggle';
 
+// Page Container & Resilience Boundaries
+export { default as PageContainer } from './PageContainer';
+export type { PageContainerVariant } from './PageContainer';
+export { default as ErrorBoundary } from './ErrorBoundary';
+

@@ -188,7 +188,7 @@ export function DateRangePicker({ value, onChange, minDate }: DateRangePickerPro
       {/* Selected range display */}
       <div className="flex items-center gap-2.5 sm:gap-3">
         <div className="flex-1 bg-white border border-slate-200 rounded-xl p-3 shadow-2xs transition-all">
-          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
             Tanggal Mulai
           </p>
           <p className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
@@ -196,7 +196,7 @@ export function DateRangePicker({ value, onChange, minDate }: DateRangePickerPro
             {startDate ? (
               formatDate(startDate)
             ) : (
-              <span className="text-slate-400 font-normal italic">Pilih tanggal awal...</span>
+              <span className="text-slate-500 font-normal italic">Pilih tanggal awal...</span>
             )}
           </p>
         </div>
@@ -204,7 +204,7 @@ export function DateRangePicker({ value, onChange, minDate }: DateRangePickerPro
         <div className="text-slate-300 font-bold text-sm sm:text-base shrink-0">→</div>
 
         <div className="flex-1 bg-white border border-slate-200 rounded-xl p-3 shadow-2xs transition-all">
-          <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">
             Tanggal Akhir
           </p>
           <p className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
@@ -212,7 +212,7 @@ export function DateRangePicker({ value, onChange, minDate }: DateRangePickerPro
             {endDate ? (
               formatDate(endDate)
             ) : (
-              <span className="text-slate-400 font-normal italic">Pilih tanggal akhir...</span>
+              <span className="text-slate-500 font-normal italic">Pilih tanggal akhir...</span>
             )}
           </p>
         </div>
@@ -256,7 +256,7 @@ export function DateRangePicker({ value, onChange, minDate }: DateRangePickerPro
         {DAY_NAMES.map((name, idx) => (
           <div
             key={name}
-            className={`text-center text-[11px] font-bold ${idx === 0 ? "text-rose-600" : idx === 5 ? "text-emerald-700" : "text-slate-600"
+            className={`text-center text-xs font-bold ${idx === 0 ? "text-rose-600" : idx === 5 ? "text-emerald-700" : "text-slate-600"
               }`}
           >
             {name}

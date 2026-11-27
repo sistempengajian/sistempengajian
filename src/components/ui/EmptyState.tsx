@@ -26,13 +26,15 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`
         rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-xs
         p-8 sm:p-10 text-center flex flex-col items-center justify-center
         transition-all ${className}
       `}
     >
-      <div className="w-14 h-14 rounded-2xl bg-slate-100/90 border border-slate-200/60 text-slate-400 flex items-center justify-center mb-1 shadow-2xs">
+      <div className="w-14 h-14 rounded-2xl bg-slate-100/90 border border-slate-200/60 text-slate-600 flex items-center justify-center mb-1 shadow-2xs">
         {icon ? (
           icon
         ) : (

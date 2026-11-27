@@ -229,13 +229,13 @@ function ToastItemComponent({
             setTimeout(() => onDismiss(item.id), 280);
           }}
           className={`
-            shrink-0 p-1 -mr-1 -mt-0.5 rounded-lg
-            ${config.iconClass} opacity-50 hover:opacity-100
-            transition-opacity cursor-pointer
+            shrink-0 min-w-[40px] min-h-[40px] -mr-2 -my-1.5 flex items-center justify-center rounded-xl
+            ${config.iconClass} opacity-65 hover:opacity-100 hover:bg-black/5
+            transition-all cursor-pointer
           `}
           aria-label="Tutup notifikasi"
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -276,10 +276,10 @@ function ToastContainer({
       aria-label="Notifikasi"
       className="
         fixed z-[9999]
-        bottom-24 sm:bottom-6
+        bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:bottom-6
         left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6
         flex flex-col-reverse items-center sm:items-end gap-2.5
-        w-[calc(100%-2rem)] sm:w-auto
+        w-[calc(100%-2rem)] sm:w-auto max-h-[40vh] overflow-y-auto px-0.5
         pointer-events-none
       "
     >

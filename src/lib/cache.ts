@@ -75,6 +75,31 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
   }
 }
 
+export const CACHE_TAGS = {
+  UPCOMING_SCHEDULE: 'schedule:upcoming',
+  upcomingScheduleUser: (userId: string) => `schedule:upcoming:${userId}`,
+} as const;
+
+/**
+ * Invalidate cached user profiles (lean + full) for one or more user IDs.
+ * Deduplicates and ignores nullish values safely.
+ */
+export async function invalidateUserProfileCache(
+  ...userIds: Array<string | null | undefined>
+): Promise<void> {
+  const uniqueIds = Array.from(
+    new Set(userIds.filter((id): id is string => Boolean(id && id.trim())))
+  );
+  if (uniqueIds.length === 0) return;
+
+  const keys = uniqueIds.flatMap((id) => [
+    cacheKey.userLean(id),
+    cacheKey.userFull(id),
+    cacheKey.roleSignals(id),
+  ]);
+  await invalidateCache(...keys);
+}
+
 /**
  * Build the canonical cache key for a user profile.
  * Centralising key construction prevents key mismatches between set and delete.
@@ -82,5 +107,6 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
 export const cacheKey = {
   userLean: (userId: string) => `user:lean:${userId}`,
   userFull: (userId: string) => `user:full:${userId}`,
+  roleSignals: (userId: string) => `user:role-signals:${userId}`,
   schedule: (userId: string) => `schedule:upcoming:${userId}`,
 };

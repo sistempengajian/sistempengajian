@@ -10,6 +10,8 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyModalLock } from '@/hooks/useBodyModalLock';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ export default function ConfirmModal({
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const modalPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -93,38 +96,21 @@ export default function ConfirmModal({
 
   useEffect(() => {
     if (isOpen) {
-      // Small delay to trigger enter animation
       requestAnimationFrame(() => {
         setIsVisible(true);
       });
-      // Focus the cancel button for safety (not the confirm)
-      // but trap focus inside the modal
     } else {
       setIsVisible(false);
     }
   }, [isOpen]);
 
-  // Close on Escape key
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) {
-        onCancel();
-      }
-    },
-    [isPending, onCancel]
+  useFocusTrap(
+    isOpen && mounted,
+    modalPanelRef,
+    isPending ? undefined : onCancel
   );
 
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = '';
-      };
-    }
-  }, [isOpen, handleKeyDown]);
+  useBodyModalLock(isOpen && mounted);
 
   if (!isOpen || !mounted) return null;
 
@@ -157,6 +143,7 @@ export default function ConfirmModal({
 
       {/* Modal Panel */}
       <div
+        ref={modalPanelRef}
         className={`
           relative z-10 w-full
           sm:max-w-sm

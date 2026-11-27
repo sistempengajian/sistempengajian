@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Search, X, Check } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ interface CustomSelectProps {
   disabled?: boolean;
   /** Label text shown above the select */
   label?: string;
+  /** Show inline clear button when an option is selected (default: true) */
+  clearable?: boolean;
   /** Additional className for the trigger button */
   className?: string;
   /** Size variant */
@@ -78,6 +81,7 @@ export default function CustomSelect({
   searchPlaceholder = 'Cari...',
   disabled = false,
   label,
+  clearable = true,
   className = '',
   size = 'md',
 }: CustomSelectProps) {
@@ -209,7 +213,7 @@ export default function CustomSelect({
       >
         <span
           className={`truncate flex-1 ${
-            selectedValues.length === 0 ? 'text-slate-400' : ''
+            selectedValues.length === 0 ? 'text-slate-500' : ''
           }`}
         >
           {selectedLabels || placeholder}
@@ -217,12 +221,12 @@ export default function CustomSelect({
 
         <span className="flex items-center gap-1 shrink-0">
           {/* Clear button */}
-          {selectedValues.length > 0 && !disabled && (
+          {clearable && selectedValues.length > 0 && !disabled && (
             <span
               role="button"
               tabIndex={-1}
               onClick={handleClear}
-              className="p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              className="p-0.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-600 transition-colors"
               aria-label="Hapus pilihan"
             >
               <X className="w-3.5 h-3.5" />
@@ -358,7 +362,7 @@ function DropdownPanel({
       {/* Options */}
       <div className="max-h-56 overflow-y-auto overscroll-contain py-1">
         {options.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-slate-400">
+          <div className="px-3 py-4 text-center text-xs text-slate-500">
             Tidak ada opsi ditemukan
           </div>
         ) : hasGroups ? (
@@ -373,7 +377,7 @@ function DropdownPanel({
             ))}
             {Object.entries(groupedOptions.groups).map(([group, opts]) => (
               <div key={group}>
-                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="px-3 py-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
                   {group}
                 </div>
                 {opts.map((opt) => (
@@ -433,6 +437,7 @@ function BottomSheetPanel({
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
@@ -447,8 +452,10 @@ function BottomSheetPanel({
     setTimeout(onClose, 300);
   }, [onClose]);
 
+  useFocusTrap(true, sheetRef, handleClose);
+
   return createPortal(
-    <div className="fixed inset-0 z-[9985]" aria-modal="true" role="dialog">
+    <div className="fixed inset-0 z-[9985]" aria-modal="true" role="dialog" aria-label={placeholder}>
       {/* Backdrop */}
       <div
         className={`
@@ -457,10 +464,12 @@ function BottomSheetPanel({
           ${isVisible ? 'opacity-100' : 'opacity-0'}
         `}
         onClick={handleClose}
+        aria-hidden="true"
       />
 
       {/* Bottom Sheet */}
       <div
+        ref={sheetRef}
         className={`
           absolute bottom-0 left-0 right-0
           bg-white rounded-t-3xl
@@ -484,7 +493,8 @@ function BottomSheetPanel({
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors cursor-pointer"
+            aria-label="Tutup pilihan"
+            className="min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -515,7 +525,7 @@ function BottomSheetPanel({
         {/* Options */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-safe" role="listbox">
           {options.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-slate-400">
+            <div className="px-3 py-8 text-center text-sm text-slate-500">
               Tidak ada opsi ditemukan
             </div>
           ) : hasGroups ? (
@@ -531,7 +541,7 @@ function BottomSheetPanel({
               ))}
               {Object.entries(groupedOptions.groups).map(([group, opts]) => (
                 <div key={group}>
-                  <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     {group}
                   </div>
                   {opts.map((opt) => (
@@ -624,7 +634,7 @@ function OptionItem({
           {option.label}
         </span>
         {option.description && (
-          <span className={`block ${mobile ? 'text-xs' : 'text-[10px]'} text-slate-400 truncate mt-0.5`}>
+          <span className={`block ${mobile ? 'text-xs' : 'text-xs'} text-slate-500 truncate mt-0.5`}>
             {option.description}
           </span>
         )}
