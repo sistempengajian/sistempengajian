@@ -71,7 +71,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
               </span>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tingkat Kehadiran</p>
             </div>
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${attBadge.bg}`}>
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${attBadge.bg}`}>
               {attBadge.label}
             </span>
           </div>
@@ -79,7 +79,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
           <div className="mt-4 flex items-center justify-between">
             <div>
               <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{summary.attendanceRate}%</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Rasio kehadiran santri</p>
+              <p className="text-xs text-slate-500 mt-0.5">Rasio kehadiran santri</p>
             </div>
 
             {/* Circle Line Gauge */}
@@ -96,21 +96,21 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
         </div>
 
         {/* Sub-metrics */}
-        <div className="mt-4 grid grid-cols-4 gap-1.5 border-t border-slate-100 pt-3 text-[11px]">
+        <div className="mt-4 grid grid-cols-4 gap-1.5 border-t border-slate-100 pt-3 text-xs">
           <div>
-            <span className="text-slate-400 block font-medium">Santri</span>
+            <span className="text-slate-500 block font-medium">Santri</span>
             <span className="font-bold text-slate-800">{summary.totalStudents}</span>
           </div>
           <div>
-            <span className="text-slate-400 block font-medium">Tepat</span>
+            <span className="text-slate-500 block font-medium">Tepat</span>
             <span className="font-bold text-emerald-700">{summary.onTimeRate}%</span>
           </div>
           <div>
-            <span className="text-slate-400 block font-medium">Terlambat</span>
+            <span className="text-slate-500 block font-medium">Terlambat</span>
             <span className="font-bold text-amber-700">{summary.lateRate}%</span>
           </div>
           <div>
-            <span className="text-slate-400 block font-medium">Alpa</span>
+            <span className="text-slate-500 block font-medium">Alpa</span>
             <span className="font-bold text-rose-700">{summary.absentRate}%</span>
           </div>
         </div>
@@ -126,7 +126,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
               </span>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Target Kurikulum</p>
             </div>
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${curBadge.bg}`}>
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${curBadge.bg}`}>
               {curBadge.label}
             </span>
           </div>
@@ -134,7 +134,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
           <div className="mt-4 flex items-center justify-between">
             <div>
               <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{summary.curriculumMasteryRate}%</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Materi checklist tuntas</p>
+              <p className="text-xs text-slate-500 mt-0.5">Materi checklist tuntas</p>
             </div>
 
             {/* Circle Line Gauge */}
@@ -151,7 +151,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
         </div>
 
         {/* Sub-metrics */}
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
           <span className="text-slate-500 font-medium">Verifikasi Materi</span>
           <span className="font-bold text-cyan-700 flex items-center gap-1">
             <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
@@ -170,7 +170,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
               </span>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Karakter &amp; Adab</p>
             </div>
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${chrBadge.bg}`}>
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${chrBadge.bg}`}>
               {chrBadge.label}
             </span>
           </div>
@@ -179,9 +179,9 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
             <div>
               <div className="flex items-baseline gap-1">
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{summary.characterAverage}</h3>
-                <span className="text-xs font-semibold text-slate-400">/100</span>
+                <span className="text-xs font-semibold text-slate-500">/100</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">Rerata dimensi karakter</p>
+              <p className="text-xs text-slate-500 mt-0.5">Rerata dimensi karakter</p>
             </div>
 
             {/* Circle Line Gauge */}
@@ -198,7 +198,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
         </div>
 
         {/* Sub-metrics */}
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
           <span className="text-slate-500 font-medium">Budi Pekerti</span>
           <span className="font-bold text-purple-700 flex items-center gap-1">
             <Award className="h-3.5 w-3.5 text-purple-600" />
@@ -217,7 +217,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
               </span>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Santri Terpantau</p>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
               <Flame className="h-3 w-3 text-indigo-600" />
               {summary.averageStreak}x Streak
             </span>
@@ -229,7 +229,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
                 <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{summary.totalStudents}</h3>
                 <span className="text-xs font-semibold text-slate-500">anak</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">Komposisi evaluasi</p>
+              <p className="text-xs text-slate-500 mt-0.5">Komposisi evaluasi</p>
             </div>
 
             {/* Multi-Segment Circle Line */}
@@ -245,7 +245,7 @@ export const ExecutiveKPIBanner: React.FC<ExecutiveKPIBannerProps> = ({ summary 
         </div>
 
         {/* Sub-metrics */}
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
           <span className="font-bold text-emerald-700 flex items-center gap-1">
             <TrendingUp className="h-3 w-3 text-emerald-600" />
             {summary.topPerformerCount} Unggul

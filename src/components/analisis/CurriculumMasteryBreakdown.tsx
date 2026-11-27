@@ -54,26 +54,26 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
     switch (period) {
       case 'THIS_MONTH':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/80 shadow-2xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200/80 shadow-2xs">
             Target Silabus Bulan Ini
           </span>
         );
       case 'LAST_MONTH':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
             Target Silabus Bulan Lalu
           </span>
         );
       case 'THIS_SEMESTER':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
             Target Silabus Semester Ini
           </span>
         );
       case 'ALL':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs">
             Progres Kumulatif Jenjang
           </span>
         );
@@ -139,10 +139,10 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                 strokeColor="stroke-cyan-600"
                 trackColor="stroke-cyan-200/70"
               >
-                <span className="text-[10px] font-black text-cyan-950">{averageRate}%</span>
+                <span className="text-xs font-black text-cyan-950">{averageRate}%</span>
               </CircularGauge>
               <div className="pr-1">
-                <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-cyan-800 uppercase tracking-wider block">
                   Rerata Capaian
                 </span>
                 <span className="text-xs font-black text-cyan-950">
@@ -156,7 +156,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
         {/* Horizontal Bar Chart Scale Grid */}
         <div className="mt-5 space-y-4">
           {/* Sumbu X / Percentage Grid Header */}
-          <div className="relative flex items-center justify-between text-[10px] font-bold text-slate-400 border-b border-slate-100 pb-1.5 px-0.5">
+          <div className="relative flex items-center justify-between text-xs font-bold text-slate-500 border-b border-slate-100 pb-1.5 px-0.5">
             <span>0%</span>
             <span>25%</span>
             <span>50%</span>
@@ -185,7 +185,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800">{cat.category}</span>
-                    <span className="text-[11px] font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-slate-500">
                       {cat.totalItems > 0
                         ? `(${cat.completedItems}/${cat.totalItems} target)`
                         : `(${cat.completedItems} materi tuntas)`}
@@ -215,7 +215,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
 
                 {/* Collapsible Keyword Reference Section */}
                 {isExpanded && catKeywords.length > 0 && (
-                  <div className="mt-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-[11px] text-slate-600 space-y-1.5 animate-fadeIn">
+                  <div className="mt-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 space-y-1.5 animate-fadeIn">
                     <div className="font-bold text-slate-800 flex items-center gap-1.5">
                       <Tag className="h-3 w-3 text-cyan-600" />
                     </div>
@@ -235,7 +235,7 @@ export const CurriculumMasteryBreakdown: React.FC<CurriculumMasteryBreakdownProp
       </div>
 
       {/* Footer Benchmark Note */}
-      <div className="mt-5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 text-[11px] text-slate-500">
+      <div className="mt-5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <Target className="h-3.5 w-3.5 text-cyan-600 shrink-0" />
           Target kurikulum disesuaikan dengan silabus periode berjalan (Standar kelulusan {targetBenchmark}%).

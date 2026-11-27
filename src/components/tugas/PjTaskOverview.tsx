@@ -67,61 +67,61 @@ export default function PjTaskOverview({
         {/* Card 1: Total Tugas Terbit */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tugas Terbit</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tugas Terbit</span>
             <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center border border-sky-200/60 shrink-0">
               <BookOpen className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-extrabold text-slate-900">{stats.totalAssignments}</span>
-            <span className="text-[11px] font-medium text-slate-500">tugas</span>
+            <span className="text-xs font-medium text-slate-500">tugas</span>
           </div>
-          <span className="text-[10px] text-slate-400 block truncate">Di seluruh kelas {organizationName}</span>
+          <span className="text-xs text-slate-500 block truncate">Di seluruh kelas {organizationName}</span>
         </div>
 
         {/* Card 2: Terkumpul */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Setoran Masuk</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Setoran Masuk</span>
             <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200/60 shrink-0">
               <TrendingUp className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-extrabold text-teal-700">{stats.totalSubmissions}</span>
-            <span className="text-[11px] font-medium text-teal-600">santri</span>
+            <span className="text-xs font-medium text-teal-600">santri</span>
           </div>
-          <span className="text-[10px] text-teal-600/80 block truncate">Total terkumpul</span>
+          <span className="text-xs text-teal-600/80 block truncate">Total terkumpul</span>
         </div>
 
         {/* Card 3: Sinergi Paraf Ortu */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Paraf Ortu</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Paraf Ortu</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200/60 shrink-0">
               <ShieldCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-extrabold text-purple-700">{stats.parentEngagementRate}%</span>
-            <span className="text-[11px] font-medium text-purple-600">sinergi</span>
+            <span className="text-xs font-medium text-purple-600">sinergi</span>
           </div>
-          <span className="text-[10px] text-purple-600/80 block truncate">{stats.totalParentVerified} tugas diparaf</span>
+          <span className="text-xs text-purple-600/80 block truncate">{stats.totalParentVerified} tugas diparaf</span>
         </div>
 
         {/* Card 4: Tuntas Dinilai */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tuntas Dinilai</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tuntas Dinilai</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/60 shrink-0">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-extrabold text-emerald-700">{stats.totalGraded}</span>
-            <span className="text-[11px] font-medium text-emerald-600">selesai</span>
+            <span className="text-xs font-medium text-emerald-600">selesai</span>
           </div>
-          <span className="text-[10px] text-emerald-600/80 block truncate">Telah dievaluasi guru</span>
+          <span className="text-xs text-emerald-600/80 block truncate">Telah dievaluasi guru</span>
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export default function PjTaskOverview({
 
       {/* 3. Grid of TaskListCards */}
       {filtered.length === 0 ? (
-        <div className="py-12 text-center text-xs text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+        <div className="py-12 text-center text-xs text-slate-500 bg-white rounded-2xl border border-dashed border-slate-200">
           Tidak ada data penugasan yang sesuai pencarian.
         </div>
       ) : (

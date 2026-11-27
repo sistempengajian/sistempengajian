@@ -177,7 +177,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           {/* Scope Type Tabs with Scroll Fade Indicator */}
           <div className="relative min-w-0">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 no-scrollbar snap-x snap-mandatory">
-              <span className="text-xs font-bold text-slate-400 mr-1 hidden sm:inline-flex items-center gap-1 shrink-0">
+              <span className="text-xs font-bold text-slate-500 mr-1 hidden sm:inline-flex items-center gap-1 shrink-0">
                 <Filter className="w-3.5 h-3.5 text-teal-600" />
                 Lingkup:
               </span>
@@ -191,7 +191,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                     key={scopeType}
                     type="button"
                     onClick={() => handleScopeTypeSelect(scopeType)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all shrink-0 snap-start cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 snap-start cursor-pointer ${
                       isActive
                         ? 'bg-teal-600 text-white shadow-2xs ring-1 ring-teal-500'
                         : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
@@ -200,7 +200,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                     <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                     <span>{meta.label}</span>
                     {scopeType === 'CUSTOM' && selectedStudentIds.length > 0 && (
-                      <span className="ml-0.5 rounded-full bg-teal-800 px-1.5 py-0.2 text-[10px] text-teal-100 font-mono">
+                      <span className="ml-0.5 rounded-full bg-teal-800 px-1.5 py-0.2 text-[11px] text-teal-100 font-mono">
                         {selectedStudentIds.length}
                       </span>
                     )}
@@ -265,7 +265,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
           {/* Period Selector Pills with Scroll Fade */}
           <div className="relative min-w-0">
             <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto pb-0.5 sm:pb-0 no-scrollbar snap-x">
-              <span className="text-xs font-bold text-slate-400 mr-1 hidden md:inline-flex items-center gap-1 shrink-0">
+              <span className="text-xs font-bold text-slate-500 mr-1 hidden md:inline-flex items-center gap-1 shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-teal-600" />
                 Periode:
               </span>
@@ -276,7 +276,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                     key={periodOpt.id}
                     type="button"
                     onClick={() => onPeriodChange(periodOpt.id)}
-                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0 snap-start whitespace-nowrap cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition shrink-0 snap-start whitespace-nowrap cursor-pointer ${
                       isSelected
                         ? 'bg-teal-50 text-teal-800 border border-teal-300 shadow-2xs'
                         : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600'
@@ -305,7 +305,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
               type="button"
               onClick={onTogglePrivacyMode}
               title={isPrivacyMode ? 'Matikan Sensor Privasi' : 'Aktifkan Sensor Privasi (Samarkan Nama Santri)'}
-              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition border cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
                 isPrivacyMode
                   ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs ring-1 ring-amber-200'
                   : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
@@ -339,7 +339,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCustomStudentModalOpen(false)}
-                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                className="rounded-xl p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -383,7 +383,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
 
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[360px] scrollbar-thin scrollbar-thumb-slate-200">
               {filteredCustomStudents.length === 0 ? (
-                <p className="text-center text-xs text-slate-400 py-8">Santri tidak ditemukan.</p>
+                <p className="text-center text-xs text-slate-500 py-8">Santri tidak ditemukan.</p>
               ) : (
                 filteredCustomStudents.map((s) => {
                   const isChecked = tempSelectedStudentIds.includes(s.id);
@@ -398,7 +398,7 @@ export const AnalyticsFilterBar: React.FC<AnalyticsFilterBarProps> = ({
                     >
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-xs text-slate-900 truncate">{s.fullName}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">
                           {s.className} • {s.organizationName}
                         </p>
                       </div>

@@ -154,7 +154,7 @@ _Sistem Pengajian Terpadu_`;
                   <h3 className="text-sm sm:text-base font-bold text-slate-900">
                     Bagikan Ringkasan Perkembangan
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Format pesan siap kirim untuk WhatsApp keluarga
                   </p>
                 </div>

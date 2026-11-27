@@ -33,6 +33,7 @@ import LazyAudioSection from '../LazyAudioSection';
 import LazyPhotoSection from '../LazyPhotoSection';
 import QuizSubmissionReview from '../QuizSubmissionReview';
 import { verifySubmissionByParent } from '@/app/(protected)/tugas/actions';
+import { triggerMicroCsatPrompt } from '@/lib/telemetry-client';
 import { parseHabitData, getHabitProgress, parseMediaUrls } from '@/lib/habitParser';
 import type { OverdueAction, AssignmentConfig } from '@/lib/assignmentConfig';
 
@@ -170,6 +171,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
             : null
         );
         setSuccessMessage(`Alhamdulillah! Paraf berhasil disimpan (+${res.bonusPoints} Bonus Poin).`);
+        triggerMicroCsatPrompt('parent_paraf_in_app');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal menyimpan paraf.');
@@ -250,7 +252,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
                 </span>
               )}
               {assignment.dueDate && (
-                <div className="inline-flex items-center gap-1.5 text-slate-500 font-medium text-[11px]">
+                <div className="inline-flex items-center gap-1.5 text-slate-500 font-medium text-xs">
                   <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>{formatDueDate(assignment.dueDate)}</span>
                 </div>
@@ -296,7 +298,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
                 <ImageIcon className="w-4 h-4 text-purple-600" />
                 Lampiran Tugas
               </h2>
-              <span className="text-[11px] font-medium text-slate-400">
+              <span className="text-xs font-medium text-slate-500">
                 {taskPhotos.length > 0 && `${taskPhotos.length} Foto `}
                 {taskPhotos.length > 0 && (Boolean(documentUrl) || taskLinks.length > 0) && '• '}
                 {documentUrl && '1 Berkas Dokumen '}
@@ -323,13 +325,13 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
                       <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-purple-700">
                         Buka / Unduh Berkas Dokumen Tugas
                       </span>
-                      <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                      <span className="text-xs text-slate-500 block truncate mt-0.5">
                         {documentUrl}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-purple-600 shrink-0 ml-2">
-                    <span className="text-[11px] font-semibold hidden sm:inline">Buka Berkas</span>
+                    <span className="text-xs font-semibold hidden sm:inline">Buka Berkas</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 </a>
@@ -381,7 +383,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
                             {link.title || link.url}
                           </span>
                           {link.title && (
-                            <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                            <span className="text-xs text-slate-500 block truncate mt-0.5">
                               {link.url}
                             </span>
                           )}
@@ -418,13 +420,13 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
             <div className="text-center py-10 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-slate-700">Ananda Belum Mengumpulkan Tugas</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Silakan dampingi ananda untuk menyelesaikan tugas ini sebelum batas waktu pengumpulan berakhir.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Dikumpulkan pada:{' '}
                 <span className="font-semibold text-slate-600">
                   {new Date(submission.submittedAt).toLocaleDateString('id-ID', {
@@ -571,7 +573,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
 
                 </div>
                 <div className='flex flex-col text-left font-bold text-purple-900 bg-white/70 p-3 rounded-xl border border-purple-100 gap-2'>
-                  <div className='text-[11px]'>
+                  <div className='text-xs'>
                     {' '}
                     {submission.parentVerification?.verifiedAt
                       ? new Date(submission.parentVerification.verifiedAt).toLocaleDateString('id-ID', {
@@ -590,7 +592,7 @@ export default function ParentTaskDetail({ data }: ParentTaskDetailProps) {
                     </p>
                   )}
                 </div>
-                <div className="text-[11px] text-purple-700 font-medium pt-1">
+                <div className="text-xs text-purple-700 font-medium pt-1">
                   Bonus +{assignment.parentBonusPoints} poin telah berhasil ditambahkan ke poin ananda.
                 </div>
               </div>

@@ -177,7 +177,7 @@ export default function TeacherAssignmentView({
               : 'bg-white border-slate-200/80 hover:border-slate-300'
           }`}
         >
-          <span className="text-[11px] font-semibold text-amber-600 block mb-0.5">Menunggu Koreksi</span>
+          <span className="text-xs font-semibold text-amber-600 block mb-0.5">Menunggu Koreksi</span>
           <div className="text-xl font-bold text-amber-700">{pendingCount}</div>
         </button>
 
@@ -193,7 +193,7 @@ export default function TeacherAssignmentView({
               : 'bg-white border-slate-200/80 hover:border-slate-300'
           }`}
         >
-          <span className="text-[11px] font-semibold text-purple-600 block mb-0.5">Diparaf Ortu</span>
+          <span className="text-xs font-semibold text-purple-600 block mb-0.5">Diparaf Ortu</span>
           <div className="text-xl font-bold text-purple-700">{parentVerifiedCount}</div>
         </button>
 
@@ -209,7 +209,7 @@ export default function TeacherAssignmentView({
               : 'bg-white border-slate-200/80 hover:border-slate-300'
           }`}
         >
-          <span className="text-[11px] font-semibold text-emerald-600 block mb-0.5">Tuntas Dinilai</span>
+          <span className="text-xs font-semibold text-emerald-600 block mb-0.5">Tuntas Dinilai</span>
           <div className="text-xl font-bold text-emerald-700">{gradedCount}</div>
         </button>
 
@@ -222,7 +222,7 @@ export default function TeacherAssignmentView({
               : 'bg-white border-slate-200/80 hover:border-slate-300'
           }`}
         >
-          <span className="text-[11px] font-semibold text-teal-600 block mb-0.5">Tugas Dibuat</span>
+          <span className="text-xs font-semibold text-teal-600 block mb-0.5">Tugas Dibuat</span>
           <div className="text-xl font-bold text-teal-700">{assignments.length}</div>
         </button>
       </div>
@@ -272,11 +272,11 @@ export default function TeacherAssignmentView({
         <>
           {filteredAssignments.length === 0 ? (
             <div className="text-center py-16 px-4 bg-white rounded-3xl border border-dashed border-slate-200">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto mb-3">
                 <BookOpen className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-700">Belum ada tugas diterbitkan</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto mb-4">
                 Klik tombol &quot;Terbitkan Tugas Baru&quot; di atas untuk membuat penugasan pasca-pengajian bagi santri.
               </p>
               <Link
@@ -364,7 +364,7 @@ export default function TeacherAssignmentView({
           </div>
 
           {filteredQueue.length === 0 ? (
-            <div className="text-center py-12 text-xs text-slate-400">
+            <div className="text-center py-12 text-xs text-slate-500">
               Tidak ada setoran santri yang sesuai filter ini.
             </div>
           ) : (
@@ -377,13 +377,13 @@ export default function TeacherAssignmentView({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-900">{sub.studentName}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
                         {sub.generationName}
                       </span>
                       <span className="text-xs text-slate-500">• {sub.assignmentTitle}</span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
+                    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                       <span>
                         Kumpul:{' '}
                         {new Date(sub.submittedAt).toLocaleDateString('id-ID', {

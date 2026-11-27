@@ -119,7 +119,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
         >
           <span>Perlu Pendampingan</span>
           {curriculum.needsAttentionItems.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[9px] flex items-center justify-center">
+            <span className="w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[11px] flex items-center justify-center">
               {curriculum.needsAttentionItems.length}
             </span>
           )}
@@ -135,7 +135,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
           <History className="w-3.5 h-3.5 text-rose-600" />
           <span>Materi Belum Tuntas</span>
           {backlogItems.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[9px] flex items-center justify-center">
+            <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[11px] flex items-center justify-center">
               {backlogItems.length}
             </span>
           )}
@@ -161,7 +161,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
           </div>
 
           {curriculum.categories.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-slate-100">
+            <div className="py-8 text-center text-xs text-slate-600 bg-slate-50/50 rounded-2xl border border-slate-100">
               Belum ada materi atau kurikulum yang tercatat pada jadwal santri untuk periode ini.
             </div>
           ) : (
@@ -219,18 +219,18 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                             {/* Status Persentase Materi */}
                             <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                               {mat.percentage === 100 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                   <span>Tuntas 100%</span>
                                 </span>
                               ) : mat.completedItems > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200/60">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200/60">
                                   <span>
                                     {mat.completedItems} / {mat.totalItems} Tuntas ({mat.percentage}%)
                                   </span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">
                                   <span>0 / {mat.totalItems} Tuntas</span>
                                 </span>
                               )}
@@ -243,11 +243,11 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                               <button
                                 type="button"
                                 onClick={() => toggleScheduleTooltip(mat.id)}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/70 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/70 text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
                               >
                                 <Calendar className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Riwayat Jadwal</span>
-                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-bold">
+                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-200/80 text-emerald-900 text-[11px] font-bold">
                                   {mat.schedules.length}
                                 </span>
                                 <ChevronDown
@@ -274,7 +274,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                           <h5 className="text-xs font-bold text-slate-900 leading-none">
                                             Daftar Jadwal Pengajian
                                           </h5>
-                                          <span className="text-[10px] text-slate-500">
+                                          <span className="text-xs text-slate-500">
                                             {mat.schedules.length} sesi terhubung periode ini
                                           </span>
                                         </div>
@@ -282,7 +282,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                       <button
                                         type="button"
                                         onClick={() => setActiveScheduleTooltipId(null)}
-                                        className="w-5 h-5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                                        className="w-5 h-5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -297,7 +297,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                           <div className="font-semibold text-slate-800 leading-tight">
                                             {s.scheduleTitle}
                                           </div>
-                                          <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                                          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                                             <span className="text-emerald-700 font-semibold">{s.date}</span>
                                             {s.time && (
                                               <>
@@ -314,7 +314,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-[11px] text-slate-400 italic">
+                            <div className="flex items-center gap-1 text-xs text-slate-500 italic">
                               <Clock className="w-3 h-3" />
                               <span>Silabus jenjang (Belum ada jadwal sesi di rentang waktu ini)</span>
                             </div>
@@ -334,7 +334,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                               <button
                                 type="button"
                                 onClick={() => toggleMaterialExpand(mat.id)}
-                                className="flex items-center justify-between w-full text-[11px] font-bold text-teal-700 hover:text-teal-800 cursor-pointer transition-colors"
+                                className="flex items-center justify-between w-full text-xs font-bold text-teal-700 hover:text-teal-800 cursor-pointer transition-colors"
                               >
                                 <span className="flex items-center gap-1.5">
                                   <ListChecks className="w-3.5 h-3.5 text-teal-600" />
@@ -344,7 +344,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                       : `Lihat Rincian Target`}
                                   </span>
                                 </span>
-                                <span className="flex items-center gap-0.5 text-slate-400 font-medium text-[10px]">
+                                <span className="flex items-center gap-0.5 text-slate-500 font-medium text-xs">
                                   {isExpanded ? (
                                     <>Tutup <ChevronUp className="w-3 h-3" /></>
                                   ) : (
@@ -375,7 +375,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                             {item.itemTitle}
                                           </span>
                                           <div className="flex items-center gap-2 mt-0.5">
-                                            <span className="text-[10px] text-slate-500 font-medium">
+                                            <span className="text-xs text-slate-500 font-medium">
                                               {item.targetType || 'Target'} ({item.pointsWeight} poin)
                                             </span>
                                           </div>
@@ -384,11 +384,11 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
 
                                       <div className="shrink-0 text-right">
                                         {item.isCompleted ? (
-                                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                                          <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
                                             Tuntas {item.score !== null ? `(${item.score})` : ''}
                                           </span>
                                         ) : (
-                                          <span className="text-[10px] text-slate-400 font-medium">
+                                          <span className="text-xs text-slate-500 font-medium">
                                             Belum Diuji
                                           </span>
                                         )}
@@ -404,7 +404,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                     })}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400 italic py-2">
+                  <div className="text-xs text-slate-500 italic py-2">
                     Belum ada materi pembelajaran yang terdaftar di jadwal untuk bidang studi ini.
                   </div>
                 )}
@@ -418,7 +418,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
       {activeTab === 'MILESTONE' && (
         <div className="space-y-2.5 animate-fade-in">
           {curriculum.recentMilestones.length === 0 ? (
-            <div className="py-6 text-center text-xs text-slate-400">
+            <div className="py-6 text-center text-xs text-slate-500">
               Belum ada target capaian yang disahkan tuntas dalam periode ini.
             </div>
           ) : (
@@ -435,7 +435,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                     <p className="text-xs font-bold text-slate-900 truncate">
                       {ms.itemTitle}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
                       {ms.materialTitle}
                     </p>
                   </div>
@@ -447,11 +447,11 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                       Nilai: {ms.score}
                     </span>
                   ) : (
-                    <span className="font-semibold text-[10px] text-teal-800 bg-teal-50 px-2 py-0.5 rounded-lg block">
+                    <span className="font-semibold text-[11px] text-teal-800 bg-teal-50 px-2 py-0.5 rounded-lg block">
                       Tuntas
                     </span>
                   )}
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  <span className="text-xs text-slate-500 mt-0.5 block">
                     {ms.evaluatedAt}
                   </span>
                 </div>
@@ -470,7 +470,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
               <p className="text-xs font-bold text-emerald-900">
                 Alhamdulillah, Tidak Ada Catatan Remedial
               </p>
-              <p className="text-[11px] text-emerald-700">
+              <p className="text-xs text-emerald-700">
                 Semua materi berjalan lancar tanpa kendala khusus dari ustadz/ustadzah.
               </p>
             </div>
@@ -484,16 +484,16 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                   <span className="font-bold text-amber-950 truncate">
                     {item.itemTitle}
                   </span>
-                  <span className="text-[10px] text-amber-700 shrink-0 font-medium">
+                  <span className="text-xs text-amber-700 shrink-0 font-medium">
                     {item.evaluatedAt}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600">
+                <p className="text-xs text-slate-600">
                   Materi: <span className="font-semibold text-slate-800">{item.materialTitle}</span>
                 </p>
                 <div className="p-2.5 rounded-xl bg-white/90 border border-amber-200 text-xs text-amber-900 flex items-start gap-2 shadow-2xs">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-relaxed italic">
+                  <p className="text-xs leading-relaxed italic">
                     &quot;{item.teacherFeedback}&quot;
                   </p>
                 </div>
@@ -517,13 +517,13 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                   <h4 className="font-bold text-slate-900 text-xs">
                     Rekap Hutang Materi &amp; Backlog Kurikulum Bulanan
                   </h4>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     Daftar materi target bulanan beserta rincian poin capaian yang belum tuntas diselesaikan santri. 
                     Poin-poin ini diproteksi agar tidak hilang dan dapat diajukan sebagai <strong>materi bimbingan pada Sesi Privat Mandiri</strong>.
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-white text-rose-700 border border-rose-200 shadow-2xs shrink-0 self-start">
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-white text-rose-700 border border-rose-200 shadow-2xs shrink-0 self-start">
                 {backlogItems.length} Materi ({totalBacklogCount} Poin Belum Tuntas)
               </span>
             </div>
@@ -537,7 +537,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
               <p className="text-xs font-bold text-emerald-950">
                 Alhamdulillah! Tidak Ada Tunggakan Materi
               </p>
-              <p className="text-[11px] text-emerald-700 max-w-md mx-auto">
+              <p className="text-xs text-emerald-700 max-w-md mx-auto">
                 Seluruh materi kurikulum bulanan pada rentang waktu ini telah tuntas diselesaikan santri dengan baik.
               </p>
             </div>
@@ -558,13 +558,13 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                               📅 {item.monthName}
                             </span>
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-100">
+                            <span className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-100">
                               {item.category}
                             </span>
-                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                            <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
                               Bahan Sesi Privat 🎯
                             </span>
                           </div>
@@ -575,13 +575,13 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
 
                         {/* Status Tuntas */}
                         <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                          <span className="text-[11px] font-bold text-rose-700">
+                          <span className="text-xs font-bold text-rose-700">
                             {item.unfinishedItems.length} Poin Belum Tuntas
                           </span>
                           <button
                             type="button"
                             onClick={() => toggleMaterialExpand(toggleKey)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="p-1 rounded-lg text-slate-600 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                             aria-label="Lihat Rincian Poin"
                           >
                             {isExpanded ? (
@@ -595,7 +595,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
 
                       {/* Mini Progress Bar */}
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                           <span>Kemajuan Materi: {item.completedItems} dari {item.totalItems} sub-target</span>
                           <span className="font-bold text-slate-700">{progressPct}%</span>
                         </div>
@@ -611,7 +611,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                     {/* Rincian Poin Checklist yang Belum Tuntas */}
                     {isExpanded && (
                       <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 pt-1 border-t border-slate-100 bg-slate-50/50 space-y-2">
-                        <p className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                           <ListChecks className="w-3.5 h-3.5 text-rose-600" />
                           <span>Daftar Poin Yang Belum Diujikan / Belum Tuntas:</span>
                         </p>
@@ -622,7 +622,7 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                               className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2 shadow-2xs"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-5 h-5 rounded-md bg-rose-50 text-rose-700 font-bold text-[10px] flex items-center justify-center shrink-0 border border-rose-100">
+                                <span className="w-5 h-5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] flex items-center justify-center shrink-0 border border-rose-100">
                                   {idx + 1}
                                 </span>
                                 <div className="min-w-0">
@@ -630,17 +630,17 @@ export default function CurriculumMasteryCard({ curriculum }: CurriculumMasteryC
                                     {u.itemTitle}
                                   </p>
                                   {u.description && (
-                                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                    <p className="text-xs text-slate-500 truncate mt-0.5">
                                       {u.description}
                                     </p>
                                   )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60">
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60">
                                   +{u.pointsWeight} Poin
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span className="px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                   {u.targetType}
                                 </span>
                               </div>

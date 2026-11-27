@@ -56,7 +56,7 @@ export default function GamificationShowcaseCard({
               <span className="text-xs font-bold text-slate-800 block">
                 Tugas Mandiri / Murojaah
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-xs text-slate-500">
                 {assignments.completedAssignments} dari {assignments.totalAssignments} tugas selesai
               </span>
             </div>
@@ -75,7 +75,7 @@ export default function GamificationShowcaseCard({
               <span className="text-xs font-bold text-slate-800 block">
                 Paraf Digital Orang Tua
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-xs text-slate-500">
                 {assignments.verifiedByParentCount} tugas disahkan orang tua
               </span>
             </div>
@@ -94,7 +94,7 @@ export default function GamificationShowcaseCard({
         </h4>
 
         {gamification.badges.length === 0 ? (
-          <div className="p-5 text-center rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-400">
+          <div className="p-5 text-center rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600">
             Belum ada lencana yang terbuka. Terus semangat menuntaskan materi dan hadir tepat waktu!
           </div>
         ) : (
@@ -113,10 +113,10 @@ export default function GamificationShowcaseCard({
                       {badge.name}
                     </p>
                   </div>
-                  <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">
+                  <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
                     {badge.description}
                   </p>
-                  <span className="text-[9px] font-semibold text-purple-700 mt-1 block">
+                  <span className="text-xs font-semibold text-purple-700 mt-1 block">
                     Diraih: {badge.earnedAt}
                   </span>
                 </div>

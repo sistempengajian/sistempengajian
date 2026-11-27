@@ -76,7 +76,7 @@ export default function QuizSubmissionReview({
               <span className="font-bold text-xs sm:text-sm text-amber-950 block">
                 {titlePrefix} {studentName ? `• ${studentName}` : ''}
               </span>
-              <span className="text-[11px] text-amber-800/80 block">
+              <span className="text-xs text-amber-800/80 block">
                 {quiz.totalQuestions} Soal Pilihan Ganda
               </span>
             </div>
@@ -84,7 +84,7 @@ export default function QuizSubmissionReview({
 
           <div className="flex items-center gap-2 flex-wrap">
             {quiz.lateNotice && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 {quiz.lateNotice}
               </span>
@@ -136,7 +136,7 @@ export default function QuizSubmissionReview({
       {/* Lembar Butir Jawaban (Daftar Soal) */}
       {isExpanded && (
         <div className="space-y-2.5 pt-1">
-          <span className="text-[11px] font-bold text-amber-900 block uppercase tracking-wider">
+          <span className="text-xs font-bold text-amber-900 block uppercase tracking-wider">
             Lembar Hasil Jawaban:
           </span>
 
@@ -151,20 +151,20 @@ export default function QuizSubmissionReview({
               >
                 {/* Header Butir Soal */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
-                    <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-extrabold border border-slate-200">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                    <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-[11px] font-extrabold border border-slate-200">
                       {aIdx + 1}
                     </span>
                     <span>Soal #{aIdx + 1}</span>
                     {ans.points !== undefined && (
-                      <span className="text-[10px] text-slate-400 font-normal">
+                      <span className="text-xs text-slate-500 font-normal">
                         ({ans.points} Poin)
                       </span>
                     )}
                   </span>
 
                   <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${ans.isCorrect
+                    className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-md border ${ans.isCorrect
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-rose-50 text-rose-700 border-rose-200'
                       }`}
@@ -195,7 +195,7 @@ export default function QuizSubmissionReview({
                     : 'bg-rose-50/40 border-rose-200/70 text-rose-950'
                     }`}
                 >
-                  <span className="font-semibold text-[11px] shrink-0 text-slate-500">
+                  <span className="font-semibold text-xs shrink-0 text-slate-500">
                     Jawaban Santri:
                   </span>
                   <span
@@ -211,7 +211,7 @@ export default function QuizSubmissionReview({
                   <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-[11px] text-emerald-800 block">
+                      <span className="font-bold text-xs text-emerald-800 block">
                         Kunci Jawaban yang Benar:
                       </span>
                       <span className="font-semibold text-emerald-900">

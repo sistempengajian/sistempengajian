@@ -16,11 +16,11 @@ export default function LeaderboardList({
   if (!rankings || rankings.length === 0) {
     return (
       <div className="p-6 rounded-2xl bg-white/60 border border-slate-200/70 text-center">
-        <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+        <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center">
           <Award className="w-6 h-6" />
         </div>
         <h4 className="text-sm font-bold text-slate-700">Daftar Peringkat Belum Tersedia</h4>
-        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
           Belum ada data santri tambahan pada peringkat berikutnya untuk filter dan periode yang dipilih.
         </p>
       </div>
@@ -34,7 +34,7 @@ export default function LeaderboardList({
           Peringkat 4 – {3 + rankings.length}
         </h4>
         {totalParticipants && (
-          <span className="text-xs text-slate-400 font-medium">
+          <span className="text-xs text-slate-500 font-medium">
             Total {totalParticipants} Santri Berpartisipasi
           </span>
         )}
@@ -105,13 +105,13 @@ export default function LeaderboardList({
                       {entry.fullName}
                     </span>
                     {isCurrentUser && (
-                      <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                         Kamu
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
                     <span className="truncate">
                       {entry.className || entry.generationName || 'Santri'}
                     </span>
@@ -153,7 +153,7 @@ export default function LeaderboardList({
                   <span className="font-extrabold text-xs sm:text-sm tracking-tight">
                     {entry.totalPoints.toLocaleString('id-ID')}
                   </span>
-                  <span className="text-[10px] font-bold text-amber-600 hidden xs:inline">XP</span>
+                  <span className="text-xs font-bold text-amber-600 hidden xs:inline">XP</span>
                 </div>
               </div>
             </div>

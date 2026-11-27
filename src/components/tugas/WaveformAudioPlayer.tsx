@@ -163,7 +163,7 @@ export default function WaveformAudioPlayer({
       </div>
 
       {/* Time Tracker Info */}
-      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1">
+      <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-1">
         <span>{formatTime(currentTime)}</span>
         <span>{formatTime(duration)}</span>
       </div>

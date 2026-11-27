@@ -118,7 +118,7 @@ export default function LazyPhotoSection({
               <Camera className="w-3.5 h-3.5 text-sky-600" />
               <span>{titlePrefix} ({photoUrls.length} Foto):</span>
             </span>
-            <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/70 px-2 py-0.5 rounded-md flex items-center gap-1">
+            <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/70 px-2 py-0.5 rounded-md flex items-center gap-1">
               <span>Tersimpan</span>
             </span>
           </div>

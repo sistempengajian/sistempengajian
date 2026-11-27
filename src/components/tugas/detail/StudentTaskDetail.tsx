@@ -474,7 +474,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
               {(() => {
                 const formattedTierOrg = formatTierOrganization(task.organizationName, task.organizationType || task.tierLevel);
                 return (
-                  <div className="flex flex-col items-start gap-y-1.5 mt-2 text-[11px] text-slate-500">
+                  <div className="flex flex-col items-start gap-y-1.5 mt-2 text-xs text-slate-500">
                     <span className="inline-flex items-center gap-1.5">
                       <User className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{task.teacherName}</span>
@@ -539,7 +539,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                 <ImageIcon className="w-4 h-4 text-teal-600" />
                 Lampiran & Berkas Tugas
               </h2>
-              <span className="text-[11px] font-medium text-slate-400">
+              <span className="text-xs font-medium text-slate-500">
                 {taskPhotos.length > 0 && `${taskPhotos.length} Foto `}
                 {taskPhotos.length > 0 && (Boolean(documentUrl) || taskLinks.length > 0) && '• '}
                 {documentUrl && '1 Berkas Dokumen '}
@@ -551,7 +551,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
             {/* Berkas Dokumen / PDF */}
             {documentUrl && (
               <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-700 block">Berkas Dokumen / Materi:</span>
+                <span className="text-xs font-semibold text-slate-700 block">Berkas Dokumen / Materi:</span>
                 <a
                   href={documentUrl}
                   target="_blank"
@@ -566,13 +566,13 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                       <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-teal-700">
                         Buka / Unduh Berkas Dokumen Tugas
                       </span>
-                      <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                      <span className="text-xs text-slate-500 block truncate mt-0.5">
                         {documentUrl}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-teal-600 shrink-0 ml-2">
-                    <span className="text-[11px] font-semibold hidden sm:inline">Buka Berkas</span>
+                    <span className="text-xs font-semibold hidden sm:inline">Buka Berkas</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 </a>
@@ -582,7 +582,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
             {/* Foto Lampiran */}
             {taskPhotos.length > 0 && (
               <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-700 block">Foto Panduan / Soal:</span>
+                <span className="text-xs font-semibold text-slate-700 block">Foto Panduan / Soal:</span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {taskPhotos.map((photo, idx) => (
                     <div
@@ -595,7 +595,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                         alt={`Lampiran tugas ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-semibold">
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
                         Perbesar
                       </div>
                     </div>
@@ -607,7 +607,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
             {/* Link Lampiran */}
             {taskLinks.length > 0 && (
               <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-700 block">Tautan / Referensi Eksternal:</span>
+                <span className="text-xs font-semibold text-slate-700 block">Tautan / Referensi Eksternal:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {taskLinks.map((link, idx) => (
                     <a
@@ -624,7 +624,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                             {link.title || link.url}
                           </span>
                           {link.title && (
-                            <span className="text-[10px] text-slate-400 block truncate">
+                            <span className="text-xs text-slate-500 block truncate">
                               {link.url}
                             </span>
                           )}
@@ -669,12 +669,12 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-700">Skor Akhir</p>
-                <p className="text-[11px] text-slate-500">dari 100 poin</p>
+                <p className="text-xs text-slate-500">dari 100 poin</p>
               </div>
             </div>
             {submission.teacherFeedback && (
               <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200/60">
-                <p className="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1">
+                <p className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
                   <MessageSquare className="w-3 h-3" /> Catatan Guru
                 </p>
                 <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{submission.teacherFeedback}</p>
@@ -710,7 +710,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
               </span>
             </div>
             {submission.parentVerification?.parentFeedback && (
-              <p className="text-[11px] text-indigo-700 mt-1.5 leading-relaxed">
+              <p className="text-xs text-indigo-700 mt-1.5 leading-relaxed">
                 "{submission.parentVerification.parentFeedback}"
               </p>
             )}
@@ -730,7 +730,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
             )}
             {!submission.parentVerification?.isVerifiedByParent && showSharePanel && (
               <div className="mt-3 pt-3 border-t border-amber-200/60 space-y-2">
-                <p className="text-[11px] font-semibold text-amber-900">
+                <p className="text-xs font-semibold text-amber-900">
                   Bagikan tautan paraf ke orang tua via WhatsApp atau salin tautan:
                 </p>
                 <div className="flex gap-2">
@@ -767,7 +767,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
-                    className="text-[11px] font-bold text-slate-500 hover:text-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-slate-500 hover:text-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     Batal
                   </button>
@@ -775,7 +775,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="text-[11px] font-bold text-emerald-700 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-emerald-700 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200/80 hover:bg-emerald-100 transition-colors cursor-pointer"
                   >
                     Edit Pengerjaan
                   </button>
@@ -816,7 +816,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                       ))}
                       {habitProgress && (
                         <div className="mt-2">
-                          <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                          <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
                             <span>Progress</span>
                             <span>{habitProgress.count}/{habitProgress.total} ({habitProgress.percentage}%)</span>
                           </div>
@@ -890,7 +890,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                                     }`}
                                 >
-                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold shrink-0 ${isSelected ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'
+                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0 ${isSelected ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'
                                     }`}>
                                     {String.fromCharCode(65 + optIdx)}
                                   </span>
@@ -951,7 +951,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                         <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
-                        Catatan Tambahan Santri <span className="text-[10px] font-normal text-slate-400">(Opsional)</span>
+                        Catatan Tambahan Santri <span className="text-xs font-normal text-slate-500">(Opsional)</span>
                       </label>
                       <textarea
                         value={writtenText}
@@ -982,7 +982,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                         const progress = getHabitProgress(parsed.habits, habitItems);
                         return (
                           <>
-                            <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                            <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
                               <span>Ibadah Selesai</span>
                               <span>{progress.count}/{progress.total}</span>
                             </div>
@@ -996,7 +996,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                               <div className="mt-2 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-slate-700 flex items-start gap-2.5">
                                 <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                                 <div className="space-y-0.5">
-                                  <span className="font-bold text-amber-900 block text-[11px]">Catatan Tambahan Santri:</span>
+                                  <span className="font-bold text-amber-900 block text-xs">Catatan Tambahan Santri:</span>
                                   <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{parsed.notes}</p>
                                 </div>
                               </div>
@@ -1016,7 +1016,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                         <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-slate-700 flex items-start gap-2.5">
                           <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                           <div className="space-y-0.5">
-                            <span className="font-bold text-amber-900 block text-[11px]">Catatan Tambahan Santri:</span>
+                            <span className="font-bold text-amber-900 block text-xs">Catatan Tambahan Santri:</span>
                             <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{submission.submissionText}</p>
                           </div>
                         </div>
@@ -1050,7 +1050,7 @@ export default function StudentTaskDetail({ data }: { data: StudentDetailData })
                     />
                   )}
 
-                  <p className="text-[11px] text-slate-400 italic">
+                  <p className="text-xs text-slate-500 italic">
                     Dikumpulkan pada {new Date(submission?.submittedAt || '').toLocaleDateString('id-ID', {
                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
                     })}

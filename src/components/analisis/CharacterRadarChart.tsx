@@ -18,7 +18,7 @@ export const CharacterRadarChart: React.FC<CharacterRadarChartProps> = ({ dimens
           <HeartHandshake className="h-6 w-6" />
         </div>
         <h4 className="font-bold text-slate-800 text-sm">Belum Ada Data Evaluasi Karakter</h4>
-        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
           Belum ada sesi evaluasi adab &amp; budi pekerti yang tercatat untuk santri dalam cakupan dan periode ini.
         </p>
       </div>
@@ -67,7 +67,7 @@ export const CharacterRadarChart: React.FC<CharacterRadarChartProps> = ({ dimens
                   <span className={`font-black ${isAboveBenchmark ? 'text-purple-900' : 'text-amber-800'}`}>
                     {score}
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-400">/ 100</span>
+                  <span className="text-xs font-semibold text-slate-500">/ 100</span>
                 </div>
               </div>
 
@@ -81,7 +81,7 @@ export const CharacterRadarChart: React.FC<CharacterRadarChartProps> = ({ dimens
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[10px] pt-0.5">
+              <div className="flex items-center justify-between text-xs pt-0.5">
                 <span className="text-slate-500 font-medium">Target Standar: {dim.benchmark}</span>
                 <span className={isAboveBenchmark ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
                   {isAboveBenchmark ? '✓ Memenuhi Target' : '⚠ Perlu Bimbingan'}

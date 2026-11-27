@@ -81,7 +81,7 @@ export default function ChildSelectorModal({
                 {title}
               </h3>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
           </div>
           <button
             type="button"
@@ -108,7 +108,7 @@ export default function ChildSelectorModal({
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute right-2.5 p-0.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -123,7 +123,7 @@ export default function ChildSelectorModal({
             <div className="py-8 text-center text-xs text-slate-500 space-y-1">
               <UserX className="w-6 h-6 text-slate-400 mx-auto" />
               <p className="font-semibold text-slate-700">Santri tidak ditemukan</p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-500">
                 Tidak ada data yang cocok dengan pencarian
               </p>
             </div>
@@ -162,7 +162,7 @@ export default function ChildSelectorModal({
                       >
                         {s.fullName}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 truncate">
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500 truncate">
                         <span className="font-medium text-teal-700">{s.generationName}</span>
                         {s.className && (
                           <>

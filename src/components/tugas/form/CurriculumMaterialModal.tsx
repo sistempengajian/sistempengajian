@@ -112,7 +112,7 @@ export default function CurriculumMaterialModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full hover:bg-slate-200/60 text-slate-600 hover:text-slate-600 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -133,7 +133,7 @@ export default function CurriculumMaterialModal({
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -168,11 +168,11 @@ export default function CurriculumMaterialModal({
         <div className="p-4 overflow-y-auto space-y-2.5 flex-1 min-h-[260px]">
           {filteredMaterials.length === 0 ? (
             <div className="text-center py-12 px-4">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto mb-3">
                 <BookOpen className="w-6 h-6" />
               </div>
               <p className="text-sm font-semibold text-slate-700">Materi Tidak Ditemukan</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 {search
                   ? `Tidak ada materi yang sesuai dengan kata kunci "${search}".`
                   : 'Belum ada materi kurikulum untuk filter generasi ini.'}
@@ -201,18 +201,18 @@ export default function CurriculumMaterialModal({
                         {item.title}
                       </span>
                       {item.targetGenerationName && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                           {item.targetGenerationName}
                         </span>
                       )}
                       {item.checklistCount !== undefined && item.checklistCount > 0 && (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
                           {item.checklistCount} Capaian
                         </span>
                       )}
                     </div>
                     {item.description && (
-                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                         {item.description}
                       </p>
                     )}

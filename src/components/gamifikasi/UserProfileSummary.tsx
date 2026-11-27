@@ -58,7 +58,7 @@ export default function UserProfileSummary({
             </div>
 
             {/* Level Pill floating on Avatar */}
-            <div className="absolute -bottom-2 -right-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-sm">
+            <div className="absolute -bottom-2 -right-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-sm">
               Lv. {userProfile.currentLevel}
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function UserProfileSummary({
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-[11px] sm:text-xs font-bold shadow-2xs">
                 <Trophy className="w-3.5 h-3.5 fill-amber-400 text-amber-600 flex-shrink-0" />
                 <span>Peringkat #{userProfile.rank}</span>
-                <span className="text-slate-400 font-normal">
+                <span className="text-slate-500 font-normal">
                   dari {userProfile.totalStudents} Santri
                 </span>
               </div>
@@ -99,11 +99,11 @@ export default function UserProfileSummary({
               <Star className="w-4 h-4 fill-amber-400" />
             </div>
             <div>
-              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block leading-none">
                 Total Poin
               </span>
               <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                {userProfile.totalPoints.toLocaleString('id-ID')} <span className="text-[10px] font-bold text-amber-600">XP</span>
+                {userProfile.totalPoints.toLocaleString('id-ID')} <span className="text-xs font-bold text-amber-600">XP</span>
               </span>
             </div>
           </div>
@@ -114,11 +114,11 @@ export default function UserProfileSummary({
               <Flame className="w-4 h-4 fill-orange-400" />
             </div>
             <div>
-              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block leading-none">
                 Streak Harian
               </span>
               <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                {userProfile.currentStreakDays} <span className="text-[10px] font-bold text-orange-600">Hari</span>
+                {userProfile.currentStreakDays} <span className="text-xs font-bold text-orange-600">Hari</span>
               </span>
             </div>
           </div>
@@ -129,7 +129,7 @@ export default function UserProfileSummary({
               <Award className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block leading-none">
                 Lencana
               </span>
               <span className="text-sm sm:text-base font-black text-slate-900 leading-tight">

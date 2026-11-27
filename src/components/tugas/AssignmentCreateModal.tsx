@@ -277,13 +277,13 @@ export default function AssignmentCreateModal({
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900">Terbitkan Tugas Rumah Baru</h3>
-                <p className="text-[11px] sm:text-xs text-slate-500">Pasca-pengajian untuk penguatan santri & sinergi orang tua</p>
+                <p className="text-xs text-slate-500">Pasca-pengajian untuk penguatan santri & sinergi orang tua</p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200/60 transition-colors cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-600 hover:text-slate-600 flex items-center justify-center border border-slate-200/60 transition-colors cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -469,7 +469,7 @@ export default function AssignmentCreateModal({
                       Buat Poin Checklist
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                     {checklistItems.length} Point
                   </span>
                 </div>
@@ -507,7 +507,7 @@ export default function AssignmentCreateModal({
                       className="p-2.5 rounded-xl bg-white border border-emerald-100/90 shadow-2xs flex items-center justify-between text-xs gap-2 group hover:border-emerald-300 transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-5 h-5 rounded-md bg-emerald-100/80 text-emerald-800 font-bold text-[10px] flex items-center justify-center shrink-0">
+                        <span className="w-5 h-5 rounded-md bg-emerald-100/80 text-emerald-800 font-bold text-[11px] flex items-center justify-center shrink-0">
                           {idx + 1}
                         </span>
                         <span className="text-slate-800 font-medium truncate">{item}</span>
@@ -515,7 +515,7 @@ export default function AssignmentCreateModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveChecklistItem(idx)}
-                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                        className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
                         title="Hapus point ini"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -535,7 +535,7 @@ export default function AssignmentCreateModal({
                       Buat Soal Kuis
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
                     {quizQuestions.length} Soal
                   </span>
                 </div>
@@ -558,7 +558,7 @@ export default function AssignmentCreateModal({
                           <button
                             type="button"
                             onClick={() => handleRemoveQuizQuestion(qIdx)}
-                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             title="Hapus soal ini"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -577,7 +577,7 @@ export default function AssignmentCreateModal({
 
                       {/* 4 Opsi Jawaban (A, B, C, D) */}
                       <div className="space-y-1.5 pt-1">
-                        <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                        <div className="text-xs font-semibold text-slate-500 flex items-center justify-between">
                           <span>Pilihan Jawaban:</span>
                           <span className="text-emerald-700 font-bold">
                             Kunci: {String.fromCharCode(65 + q.correctAnswerIndex)}
@@ -690,7 +690,7 @@ export default function AssignmentCreateModal({
                       <Lock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                       <span>Kunci Otomatis</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-normal">
+                    <p className="text-xs text-slate-500 font-normal">
                       Tolak pengumpulan setelah waktu habis
                     </p>
                   </div>
@@ -706,7 +706,7 @@ export default function AssignmentCreateModal({
                       <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>Izinkan Terlambat</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-normal">
+                    <p className="text-xs text-slate-500 font-normal">
                       Tetap diterima dengan label Terlambat
                     </p>
                   </div>
@@ -722,7 +722,7 @@ export default function AssignmentCreateModal({
                       <Award className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                       <span>Potong Poin (-25%)</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-normal">
+                    <p className="text-xs text-slate-500 font-normal">
                       Izinkan dengan pemotongan poin reward
                     </p>
                   </div>
@@ -744,7 +744,7 @@ export default function AssignmentCreateModal({
                   <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                   Wajibkan Paraf &amp; Verifikasi Orang Tua
                 </span>
-                <span className="text-slate-600 text-[11px] block leading-relaxed">
+                <span className="text-slate-600 text-xs block leading-relaxed">
                   Santri wajib meminta paraf orang tua (via aplikasi atau Magic Link WhatsApp) untuk mengklaim bonus poin keluarga (+{parentBonusPoints} Poin).
                 </span>
               </label>

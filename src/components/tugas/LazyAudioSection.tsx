@@ -132,7 +132,7 @@ export default function LazyAudioSection({
               <span>{titlePrefix} ({audioUrls.length} Berkas):</span>
             </span>
             <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${isTeal
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${isTeal
                 ? 'text-teal-700 bg-teal-50 border-teal-200/70'
                 : 'text-indigo-700 bg-indigo-50 border-indigo-200/70'
                 }`}

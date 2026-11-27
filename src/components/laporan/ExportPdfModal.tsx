@@ -82,7 +82,7 @@ export default function ExportPdfModal({ isOpen, onClose, report }: ExportPdfMod
               <h3 className="text-sm sm:text-base font-bold text-slate-900">
                 Pratinjau Rapor Digital
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Format resmi A4 siap cetak atau simpan sebagai file PDF
               </p>
             </div>
@@ -116,7 +116,7 @@ export default function ExportPdfModal({ isOpen, onClose, report }: ExportPdfMod
 
         {/* Footer Actions */}
         <div className="flex-shrink-0 p-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between rounded-b-3xl text-xs">
-          <span className="text-[11px] text-slate-400">
+          <span className="text-xs text-slate-500">
             Gunakan opsi &quot;Save as PDF&quot; pada dialog cetak browser Anda.
           </span>
           <div className="flex items-center gap-2">

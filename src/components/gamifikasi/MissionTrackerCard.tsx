@@ -137,7 +137,7 @@ export default function MissionTrackerCard({
           >
             <span>Harian</span>
             {dailyClaimable > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[11px] font-black">
                 {dailyClaimable}
               </span>
             )}
@@ -154,7 +154,7 @@ export default function MissionTrackerCard({
           >
             <span>Pekanan</span>
             {weeklyClaimable > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[11px] font-black">
                 {weeklyClaimable}
               </span>
             )}
@@ -171,7 +171,7 @@ export default function MissionTrackerCard({
           >
             <span>Milestone</span>
             {milestoneClaimable > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+              <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[11px] font-black">
                 {milestoneClaimable}
               </span>
             )}
@@ -219,7 +219,7 @@ export default function MissionTrackerCard({
                         {mission.title}
                       </h4>
                       {mission.expiresInLabel && (
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-medium">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[11px] font-medium">
                           {mission.expiresInLabel}
                         </span>
                       )}
@@ -230,7 +230,7 @@ export default function MissionTrackerCard({
 
                     {/* Progress Bar */}
                     <div className="mt-2.5 max-w-md">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1">
                         <span>Progress: {mission.currentProgress} / {mission.targetGoal}</span>
                         <span>{mission.progressPercent}%</span>
                       </div>
@@ -277,7 +277,7 @@ export default function MissionTrackerCard({
                       <span>Telah Diklaim</span>
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 text-[11px] font-medium">
+                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-medium">
                       <span>{mission.progressPercent}% Selesai</span>
                     </div>
                   )}

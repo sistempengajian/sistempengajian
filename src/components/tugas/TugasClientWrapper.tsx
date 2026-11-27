@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import RoleNavTabs, { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
+import React from 'react';
+import { type RoleTabItem, type RoleTabId } from '@/components/navigation/RoleNavTabs';
+import { useSyncedPageRole } from '@/components/navigation/ActiveRoleContext';
+import PageContainer from '@/components/ui/PageContainer';
 import StudentTaskView from '@/components/tugas/StudentTaskView';
 import TeacherAssignmentView from '@/components/tugas/TeacherAssignmentView';
 import ParentTaskView from '@/components/tugas/ParentTaskView';
@@ -22,46 +24,15 @@ interface TugasClientWrapperProps {
 
 export default function TugasClientWrapper({
   initialActiveRole,
-  availableRoles,
+  availableRoles: _availableRoles,
   roleDataMap,
 }: TugasClientWrapperProps) {
-  const [activeRole, setActiveRole] = useState<RoleTabId>(initialActiveRole);
-
-  const handleRoleChange = (newRole: RoleTabId) => {
-    setActiveRole(newRole);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('role', newRole);
-      window.history.replaceState({}, '', url.toString());
-    }
-  };
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const roleFromUrl = (params.get('role') || params.get('view') || '').toLowerCase() as RoleTabId;
-      if (roleFromUrl && roleDataMap[roleFromUrl]) {
-        setActiveRole(roleFromUrl);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [roleDataMap]);
+  const activeRole = useSyncedPageRole(initialActiveRole, roleDataMap);
 
   const data = roleDataMap[activeRole] || roleDataMap[initialActiveRole];
 
   return (
-    <div className="space-y-4 sm:space-y-5 max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fade-in pb-20 sm:pb-8">
-      {/* Tab Navigasi Multi-Role Pengguna dengan Modal Bawah (Bottom Sheet) */}
-      <RoleNavTabs
-        title="Ganti Peran Tampilan Tugas"
-        description="Pilih peran untuk melihat dan mengelola tugas sesuai hak akses Anda."
-        availableRoles={availableRoles}
-        activeRole={activeRole}
-        variant="bottom-sheet"
-        onRoleChange={handleRoleChange}
-      />
-
+    <PageContainer variant="standard" className="space-y-4 sm:space-y-5 animate-fade-in pb-20 sm:pb-8">
       {/* Header Card Minimalis & Clean Sesuai Role Pengguna */}
       {data && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/75 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-slate-200/60 shadow-xs transition-all duration-300">
@@ -115,7 +86,7 @@ export default function TugasClientWrapper({
             <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-emerald-50/90 border border-emerald-200/80 text-emerald-800 self-start sm:self-center shadow-2xs">
               <Award className="w-4 h-4 text-emerald-600 shrink-0" />
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600/90 leading-tight">
+                <span className="text-xs uppercase font-bold tracking-wider text-emerald-600/90 leading-tight">
                   Poin Santri
                 </span>
                 <span className="text-sm font-extrabold text-emerald-800 leading-tight">
@@ -166,6 +137,6 @@ export default function TugasClientWrapper({
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

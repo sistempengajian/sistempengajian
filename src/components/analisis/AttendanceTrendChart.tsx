@@ -325,7 +325,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
                       x={paddingLeft - 8}
                       y={y + 3.5}
                       textAnchor="end"
-                      className="fill-slate-400 text-[10px] font-semibold font-mono"
+                      className="fill-slate-600 text-[11px] font-semibold font-mono"
                     >
                       {level}%
                     </text>
@@ -420,7 +420,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
                       x={pt.x}
                       y={svgHeight - 12}
                       textAnchor="middle"
-                      className={`text-[10px] sm:text-[11px] transition-colors ${
+                      className={`text-[11px] transition-colors ${
                         isHovered ? 'fill-emerald-800 font-bold' : 'fill-slate-500 font-medium'
                       }`}
                     >
@@ -456,7 +456,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
                     {/* Rate label on top of bar */}
                     <span
                       className={`text-xs font-black mb-1.5 transition-colors ${
-                        isSelected ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-700'
+                        isSelected ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'
                       }`}
                     >
                       {item.rate}%
@@ -499,7 +499,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
 
                     {/* X-axis Label */}
                     <span
-                      className={`mt-2 text-[10px] sm:text-[11px] font-semibold text-center truncate max-w-full transition-colors ${
+                      className={`mt-2 text-xs font-semibold text-center truncate max-w-full transition-colors ${
                         isSelected ? 'text-emerald-800 font-bold' : 'text-slate-500'
                       }`}
                       title={item.periodLabel}
@@ -526,7 +526,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
                     {currentItem.completedSessions} Pengajian Selesai
                   </span>
                 )}
-                <span className="text-slate-500 text-[11px]">
+                <span className="text-slate-500 text-xs">
                   Tingkat Kehadiran: <strong className="text-slate-900 font-black">{currentItem.rate}%</strong>
                 </span>
               </div>
@@ -536,7 +536,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
               <div className="flex items-center gap-2.5 rounded-xl bg-white p-2.5 border border-emerald-200/70 shadow-2xs">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Hadir Tepat</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Hadir Tepat</span>
                   <span className="font-black text-emerald-800 text-sm">{currentItem.hadir} sesi</span>
                 </div>
               </div>
@@ -544,7 +544,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
               <div className="flex items-center gap-2.5 rounded-xl bg-white p-2.5 border border-amber-200/70 shadow-2xs">
                 <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Terlambat</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Terlambat</span>
                   <span className="font-black text-amber-800 text-sm">{currentItem.terlambat} sesi</span>
                 </div>
               </div>
@@ -552,7 +552,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
               <div className="flex items-center gap-2.5 rounded-xl bg-white p-2.5 border border-sky-200/70 shadow-2xs">
                 <AlertCircle className="h-4 w-4 text-sky-600 shrink-0" />
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Izin / Sakit</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Izin / Sakit</span>
                   <span className="font-black text-sky-800 text-sm">{currentItem.izin + currentItem.sakit} sesi</span>
                 </div>
               </div>
@@ -560,7 +560,7 @@ export const AttendanceTrendChart: React.FC<AttendanceTrendChartProps> = ({
               <div className="flex items-center gap-2.5 rounded-xl bg-white p-2.5 border border-rose-200/70 shadow-2xs">
                 <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Alpa</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Alpa</span>
                   <span className="font-black text-rose-800 text-sm">{currentItem.alpa} sesi</span>
                 </div>
               </div>

@@ -55,7 +55,7 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
         {/* Nilai Adab & Akhlaq */}
         <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/70 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+            <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
               Nilai Adab &amp; Akhlaq
             </span>
             <span className="text-xs text-amber-900/80 mt-0.5 block">
@@ -73,7 +73,7 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
         {/* Nilai Keaktifan & Kesungguhan */}
         <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200/70 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-teal-800 uppercase tracking-wider block">
+            <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">
               Keaktifan &amp; Tartil
             </span>
             <span className="text-xs text-teal-900/80 mt-0.5 block">
@@ -103,7 +103,7 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs"
               >
                 <span>{tag}</span>
-                <span className="w-4 h-4 rounded-full bg-amber-200/80 text-amber-900 font-extrabold text-[9px] flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-amber-200/80 text-amber-900 font-extrabold text-[11px] flex items-center justify-center">
                   {count}
                 </span>
               </span>
@@ -120,7 +120,7 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
         </h4>
 
         {character.teacherNotesFeed.length === 0 ? (
-          <div className="py-6 text-center text-xs text-slate-400 bg-slate-50/60 rounded-2xl border border-slate-100">
+          <div className="py-6 text-center text-xs text-slate-600 bg-slate-50/60 rounded-2xl border border-slate-100">
             Belum ada catatan khusus dari ustadz/ustadzah pada periode ini.
           </div>
         ) : (
@@ -136,11 +136,11 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
                       {feed.teacherName}
                     </span>
                     <span className="text-slate-300">•</span>
-                    <span className="text-slate-500 text-[11px] truncate">
+                    <span className="text-slate-500 text-xs truncate">
                       {feed.sessionTitle}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">
+                  <span className="text-xs text-slate-500 shrink-0">
                     {feed.date}
                   </span>
                 </div>
@@ -154,7 +154,7 @@ export default function CharacterEvaluationCard({ character }: CharacterEvaluati
                     {feed.tags.map((t) => (
                       <span
                         key={t}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-200/60"
+                        className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200/60"
                       >
                         #{t}
                       </span>

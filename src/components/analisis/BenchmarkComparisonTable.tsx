@@ -79,7 +79,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {/* Legend for Grouped Columns */}
             {viewMode === 'chart' && (
-              <div className="hidden md:flex items-center gap-2.5 text-[11px] font-bold text-slate-600 mr-2">
+              <div className="hidden md:flex items-center gap-2.5 text-xs font-bold text-slate-600 mr-2">
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Presensi
                 </span>
@@ -147,7 +147,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
                       className="group flex flex-col items-center justify-end h-full cursor-pointer select-none"
                     >
                       {/* Top Overall Rating Badge */}
-                      <span className="text-[10px] font-black text-slate-700 mb-1 group-hover:text-indigo-600 transition-colors">
+                      <span className="text-xs font-black text-slate-700 mb-1 group-hover:text-indigo-600 transition-colors">
                         {Math.round((unit.attendanceRate + unit.curriculumRate + unit.characterScore) / 3)}%
                       </span>
 
@@ -180,12 +180,12 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
 
                       {/* Unit Name X-Axis Label */}
                       <span
-                        className="mt-2 text-[11px] font-bold text-slate-700 text-center truncate max-w-full group-hover:text-indigo-700 transition-colors"
+                        className="mt-2 text-xs font-bold text-slate-700 text-center truncate max-w-full group-hover:text-indigo-700 transition-colors"
                         title={unit.name}
                       >
                         {unit.name}
                       </span>
-                      <span className="text-[9px] text-slate-400 font-semibold uppercase">
+                      <span className="text-xs text-slate-500 font-semibold uppercase">
                         {unit.studentCount} santri
                       </span>
                     </div>
@@ -195,7 +195,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
             </div>
 
             {/* Mobile Legend */}
-            <div className="flex md:hidden items-center justify-center gap-3 text-[10px] font-bold text-slate-600 mt-2">
+            <div className="flex md:hidden items-center justify-center gap-3 text-xs font-bold text-slate-600 mt-2">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-sm bg-emerald-500" /> Presensi
               </span>
@@ -211,7 +211,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
           /* View 2: DETAIL TABLE */
           <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200/80 shadow-2xs">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-xs">
                 <tr>
                   <th className="py-3.5 pl-4">{isHomeroomAll ? 'Kelas / Jenjang Binaan' : 'Unit / Kelas'}</th>
                   <th
@@ -272,7 +272,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors block">
                               {item.name}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{item.type}</span>
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">{item.type}</span>
                           </div>
                         </div>
                       </td>
@@ -332,7 +332,7 @@ export const BenchmarkComparisonTable: React.FC<BenchmarkComparisonTableProps> =
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-slate-400">
+      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-slate-500">
         <span>
           {isHomeroomAll
             ? 'Klik pada kolom / baris untuk fokus menganalisis detail kelas binaan tersebut'

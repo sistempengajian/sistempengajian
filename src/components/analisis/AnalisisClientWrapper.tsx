@@ -19,6 +19,7 @@ import { StudentCohortTable } from './StudentCohortTable';
 import { ParentEngagementCard } from './ParentEngagementCard';
 import { PresentationModeModal } from './PresentationModeModal';
 import { ExportReportModal } from './ExportReportModal';
+import PageContainer from '@/components/ui/PageContainer';
 import {
   Sparkles,
   Presentation,
@@ -117,7 +118,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-16">
+    <PageContainer variant="wide" className="space-y-4 sm:space-y-6 pb-16">
       {/* 1. Header Card */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-4 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -196,7 +197,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
       {filterOptions.homeroomClasses && filterOptions.homeroomClasses.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-2 sm:p-2.5 shadow-2xs">
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar snap-x py-0.5">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 pl-1 hidden sm:inline-flex items-center gap-1">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0 pl-1 hidden sm:inline-flex items-center gap-1">
               <GraduationCap className="w-3.5 h-3.5 text-teal-600" />
               Pintas Kelas:
             </span>
@@ -215,7 +216,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
               <Sparkles className={`w-3.5 h-3.5 ${scopeType === 'HOMEROOM_ALL' ? 'text-amber-300' : 'text-teal-600'}`} />
               <span>Semua Kelas Binaan</span>
               <span
-                className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                className={`ml-1 px-1.5 py-0.2 rounded-full text-[11px] font-mono font-bold ${
                   scopeType === 'HOMEROOM_ALL' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
                 }`}
               >
@@ -240,7 +241,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
                 >
                   <span>{cls.name}</span>
                   <span
-                    className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-mono font-bold ${
                       isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
                     }`}
                   >
@@ -352,7 +353,7 @@ export const AnalisisClientWrapper: React.FC<AnalisisClientWrapperProps> = ({
         data={data}
         isPrivacyMode={isPrivacyMode}
       />
-    </div>
+    </PageContainer>
   );
 };
 export default AnalisisClientWrapper;

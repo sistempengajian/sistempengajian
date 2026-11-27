@@ -210,7 +210,7 @@ export default function AudioRecorderWidget({
             <button
               type="button"
               onClick={resetRecording}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Rekam Ulang</span>

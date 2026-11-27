@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAnalyticsFilterOptions, getAnalyticsDashboardData } from './actions';
 import { AnalyticsPeriod, AnalyticsScopeType } from './types';
 import AnalisisClientWrapper from '@/components/analisis/AnalisisClientWrapper';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { UserX, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
@@ -124,10 +125,12 @@ export default async function AnalisisPage({
   });
 
   return (
-    <AnalisisClientWrapper
-      userId={currentUserId}
-      filterOptions={filterOptions}
-      initialData={initialData}
-    />
+    <ErrorBoundary sectionName="Analitika & Presentasi">
+      <AnalisisClientWrapper
+        userId={currentUserId}
+        filterOptions={filterOptions}
+        initialData={initialData}
+      />
+    </ErrorBoundary>
   );
 }

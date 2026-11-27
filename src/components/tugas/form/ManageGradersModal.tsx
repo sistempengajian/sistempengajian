@@ -121,7 +121,7 @@ export default function ManageGradersModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full hover:bg-slate-200/60 text-slate-600 hover:text-slate-600 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -161,7 +161,7 @@ export default function ManageGradersModal({
         {/* Teachers List */}
         <div className="p-4 overflow-y-auto space-y-2 flex-1 min-h-[220px]">
           {filteredTeachers.length === 0 ? (
-            <div className="text-center py-10 px-4 text-slate-400 text-xs">
+            <div className="text-center py-10 px-4 text-slate-500 text-xs">
               Tidak ada pengajar yang cocok dengan pencarian.
             </div>
           ) : (
@@ -185,7 +185,7 @@ export default function ManageGradersModal({
                       <p className="text-xs font-bold text-slate-900 truncate">
                         {teacher.fullName}
                       </p>
-                      <p className="text-[10px] text-slate-400">Pengajar Organisasi</p>
+                      <p className="text-xs text-slate-500">Pengajar Organisasi</p>
                     </div>
                   </div>
 

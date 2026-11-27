@@ -182,7 +182,7 @@ export default function StudentSubmissionGradingView({ data }: StudentSubmission
                 </span>
                 <TaskTypeBadge taskType={assignment.taskType} size="sm" />
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Halaman Penilaian & Evaluasi Santri
               </p>
             </div>
@@ -328,7 +328,7 @@ export default function StudentSubmissionGradingView({ data }: StudentSubmission
                     <span className="font-bold text-emerald-900 block">
                       Progres Amalan: {habitProgress.count} dari {habitProgress.total} Selesai
                     </span>
-                    <span className="text-[11px] text-emerald-700 mt-0.5 block">
+                    <span className="text-xs text-emerald-700 mt-0.5 block">
                       Kelengkapan amalan ibadah harian santri
                     </span>
                   </div>

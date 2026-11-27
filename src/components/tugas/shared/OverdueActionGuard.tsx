@@ -67,7 +67,7 @@ export default function OverdueActionGuard({
             <p className="text-xs font-bold text-amber-800">
               Pengumpulan Terlambat
             </p>
-            <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
               Batas waktu telah berlalu, namun pengajar mengizinkan pengumpulan terlambat. Tugas akan diberi tanda terlambat.
             </p>
           </div>
@@ -89,7 +89,7 @@ export default function OverdueActionGuard({
             <p className="text-xs font-bold text-orange-800">
               Potongan Poin {penaltyPercentage}%
             </p>
-            <p className="text-[11px] text-orange-700 mt-0.5 leading-relaxed">
+            <p className="text-xs text-orange-700 mt-0.5 leading-relaxed">
               Batas waktu telah berlalu. Pengumpulan terlambat diizinkan namun poin yang diperoleh akan dipotong {penaltyPercentage}%.
             </p>
           </div>

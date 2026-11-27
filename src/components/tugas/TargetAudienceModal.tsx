@@ -253,7 +253,7 @@ export default function TargetAudienceModal({
               <h3 className="text-sm sm:text-base font-bold text-slate-900">
                 Pilih Sasaran Penugasan
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Pilih jenjang generasi otomatis atau tentukan santri spesifik
               </p>
             </div>
@@ -261,7 +261,7 @@ export default function TargetAudienceModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-400 hover:text-slate-600 flex items-center justify-center border border-slate-200 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-600 hover:text-slate-600 flex items-center justify-center border border-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -319,7 +319,7 @@ export default function TargetAudienceModal({
               </div>
 
               {effectiveGenerations.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="p-6 text-center text-xs text-slate-600 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   Belum ada master generasi yang terdaftar di sistem.
                 </div>
               ) : (
@@ -350,7 +350,7 @@ export default function TargetAudienceModal({
                                 {gen.name}
                               </span>
                               {gen.minAge !== undefined && gen.maxAge !== undefined && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 shrink-0">
+                                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 shrink-0">
                                   {gen.minAge}-{gen.maxAge} Thn
                                 </span>
                               )}
@@ -446,7 +446,7 @@ export default function TargetAudienceModal({
 
               {/* Daftar Santri */}
               {filteredStudents.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="p-6 text-center text-xs text-slate-600 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   {searchQuery || selectedGenFilter !== 'ALL'
                     ? 'Tidak ada santri yang cocok dengan filter atau pencarian saat ini.'
                     : 'Belum ada data santri di unit organisasi Anda.'}
@@ -482,12 +482,12 @@ export default function TargetAudienceModal({
                             </h5>
                             <div className="flex items-center gap-2 mt-0.5">
                               {s.generationName && (
-                                <span className="text-[10px] text-teal-700 font-medium bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200/60 truncate">
+                                <span className="text-[11px] text-teal-700 font-medium bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200/60 truncate">
                                   {s.generationName}
                                 </span>
                               )}
                               {s.organizationName && (
-                                <span className="text-[10px] text-slate-500 flex items-center gap-0.5 truncate">
+                                <span className="text-xs text-slate-500 flex items-center gap-0.5 truncate">
                                   <Building2 className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   <span>{s.organizationName}</span>
                                 </span>
@@ -506,7 +506,7 @@ export default function TargetAudienceModal({
 
         {/* Footer Actions */}
         <div className="pl-3 sm:p-3 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
-          <div className="text-[11px] text-slate-700 font-medium truncate mr-2">
+          <div className="text-xs text-slate-700 font-medium truncate mr-2">
             {getFooterSummary()}
           </div>
           <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end shrink-0">

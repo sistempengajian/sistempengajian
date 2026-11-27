@@ -252,19 +252,19 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                     <div className="mt-3 flex items-baseline gap-1">
                       <span className="text-3xl sm:text-4xl font-black text-slate-900">{summary.attendanceRate}%</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rerata kehadiran santri</p>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">Rerata kehadiran santri</p>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-1 border-t border-slate-200/80 pt-2 text-[11px]">
+                  <div className="mt-3 grid grid-cols-3 gap-1 border-t border-slate-200/80 pt-2 text-xs">
                     <div>
-                      <span className="text-slate-400 block text-[10px]">Tepat</span>
+                      <span className="text-slate-500 block text-xs">Tepat</span>
                       <span className="font-bold text-emerald-700">{summary.onTimeRate}%</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block text-[10px]">Terlambat</span>
+                      <span className="text-slate-500 block text-xs">Terlambat</span>
                       <span className="font-bold text-amber-700">{summary.lateRate}%</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block text-[10px]">Alpa</span>
+                      <span className="text-slate-500 block text-xs">Alpa</span>
                       <span className="font-bold text-rose-700">{summary.absentRate}%</span>
                     </div>
                   </div>
@@ -282,9 +282,9 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                     <div className="mt-3 flex items-baseline gap-1">
                       <span className="text-3xl sm:text-4xl font-black text-slate-900">{summary.curriculumMasteryRate}%</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Materi checklist tuntas</p>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">Materi checklist tuntas</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-[11px]">
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-xs">
                     <span className="text-slate-500">Kategori Aktif</span>
                     <span className="font-bold text-cyan-800">{curriculumCategories.length} Bidang</span>
                   </div>
@@ -301,11 +301,11 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                     </div>
                     <div className="mt-3 flex items-baseline gap-1">
                       <span className="text-3xl sm:text-4xl font-black text-slate-900">{summary.characterAverage}</span>
-                      <span className="text-xs font-semibold text-slate-400">/100</span>
+                      <span className="text-xs font-semibold text-slate-500">/100</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Indeks perilaku &amp; keaktifan</p>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">Indeks perilaku &amp; keaktifan</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-[11px]">
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-xs">
                     <span className="text-slate-500">Predikat</span>
                     <span className="font-bold text-purple-800">
                       {summary.characterAverage >= 85 ? 'Istimewa' : summary.characterAverage >= 70 ? 'Baik' : 'Perlu Bimbingan'}
@@ -326,9 +326,9 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                       <span className="text-3xl sm:text-4xl font-black text-slate-900">{summary.totalStudents}</span>
                       <span className="text-xs font-semibold text-slate-500">anak</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Santri terdaftar di lingkup</p>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">Santri terdaftar di lingkup</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-[11px]">
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-200/80 pt-2 text-xs">
                     <span className="font-bold text-emerald-700">{summary.topPerformerCount} Unggul</span>
                     <span className="font-bold text-rose-700">{summary.atRiskCount} Butuh Bina</span>
                   </div>
@@ -369,7 +369,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
               {/* Chart Visual Presentation */}
               <div className="my-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-5">
                 {attendanceTrends.length === 0 ? (
-                  <div className="h-48 flex items-center justify-center text-xs text-slate-400">
+                  <div className="h-48 flex items-center justify-center text-xs text-slate-500">
                     Belum ada sesi presensi pengajian yang tercatat pada periode ini.
                   </div>
                 ) : (
@@ -389,7 +389,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                               style={{ height: `${Math.max(12, t.rate)}%` }}
                             />
                           </div>
-                          <span className="text-[10px] font-semibold text-slate-600 text-center truncate w-full" title={t.periodLabel}>
+                          <span className="text-xs font-semibold text-slate-600 text-center truncate w-full" title={t.periodLabel}>
                             {t.periodLabel}
                           </span>
                         </div>
@@ -401,23 +401,23 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                 {/* Total Stats Counters */}
                 <div className="grid grid-cols-5 gap-2 mt-3.5 text-center text-xs">
                   <div className="p-2 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200/80">
-                    <p className="text-[10px] font-semibold text-emerald-700">Hadir</p>
+                    <p className="text-xs font-semibold text-emerald-700">Hadir</p>
                     <p className="font-black text-base">{attendanceTrends.reduce((acc, c) => acc + c.hadir, 0)}</p>
                   </div>
                   <div className="p-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-200/80">
-                    <p className="text-[10px] font-semibold text-amber-700">Terlambat</p>
+                    <p className="text-xs font-semibold text-amber-700">Terlambat</p>
                     <p className="font-black text-base">{attendanceTrends.reduce((acc, c) => acc + c.terlambat, 0)}</p>
                   </div>
                   <div className="p-2 rounded-xl bg-blue-50 text-blue-900 border border-blue-200/80">
-                    <p className="text-[10px] font-semibold text-blue-700">Izin</p>
+                    <p className="text-xs font-semibold text-blue-700">Izin</p>
                     <p className="font-black text-base">{attendanceTrends.reduce((acc, c) => acc + c.izin, 0)}</p>
                   </div>
                   <div className="p-2 rounded-xl bg-purple-50 text-purple-900 border border-purple-200/80">
-                    <p className="text-[10px] font-semibold text-purple-700">Sakit</p>
+                    <p className="text-xs font-semibold text-purple-700">Sakit</p>
                     <p className="font-black text-base">{attendanceTrends.reduce((acc, c) => acc + c.sakit, 0)}</p>
                   </div>
                   <div className="p-2 rounded-xl bg-rose-50 text-rose-900 border border-rose-200/80">
-                    <p className="text-[10px] font-semibold text-rose-700">Alpa</p>
+                    <p className="text-xs font-semibold text-rose-700">Alpa</p>
                     <p className="font-black text-base">{attendanceTrends.reduce((acc, c) => acc + c.alpa, 0)}</p>
                   </div>
                 </div>
@@ -457,7 +457,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                   </h3>
                   <div className="space-y-3">
                     {curriculumCategories.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-6 text-center">Belum ada target kurikulum yang dijadwalkan.</p>
+                      <p className="text-xs text-slate-500 py-6 text-center">Belum ada target kurikulum yang dijadwalkan.</p>
                     ) : (
                       curriculumCategories.map((cat, idx) => (
                         <div key={idx} className="space-y-1">
@@ -471,7 +471,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                               style={{ width: `${Math.min(100, cat.masteryRate)}%` }}
                             />
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <div className="flex items-center justify-between text-xs text-slate-500">
                             <span>{cat.completedItems} dari {cat.totalItems} materi tuntas</span>
                             <span className={cat.masteryRate >= 70 ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
                               {cat.masteryRate >= 70 ? '✓ Sesuai Target' : '⚠ Perlu Akselerasi'}
@@ -496,13 +496,13 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
                     <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                       <div className="p-3 rounded-xl bg-white border border-cyan-200/80 shadow-2xs">
-                        <span className="text-[10px] text-slate-500 block font-medium">Status Capaian</span>
+                        <span className="text-xs text-slate-500 block font-medium">Status Capaian</span>
                         <span className="font-bold text-cyan-900 text-sm">
                           {summary.curriculumMasteryRate >= 80 ? 'Sangat Optimal' : summary.curriculumMasteryRate >= 50 ? 'Berjalan Baik' : 'Butuh Pendampingan'}
                         </span>
                       </div>
                       <div className="p-3 rounded-xl bg-white border border-cyan-200/80 shadow-2xs">
-                        <span className="text-[10px] text-slate-500 block font-medium">Sesi Pengajian Selesai</span>
+                        <span className="text-xs text-slate-500 block font-medium">Sesi Pengajian Selesai</span>
                         <span className="font-bold text-slate-900 text-sm">{summary.completedSessionsCount} Pertemuan</span>
                       </div>
                     </div>
@@ -553,7 +553,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                           <span className={`font-black ${isAbove ? 'text-purple-900' : 'text-amber-800'}`}>
                             {dim.score}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">/ 100</span>
+                          <span className="text-xs text-slate-500 font-semibold">/ 100</span>
                         </div>
                       </div>
 
@@ -566,7 +566,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                         />
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] pt-0.5">
+                      <div className="flex items-center justify-between text-xs pt-0.5">
                         <span className="text-slate-500 font-medium">Standar Target: {dim.benchmark}</span>
                         <span className={isAbove ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
                           {isAbove ? '✓ Memenuhi Target' : '⚠ Perlu Pembinaan'}
@@ -604,7 +604,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
               <div className="my-3 overflow-y-auto max-h-[300px] pr-1">
                 {benchmarkComparison.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-400">
+                  <div className="py-12 text-center text-xs text-slate-500">
                     Belum ada data sub-unit untuk dikomparasikan.
                   </div>
                 ) : (
@@ -621,7 +621,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                               <h4 className="font-bold text-slate-900 text-xs sm:text-sm truncate max-w-[180px]">
                                 {unit.name}
                               </h4>
-                              <p className="text-[10px] text-slate-500">{unit.studentCount} Santri Terdaftar</p>
+                              <p className="text-xs text-slate-500">{unit.studentCount} Santri Terdaftar</p>
                             </div>
                             <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[11px] font-black text-indigo-900">
                               {overall}%
@@ -630,7 +630,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
                           <div className="space-y-1.5 text-xs pt-1 border-t border-slate-200/70">
                             <div>
-                              <div className="flex justify-between text-[11px] mb-0.5">
+                              <div className="flex justify-between text-xs mb-0.5">
                                 <span className="text-slate-600">Presensi</span>
                                 <span className="font-bold text-emerald-700">{unit.attendanceRate}%</span>
                               </div>
@@ -639,7 +639,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                               </div>
                             </div>
                             <div>
-                              <div className="flex justify-between text-[11px] mb-0.5">
+                              <div className="flex justify-between text-xs mb-0.5">
                                 <span className="text-slate-600">Kurikulum</span>
                                 <span className="font-bold text-cyan-700">{unit.curriculumRate}%</span>
                               </div>
@@ -648,7 +648,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                               </div>
                             </div>
                             <div>
-                              <div className="flex justify-between text-[11px] mb-0.5">
+                              <div className="flex justify-between text-xs mb-0.5">
                                 <span className="text-slate-600">Karakter</span>
                                 <span className="font-bold text-purple-700">{unit.characterScore}</span>
                               </div>
@@ -699,7 +699,7 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
                     <div className="p-4 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-2xs">
                       <div>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                           Tingkat Verifikasi Global
                         </span>
                         <span className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 block">
@@ -713,21 +713,21 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
 
                     <div className="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
                       <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                        <span className="text-[10px] text-slate-400 block font-medium">Tugas Paraf</span>
+                        <span className="text-xs text-slate-500 block font-medium">Tugas Paraf</span>
                         <span className="font-bold text-slate-800 text-sm">{parentEngagement?.totalRequiredTasks || 0}</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 shadow-2xs">
-                        <span className="text-[10px] text-emerald-700 block font-medium">Terverifikasi</span>
+                        <span className="text-xs text-emerald-700 block font-medium">Terverifikasi</span>
                         <span className="font-bold text-emerald-800 text-sm">{parentEngagement?.totalVerifiedTasks || 0}</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 shadow-2xs">
-                        <span className="text-[10px] text-amber-700 block font-medium">Tertunda</span>
+                        <span className="text-xs text-amber-700 block font-medium">Tertunda</span>
                         <span className="font-bold text-amber-800 text-sm">{parentEngagement?.totalPendingTasks || 0}</span>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 mt-3 italic">
+                  <p className="text-xs text-slate-500 mt-3 italic">
                     Paraf orang tua membuktikan adanya kolaborasi aktif di rumah dalam membimbing hafalan dan ibadah ananda.
                   </p>
                 </div>
@@ -743,16 +743,16 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                     <div className="space-y-2 text-xs text-slate-700 mt-3">
                       <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                         <p className="font-bold text-teal-800">1. Pemanfaatan Laporan Rapor Digital &amp; WhatsApp Blast</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Kirimkan rekap kemajuan belajar secara berkala langsung ke nomor WhatsApp orang tua.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Kirimkan rekap kemajuan belajar secara berkala langsung ke nomor WhatsApp orang tua.</p>
                       </div>
                       <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                         <p className="font-bold text-indigo-800">2. Silaturahim Pembina &amp; Wali Kelas</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Melakukan kontak persuasif kepada wali santri yang memiliki catatan ketidakhadiran berulang.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Melakukan kontak persuasif kepada wali santri yang memiliki catatan ketidakhadiran berulang.</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 text-[11px] text-teal-800 font-semibold bg-teal-50 p-2.5 rounded-xl border border-teal-200/60">
+                  <div className="mt-3 text-xs text-teal-800 font-semibold bg-teal-50 p-2.5 rounded-xl border border-teal-200/60">
                     ✓ Fitur WhatsApp Gateway telah terhubung untuk mendukung pengiriman laporan otomatis.
                   </div>
                 </div>
@@ -792,17 +792,17 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                       <span>Santri Unggul Berprestasi ({topPerformers.length})</span>
                     </h4>
                     {topPerformers.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 italic">Belum ada santri berkualifikasi unggul pada periode ini.</p>
+                      <p className="text-xs text-slate-500 italic">Belum ada santri berkualifikasi unggul pada periode ini.</p>
                     ) : (
                       topPerformers.slice(0, 3).map((s, i) => (
                         <div key={s.studentId} className="p-2 rounded-xl bg-white border border-emerald-200/60 flex items-center justify-between text-xs shadow-2xs">
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center">
+                            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center justify-center">
                               #{i + 1}
                             </span>
                             <div>
                               <p className="font-bold text-slate-900">{formatName(s.fullName)}</p>
-                              <p className="text-[10px] text-slate-400">{s.className}</p>
+                              <p className="text-xs text-slate-500">{s.className}</p>
                             </div>
                           </div>
                           <span className="font-black text-emerald-700">{s.compositeScore} Poin</span>
@@ -818,13 +818,13 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                       <span>Santri Membutuhkan Penguatan ({atRiskStudents.length})</span>
                     </h4>
                     {atRiskStudents.length === 0 ? (
-                      <p className="text-[11px] text-emerald-700 font-semibold italic">Alhamdulillah, seluruh santri berada dalam kategori stabil dan unggul.</p>
+                      <p className="text-xs text-emerald-700 font-semibold italic">Alhamdulillah, seluruh santri berada dalam kategori stabil dan unggul.</p>
                     ) : (
                       atRiskStudents.slice(0, 3).map((s) => (
                         <div key={s.studentId} className="p-2 rounded-xl bg-white border border-rose-200/60 flex items-center justify-between text-xs shadow-2xs">
                           <div>
                             <p className="font-bold text-slate-900">{formatName(s.fullName)}</p>
-                            <p className="text-[10px] text-rose-600 font-medium truncate max-w-[200px]">
+                            <p className="text-xs text-rose-600 font-medium truncate max-w-[200px]">
                               {s.reasons[0] || 'Perlu bimbingan kehadiran & materi'}
                             </p>
                           </div>
@@ -846,17 +846,17 @@ export const PresentationModeModal: React.FC<PresentationModeModalProps> = ({
                     <div className="space-y-2 text-xs text-slate-700">
                       <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
                         <p className="font-bold text-amber-900">1. Pendampingan Khusus Santri Alfa</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Wali kelas segera berkomunikasi dengan wali santri terkait kendala kehadiran.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Wali kelas segera berkomunikasi dengan wali santri terkait kendala kehadiran.</p>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
                         <p className="font-bold text-cyan-900">2. Bimbingan Belajar Privat / Remedial</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Jadwalkan sesi singkat sebelum/sesudah halaqah untuk materi yang belum tuntas.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Jadwalkan sesi singkat sebelum/sesudah halaqah untuk materi yang belum tuntas.</p>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
                         <p className="font-bold text-purple-900">3. Apresiasi &amp; Tutor Sebaya</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Berikan penghargaan kepada santri teladan dan libatkan untuk menyemangati temannya.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Berikan penghargaan kepada santri teladan dan libatkan untuk menyemangati temannya.</p>
                       </div>
                     </div>
                   </div>

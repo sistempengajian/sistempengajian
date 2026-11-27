@@ -137,7 +137,7 @@ export default function DeadlineCountdown({
               Batas Pengumpulan
             </span>
             {!remaining.isOverdue && overdueInfo && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${overdueInfo.color}`}>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${overdueInfo.color}`}>
                 {overdueInfo.label}
               </span>
             )}

@@ -23,7 +23,7 @@ function PodiumStep({ entry, rank }: PodiumStepProps) {
         </div>
         <div className="w-full bg-slate-100 rounded-t-xl sm:rounded-t-2xl border border-slate-200/80 p-2 text-center h-22 sm:h-34 flex flex-col items-center justify-center">
           <span className="text-lg sm:text-xl font-bold text-slate-300">#{rank}</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-400">Belum ada</span>
+          <span className="text-xs text-slate-500">Belum ada</span>
         </div>
       </div>
     );
@@ -114,7 +114,7 @@ function PodiumStep({ entry, rank }: PodiumStepProps) {
 
           {/* Rank Badge Indicator on Avatar */}
           <div
-            className={`absolute -bottom-1.5 -right-1 px-1 sm:px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black flex items-center gap-0.5 ${config.badgeBg}`}
+            className={`absolute -bottom-1.5 -right-1 px-1 sm:px-1.5 py-0.2 rounded-full text-xs font-black flex items-center gap-0.5 ${config.badgeBg}`}
           >
             <span>#{rank}</span>
           </div>
@@ -123,21 +123,21 @@ function PodiumStep({ entry, rank }: PodiumStepProps) {
 
       {/* Student Details */}
       <div className="text-center px-0.5 sm:px-2 mb-1.5 sm:mb-2 w-full max-w-[95px] xs:max-w-[120px] sm:max-w-[160px]">
-        <h4 className="font-bold text-[11px] xs:text-xs sm:text-sm text-slate-900 truncate" title={entry.fullName}>
+        <h4 className="font-bold text-xs xs:text-xs sm:text-sm text-slate-900 truncate" title={entry.fullName}>
           {entry.fullName}
         </h4>
-        <p className="text-[9px] xs:text-[10px] sm:text-xs text-slate-500 truncate">
+        <p className="text-xs text-slate-500 truncate">
           {entry.className || entry.generationName || 'Santri'}
         </p>
 
         {/* Score & Streak Badges */}
         <div className="flex flex-wrap items-center justify-center gap-0.5 xs:gap-1 mt-0.5 sm:mt-1">
-          <span className="inline-flex items-center gap-0.5 px-1 xs:px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[9px] xs:text-[10px] sm:text-[11px] font-bold">
+          <span className="inline-flex items-center gap-0.5 px-1 xs:px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold">
             <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-400 text-amber-600 flex-shrink-0" />
             <span className="truncate">{entry.totalPoints.toLocaleString('id-ID')}</span>
           </span>
           {entry.currentStreakDays > 0 && (
-            <span className="inline-flex items-center gap-0.5 px-1 xs:px-1.5 py-0.5 rounded-md bg-orange-50 border border-orange-200 text-orange-700 text-[8px] xs:text-[9px] sm:text-[10px] font-semibold">
+            <span className="inline-flex items-center gap-0.5 px-1 xs:px-1.5 py-0.5 rounded-md bg-orange-50 border border-orange-200 text-orange-700 text-[8px] xs:text-[11px] font-semibold">
               <Flame className="w-2.5 h-2.5 fill-orange-500 text-orange-500 flex-shrink-0" />
               <span>{entry.currentStreakDays}d</span>
             </span>
@@ -154,7 +154,7 @@ function PodiumStep({ entry, rank }: PodiumStepProps) {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/30 via-transparent to-transparent pointer-events-none" />
         )}
 
-        <div className="flex items-center gap-1 font-extrabold text-[9px] xs:text-[10px] sm:text-xs uppercase tracking-wider opacity-90">
+        <div className="flex items-center gap-1 font-extrabold text-xs uppercase tracking-wider opacity-90">
           <IconComponent className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
           <span className="truncate">{config.rankLabel}</span>
         </div>
@@ -165,7 +165,7 @@ function PodiumStep({ entry, rank }: PodiumStepProps) {
           </span>
         </div>
 
-        <div className="text-[9px] xs:text-[10px] sm:text-xs font-semibold opacity-90 truncate max-w-full">
+        <div className="text-xs font-semibold opacity-90 truncate max-w-full">
           Lv. {entry.level}
         </div>
       </div>
@@ -190,10 +190,10 @@ export default function LeaderboardPodium({ podium, periodLabel }: LeaderboardPo
             <h3 className="font-bold text-slate-900 text-xs sm:text-base leading-tight truncate">
               Podium Bintang Generasi
             </h3>
-            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+            <p className="text-xs text-slate-500 truncate">
               3 Peringkat Tertinggi 
             </p>
-            <p className="text-[11px] sm:text-xs truncate font-medium text-amber-700">
+            <p className="text-xs truncate font-medium text-amber-700">
               {periodLabel}
             </p>
           </div>

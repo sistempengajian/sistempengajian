@@ -206,7 +206,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
       {/* Table Content */}
       <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200/80 shadow-2xs">
         <table className="w-full text-left text-xs sm:text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
+          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 uppercase tracking-wider text-xs font-bold">
             <tr>
               <th className="px-4 py-3.5">No &amp; Santri</th>
               <th className="px-4 py-3.5">Status</th>
@@ -252,7 +252,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
           <tbody className="divide-y divide-slate-100 text-slate-700">
             {paginatedStudents.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-semibold text-xs">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500 font-semibold text-xs">
                   Tidak ada data santri yang cocok dengan kriteria pencarian/filter.
                 </td>
               </tr>
@@ -267,7 +267,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
                     {/* Santri Info */}
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-slate-400 w-5 text-right shrink-0">
+                        <span className="text-xs font-mono text-slate-500 w-5 text-right shrink-0">
                           {globalIdx}
                         </span>
                         <div
@@ -283,7 +283,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
                           <p className="font-bold text-slate-900 truncate text-xs sm:text-sm">
                             {formatName(student.fullName)}
                           </p>
-                          <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500 mt-0.5 font-medium">
+                          <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500 mt-0.5 font-medium">
                             <span>{student.className}</span>
                             <span>•</span>
                             <span className="truncate">{student.organizationName}</span>
@@ -382,7 +382,7 @@ export const StudentCohortTable: React.FC<StudentCohortTableProps> = ({
                         <span className="font-black text-purple-900 text-sm">
                           {student.characterScore}
                         </span>
-                        <span className="text-[11px] font-semibold text-slate-400">/100</span>
+                        <span className="text-xs font-semibold text-slate-500">/100</span>
                       </div>
                     </td>
 

@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { invalidateUserProfileCache } from '@/lib/cache';
 import { formatZodError } from '@/lib/security-utils';
 
 const claimMissionSchema = z.object({
@@ -1125,7 +1126,7 @@ export async function claimMissionReward(
       return { success: false, message: formatZodError(validation.error) };
     }
 
-    const { dbUser: currentUser } = await getEffectiveAuthUser();
+    const { authUser, dbUser: currentUser } = await getEffectiveAuthUser();
 
     if (!currentUser) {
       return { success: false, message: 'Autentikasi diperlukan untuk mengklaim reward.' };
@@ -1298,6 +1299,7 @@ export async function claimMissionReward(
       return { newPoints: updated.totalPoints };
     });
 
+    await invalidateUserProfileCache(studentId, authUser?.id);
     revalidatePath('/gamifikasi');
     revalidatePath('/leaderboard');
     revalidatePath('/dashboard');

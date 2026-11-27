@@ -80,7 +80,7 @@ export const TopAndAtRiskPerformers: React.FC<TopAndAtRiskPerformersProps> = ({
       {/* Student List */}
       <div className="mt-4 space-y-3">
         {currentList.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs font-semibold text-slate-400">
+          <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs font-semibold text-slate-500">
             Tidak ada santri dalam kategori ini pada periode terpilih.
           </div>
         ) : (
@@ -113,17 +113,17 @@ export const TopAndAtRiskPerformers: React.FC<TopAndAtRiskPerformersProps> = ({
                       <span className="font-bold text-slate-900 text-sm">
                         {student.fullName}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 border border-slate-200">
                         {student.className || student.organizationName || 'Santri'}
                       </span>
                     </div>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       {student.reasons && student.reasons.length > 0 ? (
                         student.reasons.map((r, rIdx) => (
                           <span
                             key={rIdx}
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                               isTop
                                 ? 'bg-emerald-100/70 text-emerald-800'
                                 : 'bg-rose-100/70 text-rose-800'
@@ -143,19 +143,19 @@ export const TopAndAtRiskPerformers: React.FC<TopAndAtRiskPerformersProps> = ({
                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                   <div className="flex items-center gap-4 text-xs font-bold">
                     <div className="text-right">
-                      <span className="text-[10px] font-medium text-slate-400 block">Presensi</span>
+                      <span className="text-xs font-medium text-slate-500 block">Presensi</span>
                       <span className={student.attendanceRate >= 80 ? 'text-emerald-700' : 'text-rose-700'}>
                         {student.attendanceRate}%
                       </span>
                     </div>
 
                     <div className="text-right">
-                      <span className="text-[10px] font-medium text-slate-400 block">Kurikulum</span>
+                      <span className="text-xs font-medium text-slate-500 block">Kurikulum</span>
                       <span className="text-cyan-700">{student.curriculumRate}%</span>
                     </div>
 
                     <div className="text-right">
-                      <span className="text-[10px] font-medium text-slate-400 block">Skor</span>
+                      <span className="text-xs font-medium text-slate-500 block">Skor</span>
                       <span className="text-purple-700">{student.compositeScore}</span>
                     </div>
                   </div>

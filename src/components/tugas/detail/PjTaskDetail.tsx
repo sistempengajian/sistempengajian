@@ -219,7 +219,7 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
             {/* Description */}
             {assignment.description && (
               <div className="mt-4 pt-4 border-t border-slate-100">
-                <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5 block">
+                <span className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1.5 block">
                   Instruksi Tugas
                 </span>
                 <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed bg-slate-50/80 p-3.5 rounded-xl border border-slate-100">
@@ -238,7 +238,7 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
               <TrendingUp className="w-4 h-4 text-teal-600" />
             </div>
             <div className="text-2xl font-extrabold text-slate-900">{stats.totalSubmissions}</div>
-            <span className="text-[11px] text-slate-400">Santri yang telah menyetorkan tugas</span>
+            <span className="text-xs text-slate-500">Santri yang telah menyetorkan tugas</span>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs">
@@ -247,7 +247,7 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
               <ShieldCheck className="w-4 h-4 text-purple-600" />
             </div>
             <div className="text-2xl font-extrabold text-purple-700">{stats.verifiedCount}</div>
-            <span className="text-[11px] text-purple-600/80">
+            <span className="text-xs text-purple-600/80">
               {stats.totalSubmissions > 0
                 ? `${Math.round((stats.verifiedCount / stats.totalSubmissions) * 100)}% keterlibatan ortu`
                 : 'Belum ada data'}
@@ -260,7 +260,7 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-2xl font-extrabold text-emerald-700">{stats.gradedCount}</div>
-            <span className="text-[11px] text-emerald-600/80">
+            <span className="text-xs text-emerald-600/80">
               {stats.totalSubmissions > 0
                 ? `${Math.round((stats.gradedCount / stats.totalSubmissions) * 100)}% dinilai oleh guru`
                 : 'Belum ada data'}
@@ -289,7 +289,7 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
           </div>
 
           {filteredSubmissions.length === 0 ? (
-            <div className="text-center py-10 text-xs text-slate-400">
+            <div className="text-center py-10 text-xs text-slate-500">
               {submissions.length === 0
                 ? 'Belum ada santri yang mengumpulkan tugas ini.'
                 : 'Tidak ada santri yang cocok dengan pencarian.'}
@@ -305,11 +305,11 @@ export default function PjTaskDetail({ data }: PjTaskDetailProps) {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-900">{s.studentName}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
                           {s.generationName}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-xs text-slate-500">
                         {new Date(s.submittedAt).toLocaleDateString('id-ID', {
                           day: 'numeric',
                           month: 'short',

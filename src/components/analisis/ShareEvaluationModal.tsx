@@ -136,7 +136,7 @@ export default function ShareEvaluationModal({
               <h3 className="text-sm sm:text-base font-bold text-slate-900">
                 Kirim Lembar Evaluasi via WhatsApp
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Santri: <strong className="text-slate-700">{displayName}</strong>
                 {student.className ? ` (${student.className})` : ''}
               </p>
@@ -154,7 +154,7 @@ export default function ShareEvaluationModal({
         {/* Isi Modal: Preview Teks Pesan & Link */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
           {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
               <span className="text-xs font-medium">Membuat tautan evaluasi zero-login...</span>
             </div>
@@ -162,7 +162,7 @@ export default function ShareEvaluationModal({
             <>
               {/* Preview Box Pesan */}
               <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                   Format Pesan Siap Kirim (Dilengkapi Tautan Zero-Login):
                 </span>
                 <div className="p-3.5 rounded-2xl bg-emerald-50/40 border border-emerald-200/70 font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed select-all">

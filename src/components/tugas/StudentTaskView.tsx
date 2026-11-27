@@ -124,7 +124,7 @@ export default function StudentTaskView({ assignments, studentName }: StudentTas
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">Semua Tugas</span>
+          <span className="text-xs font-semibold text-slate-500 block mb-0.5">Semua Tugas</span>
           <div className="text-xl font-bold text-slate-900">{assignments.length}</div>
         </button>
 
@@ -135,7 +135,7 @@ export default function StudentTaskView({ assignments, studentName }: StudentTas
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-amber-600 block mb-0.5">Belum Dikerjakan</span>
+          <span className="text-xs font-semibold text-amber-600 block mb-0.5">Belum Dikerjakan</span>
           <div className="text-xl font-bold text-amber-700">{unsubmittedCount}</div>
         </button>
 
@@ -146,7 +146,7 @@ export default function StudentTaskView({ assignments, studentName }: StudentTas
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-purple-600 block mb-0.5">Menunggu Paraf</span>
+          <span className="text-xs font-semibold text-purple-600 block mb-0.5">Menunggu Paraf</span>
           <div className="text-xl font-bold text-purple-700">{needParentCount}</div>
         </button>
 
@@ -157,7 +157,7 @@ export default function StudentTaskView({ assignments, studentName }: StudentTas
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-teal-600 block mb-0.5">Tuntas Dinilai</span>
+          <span className="text-xs font-semibold text-teal-600 block mb-0.5">Tuntas Dinilai</span>
           <div className="text-xl font-bold text-teal-700">{completedCount}</div>
         </button>
       </div>
@@ -220,11 +220,11 @@ export default function StudentTaskView({ assignments, studentName }: StudentTas
       {/* ─── TASK CARDS GRID ─── */}
       {filteredAssignments.length === 0 ? (
         <div className="text-center py-16 px-4 bg-white rounded-3xl border border-dashed border-slate-200">
-          <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto mb-3">
             <CheckSquare className="w-6 h-6" />
           </div>
           <h3 className="text-sm font-bold text-slate-700">Tidak ada tugas ditemukan</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
             {searchQuery
               ? 'Tidak ada tugas yang sesuai dengan pencarian Anda.'
               : 'Semua tugas pada kategori ini telah selesai atau belum diterbitkan pengajar.'}

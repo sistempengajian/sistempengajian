@@ -172,7 +172,7 @@ export default function TaskListCard({
           <div className="flex items-center gap-2 flex-wrap">
             <TaskTypeBadge taskType={taskType} size="sm" />
             {requiresParentVerification && role !== 'SANTRI' && role !== 'ORANG_TUA' && !isTeacherOrPj && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/60">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200/60">
                 <ShieldCheck className="w-3 h-3" />
                 Wajib Paraf
               </span>
@@ -213,7 +213,7 @@ export default function TaskListCard({
         )}
 
         {/* Additional Meta info (Teacher, Tingkatan, Sasaran, Material) */}
-        <div className={`space-y-1.5 text-[11px] text-slate-500 ${dueDate ? 'mb-2' : 'mb-3.5'}`}>
+        <div className={`space-y-1.5 text-xs text-slate-500 ${dueDate ? 'mb-2' : 'mb-3.5'}`}>
 
           {teacherName && (
             <span className="flex items-center gap-1 text-slate-500 font-medium">
@@ -245,7 +245,7 @@ export default function TaskListCard({
 
         {/* Tanggal & Waktu Akhir Pengumpulan Tugas dengan Icon Calendar */}
         {dueDate && (
-          <div className="flex items-center gap-1 text-slate-500 font-medium text-[11px]">
+          <div className="flex items-center gap-1 text-slate-500 font-medium text-xs">
             <Calendar className="w-3 h-3" />
             <span>{formatDueDate(dueDate)}</span>
           </div>
@@ -255,7 +255,7 @@ export default function TaskListCard({
           {/* Deadline Countdown compact */}
           <div className="pt-3 border-t border-slate-100 mb-3.5 mt-4">
             <div className="flex items-center justify-between text-xs">
-              {dueDate && <span className="text-[11px] text-slate-400 font-medium">Batas Pengumpulan:</span>}
+              {dueDate && <span className="text-xs text-slate-500 font-medium">Batas Pengumpulan:</span>}
               <DeadlineCountdown
                 dueDate={dueDate ?? null}
                 overdueAction={overdueAction}

@@ -1,6 +1,4 @@
 import React from 'react';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import {
   getAccessibleStudents,
   getChildDevelopmentReport,
@@ -11,7 +9,10 @@ import { UserX, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { RoleTabId, RoleTabItem } from '@/components/navigation/RoleNavTabs';
-import { getAuthUserLean as getEffectiveAuthUser } from '@/lib/auth';
+import { requireProtectedAuth } from '@/lib/auth';
+import { normalizeRoleTabParam } from '@/lib/role-context';
+import { resolveGlobalActiveRole } from '@/lib/role-context-server';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 export const metadata = {
   title: 'Laporan Perkembangan Santri | Sistem Pengajian',
@@ -32,25 +33,20 @@ export default async function LaporanPage({
   const targetStudentId = resolvedParams.studentId || resolvedParams.childId;
   const targetPeriod = resolvedParams.period || 'THIS_MONTH';
 
-  // Parse role filter jika diberikan
-  const rawRole = resolvedParams.role?.toUpperCase();
+  // Tentukan role pilihan: prioritaskan ?role= eksplisit (Opsi A), fallback ke cookie global
+  const normalizedUrlRole = normalizeRoleTabParam(resolvedParams.role);
+  const { activeRole: preferredTabId } = await resolveGlobalActiveRole({
+    searchParamRole: normalizedUrlRole,
+    availableRoleIds: ['manage', 'teacher', 'parent', 'student'],
+  });
+
   let preferredRole: 'ORANG_TUA' | 'PENGAJAR' | 'SANTRI' | 'ADMIN' | undefined;
-  if (rawRole === 'SANTRI' || rawRole === 'STUDENT') preferredRole = 'SANTRI';
-  else if (rawRole === 'ORANG_TUA' || rawRole === 'PARENT') preferredRole = 'ORANG_TUA';
-  else if (rawRole === 'PENGAJAR' || rawRole === 'TEACHER') preferredRole = 'PENGAJAR';
-  else if (rawRole === 'ADMIN' || rawRole === 'MANAGE') preferredRole = 'ADMIN';
+  if (preferredTabId === 'student') preferredRole = 'SANTRI';
+  else if (preferredTabId === 'parent') preferredRole = 'ORANG_TUA';
+  else if (preferredTabId === 'teacher') preferredRole = 'PENGAJAR';
+  else if (preferredTabId === 'manage') preferredRole = 'ADMIN';
 
-  const { authUser, dbUser, effectiveUserId } = await getEffectiveAuthUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  if (!dbUser || !effectiveUserId) {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect('/login?auth_error=' + encodeURIComponent('Sesi profil pengguna tidak ditemukan. Silakan login kembali.'));
-  }
+  const { effectiveUserId } = await requireProtectedAuth('lean');
 
   // 1. Ambil daftar santri yang diizinkan untuk diakses user ini menggunakan ID Prisma yang valid
   const { students, defaultStudentId, userRoleCategory, availableRoles } =
@@ -59,7 +55,7 @@ export default async function LaporanPage({
   if (students.length === 0 || !defaultStudentId) {
     return (
       <div className="max-w-xl mx-auto py-16 px-4 text-center space-y-4">
-        <div className="w-14 h-14 rounded-3xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+        <div className="w-14 h-14 rounded-3xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
           <UserX className="w-7 h-7" />
         </div>
         <h2 className="text-lg font-bold text-slate-800">
@@ -108,7 +104,7 @@ export default async function LaporanPage({
     preloadedReportsMap[`${activeStudentId}_${targetPeriod}`] ||
     (await getChildDevelopmentReport(activeStudentId, targetPeriod));
 
-  // Siapkan item navigasi role untuk RoleNavTabs jika user memiliki multi-peran
+  // Siapkan item navigasi role kanonik (?role=student|parent|teacher|manage)
   const roleNavItems: RoleTabItem[] = availableRoles.map((r) => {
     if (r.id === 'SANTRI') {
       return {
@@ -119,7 +115,7 @@ export default async function LaporanPage({
         subtitle: 'Lihat capaian & perkembangan belajar pribadi',
         iconName: 'GraduationCap',
         colorTheme: 'emerald',
-        href: '/laporan?role=santri',
+        href: '/laporan?role=student',
       };
     }
     if (r.id === 'ORANG_TUA') {
@@ -131,7 +127,7 @@ export default async function LaporanPage({
         subtitle: 'Pantau perkembangan dan rapor ananda',
         iconName: 'Heart',
         colorTheme: 'indigo',
-        href: '/laporan?role=orang_tua',
+        href: '/laporan?role=parent',
       };
     }
     if (r.id === 'PENGAJAR') {
@@ -143,7 +139,7 @@ export default async function LaporanPage({
         subtitle: 'Kelola & evaluasi rapor santri binaan',
         iconName: 'School',
         colorTheme: 'teal',
-        href: '/laporan?role=pengajar',
+        href: '/laporan?role=teacher',
       };
     }
     return {
@@ -154,7 +150,7 @@ export default async function LaporanPage({
       subtitle: 'Tinjau rekap rapor santri kelompok binaan',
       iconName: 'ShieldCheck',
       colorTheme: 'amber',
-      href: '/laporan?role=admin',
+      href: '/laporan?role=manage',
     };
   });
 
@@ -168,8 +164,9 @@ export default async function LaporanPage({
           : 'parent';
 
   return (
-    <div className="px-3 sm:px-6 py-4 sm:py-6">
+    <ErrorBoundary sectionName="Laporan Perkembangan">
       <LaporanClientWrapper
+        key={activeRoleTabId}
         initialReport={initialReport}
         availableStudents={students}
         preloadedReportsMap={preloadedReportsMap}
@@ -177,6 +174,6 @@ export default async function LaporanPage({
         availableRoles={roleNavItems}
         activeRoleTabId={activeRoleTabId}
       />
-    </div>
+    </ErrorBoundary>
   );
 }

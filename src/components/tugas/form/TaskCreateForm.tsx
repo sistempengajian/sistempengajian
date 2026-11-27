@@ -393,7 +393,7 @@ export default function TaskCreateForm({
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="text-xs font-bold text-slate-900">{item.label}</div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{item.desc}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                   {isSelected && (
                     <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-teal-600 text-white flex items-center justify-center">
@@ -456,11 +456,11 @@ export default function TaskCreateForm({
                         ? `${targetGenerationIds.length} Kelompok Generasi`
                         : 'Semua Santri (Default)'}
                   </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                  <span className="text-xs text-slate-500 block mt-0.5">
                     Klik untuk menyesuaikan sasaran
                   </span>
                 </div>
-                <div className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0">
+                <div className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0">
                   Pilih
                 </div>
               </button>
@@ -480,13 +480,13 @@ export default function TaskCreateForm({
                         {selectedMaterial.title}
                       </span>
                       {selectedMaterial.targetGenerationName && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700">
                           {selectedMaterial.targetGenerationName}
                         </span>
                       )}
                     </div>
                     {selectedMaterial.checklistCount !== undefined && selectedMaterial.checklistCount > 0 && (
-                      <span className="text-[10px] text-amber-700 font-medium">
+                      <span className="text-xs text-amber-700 font-medium">
                         {selectedMaterial.checklistCount} capaian kurikulum
                       </span>
                     )}
@@ -495,14 +495,14 @@ export default function TaskCreateForm({
                     <button
                       type="button"
                       onClick={() => setIsMaterialModalOpen(true)}
-                      className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0"
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0"
                     >
                       Ganti
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedMaterial(null)}
-                      className="p-1 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                      className="p-1 text-slate-500 hover:text-red-600 rounded-lg transition-colors"
                       title="Hapus materi"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -519,11 +519,11 @@ export default function TaskCreateForm({
                     <span className="text-xs font-bold text-slate-800 block">
                       Pilih dari Kurikulum
                     </span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs text-slate-500 block mt-0.5">
                       Hubungkan dengan capaian kurikulum
                     </span>
                   </div>
-                  <div className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-200 text-slate-700 shrink-0">
+                  <div className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-200 text-slate-700 shrink-0">
                     Buka Materi
                   </div>
                 </button>
@@ -538,7 +538,7 @@ export default function TaskCreateForm({
             <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
               3. Lampiran Tugas
             </label>
-            <span className="text-[11px] text-slate-400 font-medium">Opsional</span>
+            <span className="text-xs text-slate-500 font-medium">Opsional</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -549,7 +549,7 @@ export default function TaskCreateForm({
                   <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
                   Foto / Gambar Dokumen
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-500">
                   {attachmentPhotos.length} Foto
                 </span>
               </div>
@@ -602,7 +602,7 @@ export default function TaskCreateForm({
                   <LinkIcon className="w-3.5 h-3.5 text-slate-500" />
                   Tautan Link Eksternal
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-500">
                   {attachmentLinks.length} Tautan
                 </span>
               </div>
@@ -614,12 +614,12 @@ export default function TaskCreateForm({
                     <div key={idx} className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 text-xs">
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-slate-800 truncate">{link.title || link.url}</p>
-                        {link.title && <p className="text-[10px] text-slate-400 truncate">{link.url}</p>}
+                        {link.title && <p className="text-xs text-slate-500 truncate">{link.url}</p>}
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveLink(idx)}
-                        className="text-slate-400 hover:text-red-600 p-1 rounded-lg transition-colors"
+                        className="text-slate-500 hover:text-red-600 p-1 rounded-lg transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -655,7 +655,7 @@ export default function TaskCreateForm({
                     <button
                       type="button"
                       onClick={handleAddLink}
-                      className="px-3 py-1 text-[11px] font-bold bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                      className="px-3 py-1 text-xs font-bold bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                     >
                       Tambahkan
                     </button>
@@ -762,7 +762,7 @@ export default function TaskCreateForm({
                           <ActionIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
                           <span className="text-xs font-bold text-slate-900">{action.title}</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">{action.desc}</p>
+                        <p className="text-xs text-slate-500 leading-relaxed">{action.desc}</p>
                       </div>
                     );
                   })}
@@ -802,7 +802,7 @@ export default function TaskCreateForm({
                 <Award className="w-4 h-4 text-amber-600" />
                 Poin Reward Kelulusan Santri
               </label>
-              <p className="text-[11px] text-amber-800/80 leading-relaxed">
+              <p className="text-xs text-amber-800/80 leading-relaxed">
                 Poin gamifikasi yang langsung didapatkan santri setelah tugas dinilai dan lulus oleh guru.
               </p>
               <div className="flex items-center gap-2 pt-1">
@@ -832,7 +832,7 @@ export default function TaskCreateForm({
                   className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                 />
               </div>
-              <p className="text-[11px] text-purple-800/80 leading-relaxed">
+              <p className="text-xs text-purple-800/80 leading-relaxed">
                 Mengharuskan orang tua memeriksa hafalan/amalan ananda dan memberikan paraf digital.
               </p>
               {requiresParentVerification && (
@@ -860,7 +860,7 @@ export default function TaskCreateForm({
               <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                 6. Daftar Point Checklist Amalan Ibadah
               </label>
-              <span className="text-[11px] font-semibold text-emerald-700">
+              <span className="text-xs font-semibold text-emerald-700">
                 {checklistItems.length} Point Amalan
               </span>
             </div>
@@ -869,7 +869,7 @@ export default function TaskCreateForm({
               {checklistItems.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 gap-3 text-xs">
                   <div className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[11px] flex items-center justify-center">
                       {idx + 1}
                     </span>
                     <span className="font-medium text-slate-800">{item}</span>
@@ -877,7 +877,7 @@ export default function TaskCreateForm({
                   <button
                     type="button"
                     onClick={() => handleRemoveChecklistItem(idx)}
-                    className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                    className="text-slate-500 hover:text-red-600 transition-colors p-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -954,7 +954,7 @@ export default function TaskCreateForm({
                   />
 
                   <div className="space-y-2">
-                    <p className="text-[11px] text-slate-500 font-medium">
+                    <p className="text-xs text-slate-500 font-medium">
                       Pilihan Jawaban (Klik huruf A-D untuk menandai kunci jawaban yang benar):
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -963,7 +963,7 @@ export default function TaskCreateForm({
                           <button
                             type="button"
                             onClick={() => handleSetCorrectAnswer(qIndex, optIndex)}
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${q.correctAnswerIndex === optIndex
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-colors ${q.correctAnswerIndex === optIndex
                               ? 'bg-teal-600 text-white'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                               }`}
@@ -1008,7 +1008,7 @@ export default function TaskCreateForm({
                     : 'Hanya Anda Sendiri (Default)'}
                 </span>
               </div>
-              <div className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-amber-100 text-amber-800">
+              <div className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-100 text-amber-800">
                 Kelola Akses
               </div>
             </div>

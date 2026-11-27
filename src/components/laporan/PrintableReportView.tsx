@@ -137,7 +137,7 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
                 <td className="border border-slate-300 p-2 font-medium">
                   <div>{cat.name}</div>
                   {cat.materials && cat.materials.length > 0 && (
-                    <div className="text-[10px] text-slate-500 mt-0.5 font-normal leading-relaxed">
+                    <div className="text-xs text-slate-500 mt-0.5 font-normal leading-relaxed">
                       Materi terjadwal: {cat.materials.map((m) => m.title).join(', ')}
                     </div>
                   )}
@@ -163,13 +163,13 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
 
         {curriculum.unfinishedMonthlyBacklogs && curriculum.unfinishedMonthlyBacklogs.length > 0 && (
           <div className="space-y-1.5 pt-2">
-            <div className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+            <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
               <span>Rekapitulasi Target Belum Tuntas (Hutang Materi Lintas Bulan / Rekomendasi Sesi Privat):</span>
-              <span className="text-[10px] font-semibold text-rose-700">
+              <span className="text-xs font-semibold text-rose-700">
                 {curriculum.unfinishedMonthlyBacklogs.length} Materi Belum Tuntas
               </span>
             </div>
-            <table className="w-full text-[10px] border border-slate-300 border-collapse">
+            <table className="w-full text-xs border border-slate-300 border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700">
                   <th className="border border-slate-300 p-1.5 text-left w-24">Periode Bulan</th>
@@ -186,7 +186,7 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
                     </td>
                     <td className="border border-slate-300 p-1.5 align-top">
                       <div className="font-bold text-slate-900">{item.materialTitle}</div>
-                      <div className="text-slate-500 text-[9px]">{item.category}</div>
+                      <div className="text-slate-500 text-xs">{item.category}</div>
                     </td>
                     <td className="border border-slate-300 p-1.5 align-top">
                       <ul className="list-disc list-inside space-y-0.5 text-slate-700">
@@ -205,7 +205,7 @@ export default function PrintableReportView({ report }: PrintableReportViewProps
                 ))}
               </tbody>
             </table>
-            <p className="text-[9px] text-slate-500 italic">
+            <p className="text-xs text-slate-500 italic">
               * Seluruh materi dan sub-poin belum tuntas di atas tersimpan dalam sistem dan dapat diajukan oleh santri, orang tua, atau wali kelas untuk pendalaman materi pada sesi privat.
             </p>
           </div>

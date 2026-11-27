@@ -155,7 +155,7 @@ export default function ParentTaskView({
               >
                 <span>{child.fullName}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-md ${isSelected ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 text-slate-600'
+                  className={`text-[11px] px-1.5 py-0.2 rounded-md ${isSelected ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 text-slate-600'
                     }`}
                 >
                   {child.generationName}
@@ -177,7 +177,7 @@ export default function ParentTaskView({
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-amber-600 block mb-0.5">Perlu Diparaf</span>
+          <span className="text-xs font-semibold text-amber-600 block mb-0.5">Perlu Diparaf</span>
           <div className="text-xl font-bold text-amber-700">{pendingParafCount}</div>
         </button>
 
@@ -189,7 +189,7 @@ export default function ParentTaskView({
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-purple-600 block mb-0.5">Sudah Diparaf</span>
+          <span className="text-xs font-semibold text-purple-600 block mb-0.5">Sudah Diparaf</span>
           <div className="text-xl font-bold text-purple-700">{verifiedCount}</div>
         </button>
 
@@ -201,7 +201,7 @@ export default function ParentTaskView({
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">Belum Selesai</span>
+          <span className="text-xs font-semibold text-slate-500 block mb-0.5">Belum Selesai</span>
           <div className="text-xl font-bold text-slate-700">{waitingSubmissionCount}</div>
         </button>
 
@@ -213,7 +213,7 @@ export default function ParentTaskView({
             : 'bg-white border-slate-200/80 hover:border-slate-300'
             }`}
         >
-          <span className="text-[11px] font-semibold text-indigo-600 block mb-0.5">Total Tugas</span>
+          <span className="text-xs font-semibold text-indigo-600 block mb-0.5">Total Tugas</span>
           <div className="text-xl font-bold text-indigo-700">{childAssignments.length}</div>
         </button>
       </div>
@@ -280,7 +280,7 @@ export default function ParentTaskView({
               <ShieldCheck className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-bold text-slate-700">Tidak ada tugas ditemukan</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
               {searchQuery
                 ? 'Tidak ada tugas yang sesuai dengan pencarian Anda.'
                 : 'Semua tugas untuk ananda pada filter ini telah tuntas diperiksa.'}

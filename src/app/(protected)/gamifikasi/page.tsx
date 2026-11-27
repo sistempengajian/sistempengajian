@@ -1,9 +1,9 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { requireProtectedAuth } from '@/lib/auth';
 import { getStudentGamificationData } from './actions';
 import GamifikasiClientWrapper from '@/components/gamifikasi/GamifikasiClientWrapper';
+import PageContainer from '@/components/ui/PageContainer';
 
 export const metadata: Metadata = {
   title: 'Misi & Lemari Trofi Santri | Sistem Pengajian',
@@ -11,21 +11,14 @@ export const metadata: Metadata = {
 };
 
 export default async function GamifikasiPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    redirect('/login');
-  }
+  await requireProtectedAuth();
 
   // Fetch student personal gamification data
   const initialData = await getStudentGamificationData();
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <PageContainer variant="medium" className="py-6 sm:py-8">
       <GamifikasiClientWrapper initialData={initialData} />
-    </div>
+    </PageContainer>
   );
 }

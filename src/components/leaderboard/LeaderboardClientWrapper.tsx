@@ -238,7 +238,7 @@ export default function LeaderboardClientWrapper({
               </div>
 
               <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white uppercase tracking-wider block leading-tight truncate">
+                <span className="text-xs font-bold text-white uppercase tracking-wider block leading-tight truncate">
                   Posisi Anda di {data.tierLabel}
                 </span>
                 <span className="font-bold text-xs sm:text-sm text-white truncate block leading-tight mt-0.5">
@@ -251,7 +251,7 @@ export default function LeaderboardClientWrapper({
             <Link
               href="/gamifikasi"
               prefetch={true}
-              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-b from-white/90 via-slate-50/80 to-slate-100/90 hover:from-white/80 hover:to-slate-100/80 text-yellow-900 font-extrabold text-[11px] sm:text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-b from-white/90 via-slate-50/80 to-slate-100/90 hover:from-white/80 hover:to-slate-100/80 text-yellow-900 font-extrabold text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 active:scale-95 transition-all flex-shrink-0 whitespace-nowrap"
             >
               <span className="hidden xs:inline">Misi &amp; Trofi</span>
               <span className="xs:hidden">Misi</span>

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { invalidateUserProfileCache } from '@/lib/cache';
 import { formatZodError } from '@/lib/security-utils';
 import { TaskType, SubmissionStatus, TierLevel } from '@prisma/client';
 import { generateMagicToken, verifyMagicToken } from '@/lib/magicToken';
@@ -1113,6 +1114,7 @@ export async function gradeAssignmentSubmission({
       });
     }
 
+    await invalidateUserProfileCache(submission.studentId);
     revalidatePath('/tugas');
     revalidatePath('/dashboard');
     return { success: true, pointsAwarded };
@@ -1198,6 +1200,10 @@ export async function verifySubmissionByParent({
       });
     }
 
+    await invalidateUserProfileCache(
+      verification.submission.studentId,
+      verification.parentUserId
+    );
     revalidatePath('/tugas');
     revalidatePath(`/tugas/${verification.submission.assignmentId}`);
     revalidatePath('/dashboard');

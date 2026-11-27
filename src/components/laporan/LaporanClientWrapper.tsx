@@ -30,7 +30,8 @@ import GamificationShowcaseCard from './GamificationShowcaseCard';
 import ExportPdfModal from './ExportPdfModal';
 import ShareWhatsAppButton from './ShareWhatsAppButton';
 
-import RoleNavTabs, { RoleTabId, RoleTabItem } from '@/components/navigation/RoleNavTabs';
+import { type RoleTabId, type RoleTabItem } from '@/components/navigation/RoleNavTabs';
+import PageContainer from '@/components/ui/PageContainer';
 
 interface LaporanClientWrapperProps {
   initialReport: ChildDevelopmentReport;
@@ -54,8 +55,8 @@ export default function LaporanClientWrapper({
   availableStudents,
   preloadedReportsMap,
   userRoleCategory,
-  availableRoles,
-  activeRoleTabId,
+  availableRoles: _availableRoles,
+  activeRoleTabId: _activeRoleTabId,
 }: LaporanClientWrapperProps) {
   const [currentStudentId, setCurrentStudentId] = useState<string>(
     initialReport.student.id
@@ -134,27 +135,7 @@ export default function LaporanClientWrapper({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-16">
-      {/* Switcher Role jika user memiliki multi-peran (menggunakan Bottom Sheet modal) */}
-      {availableRoles && availableRoles.length > 1 && (
-        <RoleNavTabs
-          availableRoles={availableRoles}
-          activeRole={activeRoleTabId || (userRoleCategory === 'SANTRI' ? 'student' : 'parent')}
-          variant="bottom-sheet"
-          onRoleChange={(newRole) => {
-            const roleParam =
-              newRole === 'student'
-                ? 'santri'
-                : newRole === 'parent'
-                  ? 'orang_tua'
-                  : newRole === 'teacher'
-                    ? 'pengajar'
-                    : 'admin';
-            window.location.href = `/laporan?role=${roleParam}`;
-          }}
-        />
-      )}
-
+    <PageContainer variant="wide" className="space-y-4 sm:space-y-6 pb-16">
       {/* 1. Header Profil Santri & Pilihan Multi-Anak */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-4 sm:p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -175,17 +156,17 @@ export default function LaporanClientWrapper({
                   {student.fullName}
                 </h2>
                 {userRoleCategory === 'SANTRI' ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/80">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/80">
                     <GraduationCap className="w-3 h-3 text-emerald-700" />
                     Rapor Belajar Saya
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200/70">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200/70">
                     {student.generationName}
                   </span>
                 )}
                 {student.className && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/70">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/70">
                     {student.className}
                   </span>
                 )}
@@ -260,7 +241,7 @@ export default function LaporanClientWrapper({
 
       <div className='bg-white rounded-3xl border border-slate-200 /80 shadow-xs p-4 sm:p-6 space-y-4'>
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1 hidden sm:inline">
             Periode:
           </span>
           {PERIOD_OPTIONS.map((opt) => {
@@ -287,7 +268,7 @@ export default function LaporanClientWrapper({
         {/* Metrik 1: Kehadiran */}
         <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Kehadiran
             </span>
             <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
@@ -298,9 +279,9 @@ export default function LaporanClientWrapper({
             <span className="text-2xl sm:text-3xl font-black text-slate-900">
               {attendance.percentage}%
             </span>
-            <span className="text-[11px] font-semibold text-emerald-700">Hadir</span>
+            <span className="text-xs font-semibold text-emerald-700">Hadir</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
             {attendance.currentStreak > 0 ? (
               <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded">
                 <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
@@ -315,7 +296,7 @@ export default function LaporanClientWrapper({
         {/* Metrik 2: Penguasaan Kurikulum */}
         <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Target Tuntas
             </span>
             <div className="w-7 h-7 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs">
@@ -330,7 +311,7 @@ export default function LaporanClientWrapper({
               / {curriculum.totalChecklistItems}
             </span>
           </div>
-          <div className="text-[10px] text-teal-700 font-bold truncate">
+          <div className="text-xs text-teal-700 font-bold truncate">
             {curriculum.masteryPercentage}% kurikulum disahkan
           </div>
         </div>
@@ -338,7 +319,7 @@ export default function LaporanClientWrapper({
         {/* Metrik 3: Rata-rata Adab & Karakter */}
         <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Nilai Karakter
             </span>
             <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs">
@@ -351,7 +332,7 @@ export default function LaporanClientWrapper({
             </span>
             <span className="text-xs font-semibold text-amber-700">/ 100</span>
           </div>
-          <div className="text-[10px] text-slate-500 truncate">
+          <div className="text-xs text-slate-500 truncate">
             Keaktifan: <strong className="text-slate-800 font-bold">{character.averageKeaktifan}</strong>
           </div>
         </div>
@@ -359,7 +340,7 @@ export default function LaporanClientWrapper({
         {/* Metrik 4: Gamifikasi & Poin */}
         <div className="p-3.5 sm:p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Prestasi
             </span>
             <div className="w-7 h-7 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs">
@@ -372,7 +353,7 @@ export default function LaporanClientWrapper({
             </span>
             <span className="text-xs font-semibold text-purple-700">Poin</span>
           </div>
-          <div className="text-[10px] text-purple-800 font-bold truncate">
+          <div className="text-xs text-purple-800 font-bold truncate">
             Level {gamification.level} • {gamification.badges.length} Lencana
           </div>
         </div>
@@ -418,6 +399,6 @@ export default function LaporanClientWrapper({
         onClose={() => setIsPdfModalOpen(false)}
         report={currentReport}
       />
-    </div >
+    </PageContainer>
   );
 }

@@ -318,7 +318,7 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
                 Lampiran Foto, Berkas & Tautan Tugas
               </h2>
               <div className='flex items-center'>
-                <span className="text-[11px] font-medium text-slate-400">
+                <span className="text-xs font-medium text-slate-500">
                   {taskPhotos.length > 0 && `${taskPhotos.length} Foto `}
                   {taskPhotos.length > 0 && (Boolean(documentUrl) || taskLinks.length > 0) && '• '}
                   {documentUrl && '1 Berkas Dokumen '}
@@ -346,13 +346,13 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
                       <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-teal-700">
                         Buka / Unduh Berkas Dokumen Tugas
                       </span>
-                      <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                      <span className="text-xs text-slate-500 block truncate mt-0.5">
                         {documentUrl}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-teal-600 shrink-0 ml-2">
-                    <span className="text-[11px] font-semibold hidden sm:inline">Buka Berkas</span>
+                    <span className="text-xs font-semibold hidden sm:inline">Buka Berkas</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 </a>
@@ -404,7 +404,7 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
                             {link.title || link.url}
                           </span>
                           {link.title && (
-                            <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                            <span className="text-xs text-slate-500 block truncate mt-0.5">
                               {link.url}
                             </span>
                           )}
@@ -517,11 +517,11 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
           {/* List Submissions */}
           {filteredSubmissions.length === 0 ? (
             <div className="text-center py-12 px-4">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto mb-3">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <p className="text-sm font-medium text-slate-700">Tidak ada pengumpulan tugas</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 {submissions.length === 0
                   ? 'Belum ada santri yang mengumpulkan tugas ini.'
                   : 'Tidak ada santri yang cocok dengan filter saat ini.'}
@@ -553,7 +553,7 @@ export default function TeacherTaskDetail({ data }: TeacherTaskDetailProps) {
                           {sub.generationName}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         Kumpul:{' '}
                         {new Date(sub.submittedAt).toLocaleDateString('id-ID', {
                           day: 'numeric',

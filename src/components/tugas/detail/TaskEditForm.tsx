@@ -446,7 +446,7 @@ export default function TaskEditForm({
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-900 mb-0.5">{t.label}</span>
-                  <span className="text-[11px] text-slate-500 leading-snug">{t.desc}</span>
+                  <span className="text-xs text-slate-500 leading-snug">{t.desc}</span>
                 </button>
               );
             })}
@@ -510,7 +510,7 @@ export default function TaskEditForm({
                       ? `${targetStudentIds.length} Santri Tertentu Dipilih`
                       : `${targetGenerationIds.length} Generasi Dipilih`}
                 </span>
-                <span className="text-[11px] text-slate-500 block mt-0.5">
+                <span className="text-xs text-slate-500 block mt-0.5">
                   {targetGenerationIds.length > 0
                     ? effectiveGenerations
                       .filter((g) => targetGenerationIds.includes(g.id))
@@ -540,7 +540,7 @@ export default function TaskEditForm({
                 <button
                   type="button"
                   onClick={() => setSelectedMaterial(null)}
-                  className="text-[11px] text-red-600 hover:text-red-700 font-medium"
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
                 >
                   Lepas Materi
                 </button>
@@ -558,13 +558,13 @@ export default function TaskEditForm({
                     <div className="flex flex-wrap items-center  gap-2">
                       <span className="text-xs font-bold text-slate-900">{selectedMaterial.title}</span>
                       {selectedMaterial.targetGenerationName && (
-                        <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-semibold">
+                        <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-semibold">
                           {selectedMaterial.targetGenerationName}
                         </span>
                       )}
                     </div>
                     {selectedMaterial.description && (
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                      <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                         {selectedMaterial.description}
                       </p>
                     )}
@@ -574,14 +574,14 @@ export default function TaskEditForm({
                   <button
                     type="button"
                     onClick={() => setIsMaterialModalOpen(true)}
-                    className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0"
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0"
                   >
                     Ganti
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedMaterial(null)}
-                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                    className="p-1 text-slate-500 hover:text-red-600 rounded-lg transition-colors"
                     title="Hapus materi"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -614,7 +614,7 @@ export default function TaskEditForm({
             <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
               3. Lampiran Tugas
             </label>
-            <span className="text-[11px] text-slate-400 font-medium">Opsional</span>
+            <span className="text-xs text-slate-500 font-medium">Opsional</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -625,7 +625,7 @@ export default function TaskEditForm({
                   <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
                   Foto / Gambar Dokumen
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-500">
                   {attachmentPhotos.length} Foto
                 </span>
               </div>
@@ -678,7 +678,7 @@ export default function TaskEditForm({
                   <LinkIcon className="w-3.5 h-3.5 text-slate-500" />
                   Tautan Link Eksternal
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-500">
                   {attachmentLinks.length} Tautan
                 </span>
               </div>
@@ -690,12 +690,12 @@ export default function TaskEditForm({
                     <div key={idx} className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 text-xs">
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-slate-800 truncate">{link.title || link.url}</p>
-                        {link.title && <p className="text-[10px] text-slate-400 truncate">{link.url}</p>}
+                        {link.title && <p className="text-xs text-slate-500 truncate">{link.url}</p>}
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveLink(idx)}
-                        className="text-slate-400 hover:text-red-600 p-1 rounded-lg transition-colors"
+                        className="text-slate-500 hover:text-red-600 p-1 rounded-lg transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -731,7 +731,7 @@ export default function TaskEditForm({
                     <button
                       type="button"
                       onClick={handleAddLink}
-                      className="px-3 py-1 text-[11px] font-bold bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                      className="px-3 py-1 text-xs font-bold bg-teal-600 text-white rounded-lg hover:bg-teal-700"
                     >
                       Tambahkan
                     </button>
@@ -842,7 +842,7 @@ export default function TaskEditForm({
                           <ActionIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
                           <span className="text-xs font-bold text-slate-900">{action.title}</span>
                         </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">{action.desc}</p>
+                        <p className="text-xs text-slate-500 leading-relaxed">{action.desc}</p>
                       </div>
                     );
                   })}
@@ -880,7 +880,7 @@ export default function TaskEditForm({
                 <Award className="w-4 h-4 text-amber-600" />
                 Poin Reward Kelulusan Santri
               </label>
-              <p className="text-[11px] text-amber-800/80 leading-relaxed">
+              <p className="text-xs text-amber-800/80 leading-relaxed">
                 Poin gamifikasi yang langsung didapatkan santri setelah tugas dinilai dan lulus oleh guru.
               </p>
               <div className="flex items-center gap-2 pt-1">
@@ -910,7 +910,7 @@ export default function TaskEditForm({
                   className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                 />
               </div>
-              <p className="text-[11px] text-purple-800/80 leading-relaxed">
+              <p className="text-xs text-purple-800/80 leading-relaxed">
                 Mengharuskan orang tua memeriksa hafalan/amalan ananda dan memberikan paraf digital.
               </p>
               {requiresParentVerification && (
@@ -967,7 +967,7 @@ export default function TaskEditForm({
                 </span>
               </div>
 
-              <span className="text-[11px] flex-col text-slate-500 mt-0.5">
+              <span className="text-xs flex-col text-slate-500 mt-0.5">
                 {assistantGraderIds.length > 0
                   ? availableTeachers
                     .filter((t) => assistantGraderIds.includes(t.id))
@@ -992,7 +992,7 @@ export default function TaskEditForm({
                   <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                     8. Konfigurasi Checklist Amalan Harian
                   </label>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Daftar amalan yang harus dicentang oleh santri setiap harinya.
                   </p>
                 </div>
@@ -1014,7 +1014,7 @@ export default function TaskEditForm({
                     <button
                       type="button"
                       onClick={() => handleRemoveChecklistItem(idx)}
-                      className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                      className="text-slate-500 hover:text-red-600 transition-colors p-1"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1057,7 +1057,7 @@ export default function TaskEditForm({
                   <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                     8. Builder Soal Kuis Online
                   </label>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Tentukan pertanyaan, 4 pilihan ganda, dan tandai jawaban yang benar.
                   </p>
                 </div>
@@ -1126,7 +1126,7 @@ export default function TaskEditForm({
                                 onChange={() => handleSetCorrectAnswer(qIdx, optIdx)}
                                 className="text-emerald-600 focus:ring-emerald-500 cursor-pointer ml-1"
                               />
-                              <span className="text-xs font-bold text-slate-400 w-4">
+                              <span className="text-xs font-bold text-slate-500 w-4">
                                 {String.fromCharCode(65 + optIdx)}.
                               </span>
                               <input

@@ -7,6 +7,7 @@ import TugasClientWrapper from '@/components/tugas/TugasClientWrapper';
 import { RoleTabItem, RoleTabId } from '@/components/navigation/RoleNavTabs';
 
 import { getEffectiveAuthUser } from '@/lib/auth';
+import { resolveGlobalActiveRole } from '@/lib/role-context-server';
 
 export const metadata = {
   title: 'Tugas Pasca-Pengajian | Sistem Pengajian Terstruktur',
@@ -123,10 +124,11 @@ export default async function TugasPage({
     });
   }
 
-  // 3. Tentukan Role Tab yang Sedang Aktif
-  const roleQuery = (resolvedParams.role || resolvedParams.view || '').toLowerCase();
-  const matchedRole = availableRoles.find((r) => r.id === roleQuery);
-  const initialActiveRole: RoleTabId = matchedRole ? matchedRole.id : availableRoles[0].id;
+  // 3. Tentukan Role Tab yang Sedang Aktif (prioritas: ?role= eksplisit -> cookie global -> default)
+  const { activeRole: initialActiveRole } = await resolveGlobalActiveRole({
+    searchParamRole: resolvedParams.role || resolvedParams.view,
+    availableRoleIds: availableRoles.map((r) => r.id),
+  });
 
   // 4. Ambil data tugas untuk semua availableRoles secara paralel
   const roleDataResults = await Promise.all(

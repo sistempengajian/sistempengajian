@@ -124,7 +124,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">Ekspor Laporan Eksekutif</h3>
                 {isPrivacyMode && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
                     <EyeOff className="w-3 h-3 text-amber-600" />
                     Sensor Nama Aktif
                   </span>
@@ -136,7 +136,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            className="rounded-xl p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -166,39 +166,39 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
 
           {/* KPI Summary Grid */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700 mb-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 print:text-slate-700 mb-2">
               Ringkasan Capaian Utama (KPI)
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 print:border-slate-300 print:bg-slate-50">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold block">Presensi</span>
+                <span className="text-xs text-slate-500 uppercase font-semibold block">Presensi</span>
                 <span className="text-lg font-black text-emerald-700">{data.summary.attendanceRate}%</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Tepat: {data.summary.onTimeRate}%</span>
+                <span className="text-xs text-slate-500 block mt-0.5">Tepat: {data.summary.onTimeRate}%</span>
               </div>
 
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 print:border-slate-300 print:bg-slate-50">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold block">Kurikulum</span>
+                <span className="text-xs text-slate-500 uppercase font-semibold block">Kurikulum</span>
                 <span className="text-lg font-black text-cyan-700">{data.summary.curriculumMasteryRate}%</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Target checklist</span>
+                <span className="text-xs text-slate-500 block mt-0.5">Target checklist</span>
               </div>
 
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 print:border-slate-300 print:bg-slate-50">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold block">Rata-rata Adab</span>
+                <span className="text-xs text-slate-500 uppercase font-semibold block">Rata-rata Adab</span>
                 <span className="text-lg font-black text-purple-700">{data.summary.characterAverage}/100</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Budi pekerti</span>
+                <span className="text-xs text-slate-500 block mt-0.5">Budi pekerti</span>
               </div>
 
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 print:border-slate-300 print:bg-slate-50">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold block">Santri Aktif</span>
+                <span className="text-xs text-slate-500 uppercase font-semibold block">Santri Aktif</span>
                 <span className="text-lg font-black text-indigo-700">{data.summary.activeStudentsCount}</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Unggul: {data.summary.topPerformerCount}</span>
+                <span className="text-xs text-slate-500 block mt-0.5">Unggul: {data.summary.topPerformerCount}</span>
               </div>
             </div>
           </div>
 
           {/* Student Status Summary */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 print:text-slate-700 mb-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 print:text-slate-700 mb-2">
               Daftar Santri Prioritas Pembinaan
             </h4>
             <div className="overflow-x-auto rounded-2xl border border-slate-200 print:border-slate-300 shadow-2xs">

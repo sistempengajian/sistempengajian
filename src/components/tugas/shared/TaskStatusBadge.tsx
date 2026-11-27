@@ -125,7 +125,7 @@ export default function TaskStatusBadge({
 
   const Icon = config.icon;
   const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
-  const textSize = size === 'sm' ? 'text-[10px]' : 'text-xs';
+  const textSize = size === 'sm' ? 'text-xs' : 'text-xs';
   const padding = size === 'sm' ? 'px-2.5 py-0.5' : 'px-3 py-1';
 
   return (
