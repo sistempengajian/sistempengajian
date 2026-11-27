@@ -407,7 +407,7 @@ function LoginForm() {
                 </div>
 
                 {/* Petunjuk Pengguna Awam / PWA */}
-                <div className="p-3 rounded-xl bg-white/90 border border-emerald-200/70 text-[11px] text-emerald-900 space-y-1.5 leading-relaxed">
+                <div className="p-3 rounded-xl bg-white/90 border border-emerald-200/70 text-xs text-emerald-900 space-y-1.5 leading-relaxed">
                   <div className="flex items-center gap-1.5 font-bold text-emerald-950">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Petunjuk Masuk Cepat:</span>
@@ -433,7 +433,7 @@ function LoginForm() {
 
                 {/* Baris Kirim Ulang dengan Jeda Waktu */}
                 <div className="pt-3 border-t border-emerald-200/70 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                  <div className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
+                  <div className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-emerald-600" />
                     <span>
                       Jeda Kirim Ulang:{' '}
@@ -471,7 +471,9 @@ function LoginForm() {
                   </div>
                   <input
                     id="phone"
+                    name="phone"
                     type="tel"
+                    autoComplete="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -480,7 +482,7 @@ function LoginForm() {
                     className="w-full pl-10 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1.5">
+                <p className="text-xs text-slate-500 mt-1.5">
                   Gunakan format nomor lokal (08...) atau internasional (628...).
                 </p>
               </div>
@@ -526,7 +528,9 @@ function LoginForm() {
               </div>
               <input
                 id="email"
+                name="email"
                 type="text"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -548,7 +552,9 @@ function LoginForm() {
               </div>
               <input
                 id="password"
+                name="password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -558,7 +564,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -587,8 +593,8 @@ function LoginForm() {
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-slate-200" />
         </div>
-        <div className="relative flex justify-center text-[11px] uppercase tracking-wider font-semibold">
-          <span className="bg-white px-3 text-slate-400">atau</span>
+        <div className="relative flex justify-center text-xs uppercase tracking-wider font-semibold">
+          <span className="bg-white px-3 text-slate-500">atau</span>
         </div>
       </div>
 
@@ -648,7 +654,7 @@ function LoginForm() {
       </div>
 
       {/* Security Note */}
-      <p className="text-[11px] text-slate-400 text-center mt-6">
+      <p className="text-xs text-slate-500 text-center mt-6">
         Otentikasi dilindungi pembatasan 1x pakai &amp; sinkronisasi database pengguna
       </p>
 
@@ -660,7 +666,7 @@ function LoginForm() {
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Pilih Akun Demo Uji Coba:</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-normal">Klik Masuk Cepat untuk demo instan</span>
+            <span className="text-xs text-slate-500 font-normal">Klik Masuk Cepat untuk demo instan</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -682,12 +688,12 @@ function LoginForm() {
                       <span className="font-bold text-slate-900 leading-tight">
                         {account.role}
                       </span>
-                      <span className="text-[10px] text-emerald-700 font-mono flex items-center gap-0.5">
+                      <span className="text-xs text-emerald-700 font-mono flex items-center gap-0.5">
                         <Phone className="w-2.5 h-2.5" />
                         <span>{displayPhoneNumber(account.phone)}</span>
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
+                    <div className="text-xs text-slate-600 truncate mt-0.5 font-medium">
                       {account.name}
                     </div>
                   </div>
@@ -696,7 +702,7 @@ function LoginForm() {
                     type="button"
                     onClick={(e) => handleInstantDemoLogin(e, account)}
                     disabled={isPending}
-                    className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                    className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <>
@@ -724,7 +730,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+        <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
           <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
           <span>Memuat halaman masuk...</span>
         </div>

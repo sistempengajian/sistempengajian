@@ -1,6 +1,8 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { CACHE_TAGS } from '@/lib/cache';
 import { isHoneypotTriggered } from '@/lib/security-utils';
 import {
   verifySubstituteRequestToken,
@@ -605,6 +607,10 @@ export async function confirmSubstituteRequest({
           isSubstitute: true,
         },
       });
+
+      revalidateTag(CACHE_TAGS.UPCOMING_SCHEDULE);
+      revalidatePath('/dashboard');
+      revalidatePath('/jadwal');
 
       // 3. Kirim notifikasi WA konfirmasi sukses ke Ustadz Pemohon
       if (request.requesterTeacher.phoneNumber) {

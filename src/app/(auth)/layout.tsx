@@ -36,7 +36,7 @@ export default function AuthLayout({
         </div>
 
         {/* Footer info */}
-        <div className="mt-6 text-center text-xs text-slate-400">
+        <div className="mt-6 text-center text-xs text-slate-500">
           <p>© 2026 Sistem Pengajian Terpadu • Berstandar PWA & Zero-Trust RLS</p>
         </div>
       </div>

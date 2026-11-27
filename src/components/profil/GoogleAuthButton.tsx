@@ -210,14 +210,14 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
             <button
               type="button"
               onClick={() => setFeedback(null)}
-              className="text-slate-400 hover:text-slate-600 p-0.5"
+              className="text-slate-500 hover:text-slate-600 p-0.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {feedback.details && (
-            <p className="text-[11px] leading-relaxed opacity-90 pl-6">
+            <p className="text-xs leading-relaxed opacity-90 pl-6">
               {feedback.details}
             </p>
           )}
@@ -227,7 +227,7 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
               <button
                 type="button"
                 onClick={() => setIsManualModalOpen(true)}
-                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
               >
                 Tautkan Email Manual
               </button>
@@ -235,7 +235,7 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
               <button
                 type="button"
                 onClick={() => setShowConfigHelp((prev) => !prev)}
-                className="text-[11px] font-semibold text-amber-900 underline hover:text-amber-950 cursor-pointer"
+                className="text-xs font-semibold text-amber-900 underline hover:text-amber-950 cursor-pointer"
               >
                 {showConfigHelp ? 'Sembunyikan Panduan' : 'Panduan Supabase'}
               </button>
@@ -255,12 +255,12 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
             <button
               type="button"
               onClick={() => setShowConfigHelp(false)}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-500 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300 leading-relaxed">
+          <ol className="list-decimal list-inside space-y-1 text-xs text-slate-300 leading-relaxed">
             <li>
               Buka <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-emerald-400 underline inline-flex items-center gap-0.5">Supabase Dashboard <ExternalLink className="w-2.5 h-2.5" /></a> &gt; Pilih Proyek Anda.
             </li>
@@ -298,7 +298,7 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
             </svg>
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+            <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">
               Alamat Email Akun
             </span>
             <span className="text-xs sm:text-sm font-medium text-slate-900 truncate block">
@@ -362,7 +362,7 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">Putuskan Tautan Email?</h3>
-                    <p className="text-[11px] text-slate-500">Konfirmasi pelepasan alamat email akun</p>
+                    <p className="text-xs text-slate-500">Konfirmasi pelepasan alamat email akun</p>
                   </div>
                 </div>
 
@@ -431,7 +431,7 @@ export default function GoogleAuthButton({ email, userId }: GoogleAuthButtonProp
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">Tautkan Alamat Email</h3>
-                    <p className="text-[11px] text-slate-500">Masukkan alamat email Google atau email aktif</p>
+                    <p className="text-xs text-slate-500">Masukkan alamat email Google atau email aktif</p>
                   </div>
                 </div>
 

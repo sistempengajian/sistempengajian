@@ -302,14 +302,14 @@ export default function SubstituteRequestClientView({
               <h1 className="text-sm font-bold text-slate-900 leading-tight">
                 Delegasi Guru Badal
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 {schedule.organization.name}
               </p>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
               Ustadz Pengampu
             </span>
             <p className="text-xs font-semibold text-slate-700 mt-0.5 truncate max-w-[130px]">
@@ -348,7 +348,7 @@ export default function SubstituteRequestClientView({
         <section className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-start justify-between border-b border-slate-100 pb-3">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                 Rincian Sesi Mengajar
               </span>
               <h2 className="text-base font-bold text-slate-900 mt-1.5 leading-snug">
@@ -361,7 +361,7 @@ export default function SubstituteRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Hari & Tanggal</p>
+                <p className="text-xs text-slate-500 font-medium">Hari & Tanggal</p>
                 <p className="font-semibold">{dayDateFormatted}</p>
               </div>
             </div>
@@ -369,7 +369,7 @@ export default function SubstituteRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Waktu Sesi</p>
+                <p className="text-xs text-slate-500 font-medium">Waktu Sesi</p>
                 <p className="font-semibold">{timeFormatted}</p>
               </div>
             </div>
@@ -377,7 +377,7 @@ export default function SubstituteRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Lokasi / Tempat</p>
+                <p className="text-xs text-slate-500 font-medium">Lokasi / Tempat</p>
                 <p className="font-semibold truncate max-w-[180px]">{schedule.venuePlaceName}</p>
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function SubstituteRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Users className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Target Santri</p>
+                <p className="text-xs text-slate-500 font-medium">Target Santri</p>
                 <p className="font-semibold truncate max-w-[180px]">{classNames}</p>
               </div>
             </div>
@@ -394,7 +394,7 @@ export default function SubstituteRequestClientView({
           <div className="flex items-start space-x-2.5 text-xs text-slate-700 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/70">
             <BookOpen className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
             <div>
-              <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+              <p className="text-xs text-emerald-800 font-bold uppercase tracking-wider">
                 Materi Ajar
               </p>
               <p className="font-medium text-slate-800 mt-0.5">{materialNames}</p>
@@ -462,7 +462,7 @@ export default function SubstituteRequestClientView({
                           <p className="text-xs font-bold text-slate-900 leading-tight">
                             {teacher.fullName}
                           </p>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-xs text-slate-500">
                             {teacher.gender === 'FEMALE' ? 'Ustadzah' : 'Ustadz'}
                           </p>
                         </div>
@@ -500,7 +500,7 @@ export default function SubstituteRequestClientView({
                 className="w-full text-xs p-3 rounded-2xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 placeholder:text-slate-400 bg-slate-50/50"
                 required
               />
-              <p className="text-[11px] text-slate-500 mt-1 flex items-center space-x-1">
+              <p className="text-xs text-slate-500 mt-1 flex items-center space-x-1">
                 <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>
                   Catatan ini akan otomatis disisipkan ke pesan WhatsApp calon badal & PJ Wilayah.
@@ -576,7 +576,7 @@ export default function SubstituteRequestClientView({
                 </div>
                 {currentRequest.reason && (
                   <div className="flex flex-col pt-1">
-                    <span className="text-amber-700/80 text-[11px]">Catatan / Alasan:</span>
+                    <span className="text-amber-700/80 text-xs">Catatan / Alasan:</span>
                     <span className="font-medium text-amber-950 italic bg-white/70 p-2 rounded-xl border border-amber-200/50 mt-1">
                       &quot;{currentRequest.reason}&quot;
                     </span>
@@ -586,7 +586,7 @@ export default function SubstituteRequestClientView({
             </div>
 
             {/* Indikator Auto-Refresh 10 Detik */}
-            <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+            <div className="flex items-center justify-between text-xs text-slate-500 px-1">
               <div className="flex items-center space-x-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Auto-refresh real-time aktif (setiap 10 detik)</span>
@@ -633,7 +633,7 @@ export default function SubstituteRequestClientView({
             </div>
 
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 Pengajuan Selesai
               </span>
               <h3 className="text-base font-bold text-slate-900 mt-2">
@@ -663,7 +663,7 @@ export default function SubstituteRequestClientView({
               </div>
               {currentRequest.actionNotes && (
                 <div className="pt-1.5 border-t border-slate-200/60">
-                  <span className="text-slate-500 text-[11px]">Catatan Persetujuan:</span>
+                  <span className="text-slate-500 text-xs">Catatan Persetujuan:</span>
                   <p className="font-medium text-slate-800 italic mt-0.5">
                     &quot;{currentRequest.actionNotes}&quot;
                   </p>
@@ -671,7 +671,7 @@ export default function SubstituteRequestClientView({
               )}
             </div>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Jadwal di aplikasi telah diperbarui secara otomatis. Jazakumullahu Khairan.
             </p>
           </section>
@@ -685,7 +685,7 @@ export default function SubstituteRequestClientView({
             </div>
 
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
                 Pengajuan Ditolak
               </span>
               <h3 className="text-base font-bold text-slate-900 mt-2">
@@ -698,7 +698,7 @@ export default function SubstituteRequestClientView({
 
             {currentRequest.actionNotes && (
               <div className="bg-rose-50/70 rounded-2xl p-4 text-xs text-left border border-rose-200/60">
-                <p className="text-[11px] text-rose-800 font-bold uppercase tracking-wider">
+                <p className="text-xs text-rose-800 font-bold uppercase tracking-wider">
                   Alasan / Catatan Penolakan:
                 </p>
                 <p className="font-medium text-rose-950 mt-1 italic">

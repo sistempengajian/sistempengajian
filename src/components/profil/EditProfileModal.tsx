@@ -154,7 +154,7 @@ export default function EditProfileModal({
           {/* Username */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 block">
-              Username <span className="text-slate-400 font-normal">(opsional)</span>
+              Username <span className="text-slate-500 font-normal">(opsional)</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -173,7 +173,7 @@ export default function EditProfileModal({
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-xs sm:text-sm font-mono font-medium text-slate-900 transition-all outline-none"
               />
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">
+            <p className="text-xs text-slate-500 leading-tight">
               Gunakan huruf kecil, angka, titik atau garis bawah (contoh: <code>ahmad.fauzi</code>).
             </p>
           </div>

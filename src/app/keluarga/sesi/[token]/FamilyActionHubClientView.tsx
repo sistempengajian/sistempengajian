@@ -224,7 +224,7 @@ export default function FamilyActionHubClientView({
             <Users className="w-4 h-4 text-indigo-600" />
             Daftar Santri ({children.length} Ananda)
           </h2>
-          <span className="text-[11px] text-slate-500">Pemantauan &amp; Perizinan Terpadu</span>
+          <span className="text-xs text-slate-500">Pemantauan &amp; Perizinan Terpadu</span>
         </div>
 
         {/* Cards Per Child */}
@@ -287,7 +287,7 @@ export default function FamilyActionHubClientView({
                         </div>
                       </div>
                       {student.organization && (
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-xs text-slate-500">
                           {student.organization.name}
                         </span>
                       )}
@@ -312,7 +312,7 @@ export default function FamilyActionHubClientView({
                           Sudah Hadir
                         </span>
                         {item.attendanceRecord?.checkInTime && (
-                          <span className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                          <span className="text-xs text-emerald-600 font-medium mt-0.5">
                             Presensi {item.attendanceRecord.checkInTime}
                             {item.attendanceRecord.method ? ` • ${item.attendanceRecord.method}` : ''}
                           </span>
@@ -327,7 +327,7 @@ export default function FamilyActionHubClientView({
                           Hadir Terlambat
                         </span>
                         {item.attendanceRecord?.checkInTime && (
-                          <span className="text-[10px] text-amber-600 font-medium mt-0.5">
+                          <span className="text-xs text-amber-600 font-medium mt-0.5">
                             Presensi {item.attendanceRecord.checkInTime}
                           </span>
                         )}
@@ -366,12 +366,12 @@ export default function FamilyActionHubClientView({
                           title="Buka halaman presensi orang tua (absen ananda jika tidak membawa HP)"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                          <span className="text-[11px] text-indigo-600 group-hover:text-indigo-700 font-semibold flex items-center gap-1">
+                          <span className="text-xs text-indigo-600 group-hover:text-indigo-700 font-semibold flex items-center gap-1">
                             Belum Presensi
                             <QrCode className="w-3.5 h-3.5" />
                           </span>
                         </a>
-                        <span className="text-[10px] text-slate-400 mt-0.5">
+                        <span className="text-xs text-slate-500 mt-0.5">
                           Klik untuk melakukan presensi
                         </span>
                       </div>
@@ -391,7 +391,7 @@ export default function FamilyActionHubClientView({
                         <div className="font-semibold text-slate-900 pl-5.5">
                           {item.otherScheduleInfo.title}
                         </div>
-                        <div className="text-[11px] text-amber-700 pl-5.5">
+                        <div className="text-xs text-amber-700 pl-5.5">
                           Waktu: {item.otherScheduleInfo.time}
                         </div>
                         <div className="text-[10.5px] text-slate-500 pl-5.5 pt-0.5">
@@ -403,7 +403,7 @@ export default function FamilyActionHubClientView({
                         <AlertCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                         <div className="space-y-0.5">
                           <span className="font-bold text-slate-700">Tidak Ada Jadwal Pengajian Hari Ini</span>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-xs text-slate-500">
                             Ananda tidak memiliki agenda sesi pengajian yang terjadwal untuk hari ini.
                           </p>
                         </div>
@@ -428,14 +428,14 @@ export default function FamilyActionHubClientView({
                 {/* Action Buttons */}
                 {isNotParticipant ? (
                   <div className="mt-4 pt-3.5 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs text-slate-400 italic flex items-center gap-1.5">
+                    <span className="text-xs text-slate-500 italic flex items-center gap-1.5">
                       <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       Izin terkunci karena ananda bukan peserta sesi ini.
                     </span>
                     <button
                       type="button"
                       disabled
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 cursor-not-allowed opacity-80"
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-400" />
                       Izin Terkunci

@@ -78,7 +78,7 @@ export default function NotificationPreferencesCard({
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Preferensi Notifikasi WhatsApp</h3>
-            <p className="text-[11px] text-slate-500">Atur pesan pengingat jadwal dan saluran kontak keluarga</p>
+            <p className="text-xs text-slate-500">Atur pesan pengingat jadwal dan saluran kontak keluarga</p>
           </div>
         </div>
 
@@ -112,7 +112,7 @@ export default function NotificationPreferencesCard({
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
           <div className="pr-4">
             <h4 className="text-xs font-bold text-slate-800">Pengingat Jadwal H-1 (Sore Hari Sebelumnya)</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+            <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
               Menerima ringkasan jadwal, materi pengajian, dan tautan formulir persiapan izin.
             </p>
           </div>
@@ -138,7 +138,7 @@ export default function NotificationPreferencesCard({
         <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
           <div className="pr-4">
             <h4 className="text-xs font-bold text-slate-800">Pengingat Hitung Mundur (Countdown H-2 Jam)</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+            <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
               Menerima pesan pengingat persiapan keberangkatan santri 2 jam sebelum sesi dimulai.
             </p>
           </div>
@@ -168,7 +168,7 @@ export default function NotificationPreferencesCard({
                 <Users className="w-3.5 h-3.5 text-indigo-600" />
                 Nomor Kontak Orang Tua Utama
               </h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+              <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
                 Pilih nomor orang tua mana yang menerima pengingat pengajian WhatsApp:
               </p>
             </div>

@@ -65,7 +65,7 @@ export default async function EvaluasiTokenPage({
               <BookOpen className="w-3.5 h-3.5 text-slate-300" />
               <span>Buka Aplikasi SiPanji</span>
             </Link>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-xs text-slate-500">
               Silakan hubungi Ustadz / Pengurus Wilayah untuk mendapatkan tautan terbaru.
             </p>
           </div>

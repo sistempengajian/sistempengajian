@@ -279,7 +279,7 @@ export default function TeacherLessonPlanClientView({
               <BookOpen className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold text-indigo-600 tracking-wider uppercase block">
+              <span className="text-xs font-bold text-indigo-600 tracking-wider uppercase block">
                 Portal Persiapan Ajar Sesi
               </span>
               <h1 className="text-sm font-bold text-slate-900 truncate">
@@ -325,11 +325,11 @@ export default function TeacherLessonPlanClientView({
                   {teacher.fullName}
                 </span>
                 {teacher.isSubstitute ? (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                     Guru Badal
                   </span>
                 ) : teacher.isPrimary ? (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
                     Pengajar Utama
                   </span>
                 ) : null}
@@ -376,7 +376,7 @@ export default function TeacherLessonPlanClientView({
                             <h4 className="text-xs font-bold text-slate-900">
                               Capaian Sesi Terpilih
                             </h4>
-                            <span className="text-[10px] text-slate-400 block -mt-0.5">
+                            <span className="text-xs text-slate-500 block -mt-0.5">
                               Total {totalPlannedCount} capaian dari {plannedSummaryList.length} materi
                             </span>
                           </div>
@@ -396,7 +396,7 @@ export default function TeacherLessonPlanClientView({
                           <p className="text-xs font-bold text-slate-700">
                             Belum Ada Capaian Dipilih
                           </p>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                          <p className="text-xs text-slate-500 leading-relaxed">
                             Buka materi di bawah lalu klik tombol <b>"+ Pilih untuk Diajarkan"</b> untuk menyusun rencana materi sesi ini.
                           </p>
                         </div>
@@ -408,17 +408,17 @@ export default function TeacherLessonPlanClientView({
                               className="pt-2.5 first:pt-0 space-y-1"
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                                   {entry.generationName}
                                 </span>
-                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
                                   {entry.selectedCount} Capaian
                                 </span>
                               </div>
                               <h5 className="font-bold text-slate-900 text-xs">
                                 {entry.materialTitle}
                               </h5>
-                              <ul className="space-y-1 pl-3.5 list-disc text-[11px] text-slate-600">
+                              <ul className="space-y-1 pl-3.5 list-disc text-xs text-slate-600">
                                 {entry.selectedItems.map((item) => (
                                   <li key={item.id} className="leading-snug">
                                     {item.itemTitle}
@@ -447,7 +447,7 @@ export default function TeacherLessonPlanClientView({
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100">
               <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
               <div className="truncate">
-                <span className="text-[10px] text-slate-400 block">Hari / Tanggal</span>
+                <span className="text-xs text-slate-500 block">Hari / Tanggal</span>
                 <span className="font-semibold text-slate-800">{schedule.dayDate}</span>
               </div>
             </div>
@@ -455,7 +455,7 @@ export default function TeacherLessonPlanClientView({
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100">
               <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
               <div className="truncate">
-                <span className="text-[10px] text-slate-400 block">Waktu Sesi</span>
+                <span className="text-xs text-slate-500 block">Waktu Sesi</span>
                 <span className="font-semibold text-slate-800">
                   {schedule.startTime} - {schedule.endTime} WIB
                 </span>
@@ -465,7 +465,7 @@ export default function TeacherLessonPlanClientView({
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100">
               <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
               <div className="truncate">
-                <span className="text-[10px] text-slate-400 block">Tempat</span>
+                <span className="text-xs text-slate-500 block">Tempat</span>
                 <span className="font-semibold text-slate-800">{schedule.venuePlaceName}</span>
               </div>
             </div>
@@ -489,7 +489,7 @@ export default function TeacherLessonPlanClientView({
                 >
                   <span>{tab.generationName}</span>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
                       isActive
                         ? 'bg-indigo-500/80 text-white'
                         : 'bg-slate-100 text-slate-600'
@@ -516,7 +516,7 @@ export default function TeacherLessonPlanClientView({
                   <h2 className="text-xs font-bold text-slate-900">
                     Jenjang: {currentTab.generationName}
                   </h2>
-                  <span className="text-[11px] text-slate-600 font-medium">
+                  <span className="text-xs text-slate-600 font-medium">
                     {currentTab.totalStudentsCount > 0 ? (
                       <>
                         <strong className="text-indigo-700">
@@ -532,7 +532,7 @@ export default function TeacherLessonPlanClientView({
               </div>
 
               {currentTab.materials.some((m) => m.isFallback) && (
-                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
+                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
                   Target bulan ini belum diset PJ, menampilkan kurikulum aktif
                 </span>
               )}
@@ -545,7 +545,7 @@ export default function TeacherLessonPlanClientView({
                 <p className="font-semibold text-slate-700">
                   Belum ada materi terdaftar untuk jenjang ini.
                 </p>
-                <p className="text-[11px]">
+                <p className="text-xs">
                   Materi akan muncul setelah kurikulum bulanan ditetapkan atau materi umum ditambahkan.
                 </p>
               </div>
@@ -628,12 +628,12 @@ export default function TeacherLessonPlanClientView({
                               {mat.title}
                             </h3>
                             {mat.isMandatory && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                 Wajib
                               </span>
                             )}
                             {hasPlannedItems && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100/90 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100/90 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
                                 <Target className="w-3 h-3 text-indigo-600" />
                                 <span>{plannedItemsCount} Capaian Dipilih</span>
                               </span>
@@ -672,7 +672,7 @@ export default function TeacherLessonPlanClientView({
                                 strokeLinecap="round"
                               />
                             </svg>
-                            <span className="absolute text-[10px] font-black text-slate-800">
+                            <span className="absolute text-xs font-black text-slate-800">
                               {mat.circlePercentage}%
                             </span>
                           </div>
@@ -680,11 +680,11 @@ export default function TeacherLessonPlanClientView({
                           {/* Mastery Ratio Badge */}
                           <div className="hidden min-[450px]:flex flex-col items-end text-right">
                             <span
-                              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${badgeColor}`}
+                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border ${badgeColor}`}
                             >
                               {mat.completedStudentsCount}/{mat.totalStudentsInGen} Santri Tuntas
                             </span>
-                            <span className="text-[9px] text-slate-400 mt-0.5">
+                            <span className="text-xs text-slate-500 mt-0.5">
                               {mat.checklistItems.length} Sub-Capaian
                             </span>
                           </div>
@@ -701,13 +701,13 @@ export default function TeacherLessonPlanClientView({
                       </button>
 
                       {/* Mobile Badge if hidden on narrow screen */}
-                      <div className="min-[450px]:hidden px-4 pb-2 -mt-1 flex items-center justify-between text-[10px]">
+                      <div className="min-[450px]:hidden px-4 pb-2 -mt-1 flex items-center justify-between text-xs">
                         <span
                           className={`px-2 py-0.5 rounded-lg font-bold border ${badgeColor}`}
                         >
                           {mat.completedStudentsCount}/{mat.totalStudentsInGen} Santri Tuntas
                         </span>
-                        <span className="text-slate-400">
+                        <span className="text-slate-500">
                           {mat.checklistItems.length} Sub-Capaian
                         </span>
                       </div>
@@ -722,7 +722,7 @@ export default function TeacherLessonPlanClientView({
                           </div>
 
                           {displayItems.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic py-2">
+                            <p className="text-xs text-slate-500 italic py-2">
                               Belum ada rincian sub-capaian checklist pada materi ini.
                             </p>
                           ) : (
@@ -749,24 +749,24 @@ export default function TeacherLessonPlanClientView({
                                           <h4 className="text-xs font-bold text-slate-900">
                                             {item.itemTitle}
                                           </h4>
-                                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                                             +{item.pointsWeight} Poin
                                           </span>
                                           
                                           {isLowMastery && !isPlanned && (
-                                            <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                            <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                                               Ketuntasan Rendah
                                             </span>
                                           )}
                                         </div>
 
                                         {item.description && (
-                                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                                          <p className="text-xs text-slate-500 leading-relaxed">
                                             {item.description}
                                           </p>
                                         )}
 
-                                        <div className="flex items-center gap-2 pt-0.5 text-[10px] text-slate-500">
+                                        <div className="flex items-center gap-2 pt-0.5 text-xs text-slate-500">
                                           <span className="font-bold text-indigo-700">
                                             {item.completedStudentsCount}/
                                             {item.totalStudentsInGen} Santri Tuntas
@@ -840,7 +840,7 @@ export default function TeacherLessonPlanClientView({
             />
 
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-500">
                 {savedNoteSuccess ? (
                   <span className="text-emerald-600 font-bold inline-flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />

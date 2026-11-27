@@ -224,7 +224,7 @@ export default function EditPhoneModal({
           <form onSubmit={handleRequestOtp} className="space-y-4">
             {/* Nomor Terdaftar Saat Ini */}
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-0.5">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block mb-0.5">
                 Nomor WhatsApp Saat Ini
               </span>
               <span className="text-xs sm:text-sm font-mono font-bold text-slate-800">
@@ -256,7 +256,7 @@ export default function EditPhoneModal({
             {/* Info Security Banner */}
             <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 text-emerald-950 flex items-start gap-2.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-emerald-800 leading-relaxed">
+              <p className="text-xs text-emerald-800 leading-relaxed">
                 Sistem akan mengirimkan <strong>6 digit kode OTP verifikasi</strong> melalui chat WhatsApp ke nomor baru ini untuk memastikan nomor aktif dan valid.
               </p>
             </div>
@@ -299,7 +299,7 @@ export default function EditPhoneModal({
             {/* Info Target Nomor */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">
                   Kode Dikirim ke WhatsApp
                 </span>
                 <span className="text-xs sm:text-sm font-mono font-bold text-emerald-700 truncate block">
@@ -311,7 +311,7 @@ export default function EditPhoneModal({
                 type="button"
                 onClick={() => setStep(1)}
                 disabled={isLoading}
-                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer shrink-0"
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer shrink-0"
               >
                 Ubah Nomor
               </button>
@@ -342,7 +342,7 @@ export default function EditPhoneModal({
             {/* Resend Cooldown Countdown */}
             <div className="flex items-center justify-center gap-2 pt-1 text-xs">
               {cooldown > 0 ? (
-                <span className="text-slate-400 font-medium">
+                <span className="text-slate-500 font-medium">
                   Kirim ulang kode dalam <strong className="text-slate-700 font-mono">{cooldown}s</strong>
                 </span>
               ) : (

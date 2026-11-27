@@ -254,14 +254,14 @@ export default function StudentAbsenceConfirmClientView({
               <h1 className="text-sm font-bold text-slate-900 leading-tight">
                 Konfirmasi Izin Santri
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 {request.schedule.organization.name}
               </p>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/70">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/70">
               {roleTitle}
             </span>
             <p className="text-xs font-semibold text-slate-700 mt-0.5 truncate max-w-[130px]">
@@ -317,7 +317,7 @@ export default function StudentAbsenceConfirmClientView({
                 &quot;{myApproval.notes}&quot;
               </p>
             )}
-            <p className="text-[11px] text-slate-500 pt-1">
+            <p className="text-xs text-slate-500 pt-1">
               Status akumulasi: <strong>{approvedCount}/2 persetujuan tercapai</strong>.
             </p>
           </div>
@@ -327,7 +327,7 @@ export default function StudentAbsenceConfirmClientView({
         <section className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-start justify-between border-b border-slate-100 pb-3">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
                 Jadwal Pengajian Terkait
               </span>
               <h2 className="text-base font-bold text-slate-900 mt-1 leading-snug">
@@ -340,7 +340,7 @@ export default function StudentAbsenceConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Hari & Tanggal</p>
+                <p className="text-xs text-slate-500 font-medium">Hari & Tanggal</p>
                 <p className="font-semibold">{dayDateFormatted}</p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function StudentAbsenceConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Clock className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Waktu Sesi</p>
+                <p className="text-xs text-slate-500 font-medium">Waktu Sesi</p>
                 <p className="font-semibold">{timeFormatted}</p>
               </div>
             </div>
@@ -356,7 +356,7 @@ export default function StudentAbsenceConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Lokasi / Tempat</p>
+                <p className="text-xs text-slate-500 font-medium">Lokasi / Tempat</p>
                 <p className="font-semibold truncate max-w-[180px]">{request.schedule.venuePlaceName}</p>
               </div>
             </div>
@@ -364,7 +364,7 @@ export default function StudentAbsenceConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <User className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Santri Pemohon</p>
+                <p className="text-xs text-slate-500 font-medium">Santri Pemohon</p>
                 <p className="font-semibold truncate max-w-[180px]">{request.student.fullName}</p>
               </div>
             </div>
@@ -415,7 +415,7 @@ export default function StudentAbsenceConfirmClientView({
                   alt="Lampiran Izin"
                   className="w-32 h-32 object-cover transition-transform group-hover:scale-105"
                 />
-                <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md font-medium">
+                <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[11px] px-1.5 py-0.5 rounded-md font-medium">
                   Klik Perbesar
                 </span>
               </div>
@@ -424,12 +424,12 @@ export default function StudentAbsenceConfirmClientView({
 
           {/* Riwayat Persetujuan Lainnya */}
           <div className="pt-2 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
               Status Persetujuan ({approvedCount}/2 Dibutuhkan):
             </p>
             <div className="space-y-1.5 text-xs">
               {request.approvals.length === 0 ? (
-                <p className="text-slate-400 italic text-[11px]">Belum ada pihak lain yang mengonfirmasi.</p>
+                <p className="text-slate-500 italic text-xs">Belum ada pihak lain yang mengonfirmasi.</p>
               ) : (
                 request.approvals.map((app) => (
                   <div
@@ -438,7 +438,7 @@ export default function StudentAbsenceConfirmClientView({
                   >
                     <div>
                       <p className="font-semibold text-slate-800">{app.approverUser.fullName}</p>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {app.approverRole === 'PARENT'
                           ? 'Orang Tua'
                           : app.approverRole === 'HOMEROOM_TEACHER'
@@ -446,12 +446,12 @@ export default function StudentAbsenceConfirmClientView({
                           : 'PJ Wilayah'}
                       </p>
                       {app.notes && (
-                        <p className="text-[11px] text-slate-600 italic mt-0.5">
+                        <p className="text-xs text-slate-600 italic mt-0.5">
                           &quot;{app.notes}&quot;
                         </p>
                       )}
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                       Disetujui
                     </span>
                   </div>
@@ -535,7 +535,7 @@ export default function StudentAbsenceConfirmClientView({
                 <h3 className="text-sm font-bold text-slate-900">
                   Tolak Permohonan Izin
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Santri/wali akan menerima info penolakan ini
                 </p>
               </div>

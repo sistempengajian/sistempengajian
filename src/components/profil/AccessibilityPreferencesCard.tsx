@@ -57,7 +57,7 @@ export default function AccessibilityPreferencesCard() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Aksesibilitas &amp; Ukuran Teks</h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Kenyamanan keterbacaan antarmuka di luar ruangan dan saat mengajar
             </p>
           </div>
@@ -81,11 +81,11 @@ export default function AccessibilityPreferencesCard() {
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900">Mode Teks Besar (Outdoor / Masjid)</h4>
-                <span className="hidden sm:inline-block text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                <span className="hidden sm:inline-block text-[11px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
                   +10% Skala
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
                 Menaikkan ukuran teks antarmuka sebesar 10% agar lebih jelas terbaca di bawah sinar matahari saat di luar ruangan atau saat mengajar santri di masjid.
               </p>
             </div>
@@ -128,7 +128,7 @@ export default function AccessibilityPreferencesCard() {
             <span className="text-slate-600">
               &quot;Bismillah, presensi sesi halaqah santri dimulai pukul 18.00 WIB.&quot;
             </span>
-            <p className="text-[10px] text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Perubahan ukuran berlaku instan di seluruh navigasi, kartu presensi, jadwal, dan kurikulum tanpa memicu muat ulang halaman.
             </p>
           </div>

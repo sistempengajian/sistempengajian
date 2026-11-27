@@ -32,7 +32,10 @@ import EditPhoneModal from './EditPhoneModal';
 import GoogleAuthButton from './GoogleAuthButton';
 import NotificationPreferencesCard from './NotificationPreferencesCard';
 import AccessibilityPreferencesCard from './AccessibilityPreferencesCard';
+import AdminTelemetryOverviewCard from './AdminTelemetryOverviewCard';
 import PwaProfileInstallCard from '@/components/pwa/PwaProfileInstallCard';
+import PageContainer from '@/components/ui/PageContainer';
+import type { UiTelemetrySummary } from '@/lib/telemetry';
 
 export interface UserProfileData {
   id: string;
@@ -103,6 +106,7 @@ export interface UserProfileData {
 
 interface ProfileClientViewProps {
   user: UserProfileData;
+  telemetrySummary?: UiTelemetrySummary | null;
 }
 
 const ROLE_BADGE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -116,7 +120,7 @@ const ROLE_BADGE_CONFIG: Record<string, { label: string; color: string; bg: stri
   ADMIN_MASTER: { label: 'Admin Master Pusat', color: 'text-purple-900', bg: 'bg-purple-100/80', border: 'border-purple-300' },
 };
 
-export default function ProfileClientView({ user: initialUser }: ProfileClientViewProps) {
+export default function ProfileClientView({ user: initialUser, telemetrySummary }: ProfileClientViewProps) {
   const [currentUser, setCurrentUser] = useState<UserProfileData>(initialUser);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isEditPhoneOpen, setIsEditPhoneOpen] = useState(false);
@@ -175,7 +179,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
   })();
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <PageContainer variant="standard" className="py-6 sm:py-8 space-y-6">
       {/* 1. Hero Card Profil */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-white/95 via-slate-50/80 to-slate-100/90 border border-slate-200/80 p-5 sm:p-7 shadow-sm">
         {/* Ambient Gradient Backdrop */}
@@ -206,7 +210,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                   {currentUser.fullName}
                 </h1>
                 {currentUser.status === 'ACTIVE' && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Aktif
                   </span>
@@ -268,7 +272,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Capaian &amp; Poin Belajar</h3>
-                <p className="text-[11px] text-slate-500">Statistik gamifikasi dan dedikasi ibadah</p>
+                <p className="text-xs text-slate-500">Statistik gamifikasi dan dedikasi ibadah</p>
               </div>
             </div>
 
@@ -290,7 +294,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 Lv.{currentUser.gamification.level}
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Level Akun</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Level Akun</span>
                 <span className="text-sm font-black text-slate-900 truncate truncate">Tingkat {currentUser.gamification.level}</span>
               </div>
             </div>
@@ -301,7 +305,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 <Star className="w-4 h-4 fill-yellow-400" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Total XP</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Total XP</span>
                 <span className="text-sm font-black text-slate-900 truncate">{currentUser.gamification.totalPoints.toLocaleString('id-ID')} XP</span>
               </div>
             </div>
@@ -312,7 +316,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 <Flame className="w-4 h-4 fill-orange-400" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Streak Aktif</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Streak Aktif</span>
                 <span className="text-sm font-black text-slate-900 truncate">{currentUser.gamification.currentStreakDays} Hari</span>
               </div>
             </div>
@@ -323,7 +327,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 <Award className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Koleksi Lencana</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Koleksi Lencana</span>
                 <span className="text-sm font-black text-slate-900 truncate">{currentUser.badgesCount} Trofi</span>
               </div>
             </div>
@@ -342,7 +346,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Informasi Pribadi &amp; Kontak</h3>
-                <p className="text-[11px] text-slate-500">Data akun yang terdaftar dalam sistem</p>
+                <p className="text-xs text-slate-500">Data akun yang terdaftar dalam sistem</p>
               </div>
             </div>
           </div>
@@ -355,7 +359,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Nomor WhatsApp</span>
+                  <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Nomor WhatsApp</span>
                   <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 truncate block">
                     {displayPhoneNumber(currentUser.phoneNumber)}
                   </span>
@@ -365,7 +369,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
               <button
                 type="button"
                 onClick={() => setIsEditPhoneOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-100/70 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold transition-all active:scale-95 cursor-pointer shrink-0 border border-emerald-200/80"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-100/70 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0 border border-emerald-200/80"
                 title="Ganti nomor WhatsApp dengan verifikasi OTP"
               >
                 <span>Ubah Nomor</span>
@@ -383,7 +387,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                  <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">
                     Tempat, Tanggal Lahir
                   </span>
                   <span className="text-xs sm:text-sm font-medium text-slate-900 truncate block">
@@ -399,7 +403,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 <Users className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Jenis Kelamin</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Jenis Kelamin</span>
                 <span className="text-xs sm:text-sm font-semibold text-slate-900">
                   {currentUser.gender === 'MALE' ? 'Laki-laki (Ikhwan)' : 'Perempuan (Akhwat)'}
                 </span>
@@ -412,7 +416,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                 <Calendar className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Terdaftar Sejak</span>
+                <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">Terdaftar Sejak</span>
                 <span className="text-xs sm:text-sm font-semibold text-slate-900">{formattedJoinDate}</span>
               </div>
             </div>
@@ -427,14 +431,14 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">Wilayah &amp; Relasi Binaan</h3>
-              <p className="text-[11px] text-slate-500">Struktur organisasi dan keterhubungan data</p>
+              <p className="text-xs text-slate-500">Struktur organisasi dan keterhubungan data</p>
             </div>
           </div>
 
           <div className="space-y-3">
             {/* Hierarki Wilayah */}
             <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+              <span className="text-xs uppercase font-bold text-slate-500 tracking-wider block">
                 Penempatan Wilayah
               </span>
 
@@ -471,7 +475,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                   {currentUser.parents.map((p) => (
                     <div key={p.parent.id} className="flex items-center justify-between text-xs py-1 border-t border-slate-100">
                       <span className="text-slate-600">{p.relationshipType}: {p.parent.fullName}</span>
-                      <span className="font-mono text-[11px] text-slate-500">{displayPhoneNumber(p.parent.phoneNumber)}</span>
+                      <span className="font-mono text-xs text-slate-500">{displayPhoneNumber(p.parent.phoneNumber)}</span>
                     </div>
                   ))}
                 </div>
@@ -490,11 +494,11 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
                     <div key={c.student.id} className="p-2 rounded-xl bg-white border border-indigo-100 flex items-center justify-between text-xs">
                       <div>
                         <strong className="text-slate-900 block">{c.student.fullName}</strong>
-                        <span className="text-[10px] text-indigo-600 font-medium">Jenjang: {c.student.generation?.name || 'Santri'}</span>
+                        <span className="text-xs text-indigo-600 font-medium">Jenjang: {c.student.generation?.name || 'Santri'}</span>
                       </div>
                       <Link
                         href={`/laporan?studentId=${c.student.id}`}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold shadow-2xs transition-all cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
                       >
                         Lihat Rapor
                       </Link>
@@ -543,7 +547,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Keamanan &amp; Metode Otentikasi</h3>
-            <p className="text-[11px] text-slate-500">Perlindungan sesi dan otorisasi WhatsApp Gateway</p>
+            <p className="text-xs text-slate-500">Perlindungan sesi dan otorisasi WhatsApp Gateway</p>
           </div>
         </div>
 
@@ -552,7 +556,7 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
             <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="text-xs font-bold mb-1">Proteksi Login WhatsApp Magic Link</h4>
-              <p className="text-[11px] text-emerald-800 leading-relaxed">
+              <p className="text-xs text-emerald-800 leading-relaxed">
                 Akun Anda dilindungi dengan metode autentikasi tanpa kata sandi (Passwordless). Setiap tautan masuk hanya berlaku 1 kali penggunaan dengan jeda anti-spam 5 menit.
               </p>
             </div>
@@ -562,13 +566,18 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
             <CheckCircle2 className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="text-xs font-bold mb-1">Status Sesi Aktif Terverifikasi</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 Sesi browser Anda saat ini dienkripsi dengan standar token Supabase Auth JWT &amp; HTTP-only cookies aman.
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* 5a. Admin UI Telemetry & Micro-CSAT Overview */}
+      {telemetrySummary && (
+        <AdminTelemetryOverviewCard initialSummary={telemetrySummary} />
+      )}
 
       {/* 5. Aplikasi PWA SiPanji Mobile */}
       <PwaProfileInstallCard />
@@ -601,6 +610,6 @@ export default function ProfileClientView({ user: initialUser }: ProfileClientVi
           window.location.reload();
         }}
       />
-    </div>
+    </PageContainer>
   );
 }

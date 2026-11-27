@@ -1633,7 +1633,7 @@ export default function PengajarProductTour() {
               <span>Mulai Panduan Interaktif</span>
             </button>
 
-            <p className="text-[10px] text-slate-400 mt-2">
+            <p className="text-xs text-slate-500 mt-2">
               Membuka izin audio browser & simulasi otomatis
             </p>
           </div>
@@ -1650,7 +1650,7 @@ export default function PengajarProductTour() {
               <Clock className="w-8 h-8 text-teal-300 animate-spin" style={{ animationDuration: '4s' }} />
             </div>
 
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-300 bg-teal-950/80 px-3 py-1 rounded-full border border-teal-500/40 mb-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-teal-300 bg-teal-950/80 px-3 py-1 rounded-full border border-teal-500/40 mb-2">
               Fast-Forward Waktu Berjalan
             </span>
 
@@ -1668,7 +1668,7 @@ export default function PengajarProductTour() {
               Menuju Waktu Sesi Mengajar
             </p>
 
-            <p className="text-xs text-slate-400 mt-2 max-w-xs leading-relaxed">
+            <p className="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">
               Target mengajar H-1 tersimpan rapi. Sistem kini melompat maju ke fase <strong>H-2 Jam</strong> sebelum kelas dimulai untuk membuka tautan absensi!
             </p>
 
@@ -1714,11 +1714,11 @@ export default function PengajarProductTour() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">1. Dynamic QR Code</p>
-                    <p className="text-[10px] text-slate-500">QR berganti tiap 15 detik di layar, santri scan via HP mandiri</p>
+                    <p className="text-xs text-slate-500">QR berganti tiap 15 detik di layar, santri scan via HP mandiri</p>
                   </div>
                 </div>
                 {visitedBranches.includes('QR_DINAMIS') && (
-                  <span className="text-[9px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-[11px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full shrink-0">
                     ✓ Selesai
                   </span>
                 )}
@@ -1739,11 +1739,11 @@ export default function PengajarProductTour() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">2. Absensi Manual 1-Tap</p>
-                    <p className="text-[10px] text-slate-500">Tandai Hadir, Izin, Sakit di tabel jika santri tidak bawa HP</p>
+                    <p className="text-xs text-slate-500">Tandai Hadir, Izin, Sakit di tabel jika santri tidak bawa HP</p>
                   </div>
                 </div>
                 {visitedBranches.includes('MANUAL') && (
-                  <span className="text-[9px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-[11px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full shrink-0">
                     ✓ Selesai
                   </span>
                 )}
@@ -1764,11 +1764,11 @@ export default function PengajarProductTour() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">3. Scan Kartu QR Santri</p>
-                    <p className="text-[10px] text-slate-500">Kamera HP pengajar memindai fisik Kartu Syahriah santri</p>
+                    <p className="text-xs text-slate-500">Kamera HP pengajar memindai fisik Kartu Syahriah santri</p>
                   </div>
                 </div>
                 {visitedBranches.includes('SCAN_KARTU') && (
-                  <span className="text-[9px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-[11px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full shrink-0">
                     ✓ Selesai
                   </span>
                 )}
@@ -1796,7 +1796,7 @@ export default function PengajarProductTour() {
         <aside aria-label="QA Debug Toolbar" className="bg-slate-900 text-white border-b-2 border-amber-400 p-2.5 text-xs sticky top-0 z-50 shadow-xl">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded text-[10px] tracking-wide">
+              <span className="bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded text-[11px] tracking-wide">
                 QA DEBUG PANEL
               </span>
               <button
@@ -1816,7 +1816,7 @@ export default function PengajarProductTour() {
 
             {/* SubStep selector */}
             <div className="flex items-center gap-1">
-              <span className="text-slate-400 text-[10px] uppercase font-bold mr-1">SubStep:</span>
+              <span className="text-slate-500 text-xs uppercase font-bold mr-1">SubStep:</span>
               {[0, 1, 2, 3, 4, 5, 6].map((s) => (
                 <button
                   key={s}
@@ -1838,7 +1838,7 @@ export default function PengajarProductTour() {
             {/* Hide Debug Button */}
             <button
               onClick={() => setIsDebugMode(false)}
-              className="text-slate-400 hover:text-white px-2 py-0.5 rounded text-[11px]"
+              className="text-slate-500 hover:text-white px-2 py-0.5 rounded text-xs"
             >
               ✕ Tutup
             </button>
@@ -1917,7 +1917,7 @@ export default function PengajarProductTour() {
       <main className="flex-1 flex flex-col items-center justify-center px-2 py-1.5 sm:py-3 w-full overflow-hidden">
         <div className="relative w-full max-w-[345px] sm:max-w-[370px] h-[585px] sm:h-[615px] bg-slate-900 rounded-[2.2rem] sm:rounded-[2.6rem] border-[5px] sm:border-[6px] border-slate-800 shadow-[0_20px_50px_rgba(13,148,136,0.18),0_10px_25px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col justify-between select-none">
           {/* Dynamic Island / Status Bar */}
-          <div className="h-8 shrink-0 flex justify-between items-center px-5 pt-1.5 text-slate-400 text-[10px] font-semibold pointer-events-none z-30">
+          <div className="h-8 shrink-0 flex justify-between items-center px-5 pt-1.5 text-slate-300 text-xs font-semibold pointer-events-none z-30">
             <span>
               {currentStep === 'SCENE_1_WA_NOTIF_H1' || currentStep === 'SCENE_1_WA_CHAT_H1'
                 ? '19:30'
@@ -1971,7 +1971,7 @@ export default function PengajarProductTour() {
               <div>
                 <div className="text-center mt-3">
                   <h2 className="text-4xl font-extralight tracking-tight text-white/90">19:30</h2>
-                  <p className="text-[11px] text-teal-200 font-medium mt-0.5">Ahad, 24 Oktober</p>
+                  <p className="text-xs text-teal-200 font-medium mt-0.5">Ahad, 24 Oktober</p>
                 </div>
 
                 {/* Animated WhatsApp Banner - Hidden at subStep 0, Drops down at subStep >= 1 */}
@@ -1992,12 +1992,12 @@ export default function PengajarProductTour() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-bold text-[#128C7E] uppercase tracking-wider">
+                      <span className="text-xs font-bold text-[#128C7E] uppercase tracking-wider">
                         WhatsApp • Baru saja
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-900 mt-0.5 truncate">Sistem Pengajian TPQ</h4>
-                    <p className="text-[10px] text-slate-700 leading-snug mt-0.5">
+                    <p className="text-xs text-slate-700 leading-snug mt-0.5">
                       ⏰ <strong>Jadwal Mengajar Besok (16:00 WIB)</strong>. Silakan tentukan indikator rencana
                       ajar di Portal Persiapan Sesi!
                     </p>
@@ -2006,7 +2006,7 @@ export default function PengajarProductTour() {
               </div>
 
               <div className="text-center pb-3">
-                <span className="text-[9px] text-teal-300/80 uppercase tracking-widest font-semibold">
+                <span className="text-xs text-teal-300/80 uppercase tracking-widest font-semibold">
                   {subStep >= 1 ? 'Sentuh notifikasi untuk membuka pesan' : 'Menunggu notifikasi masuk...'}
                 </span>
               </div>
@@ -2029,50 +2029,50 @@ export default function PengajarProductTour() {
                       Sistem Pengajian Bot
                       <ShieldCheck className="w-3 h-3 text-teal-200 fill-teal-200" />
                     </h4>
-                    <p className="text-[9px] text-teal-100">Akun Resmi Sistem</p>
+                    <p className="text-xs text-teal-100">Akun Resmi Sistem</p>
                   </div>
                 </div>
               </div>
 
               {/* Chat Body: Dua Pesan Paired Asli Sistem */}
               <div className="flex-1 p-2.5 flex flex-col justify-start space-y-2 overflow-y-auto">
-                <div className="self-center my-0.5 bg-white/80 border border-slate-200 text-slate-600 text-[9px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
+                <div className="self-center my-0.5 bg-white/80 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
                   Kemarin - 19:30
                 </div>
 
                 {/* Pesan 1: SCHEDULE_REMINDER_H1_TEACHER */}
-                <div className="max-w-[92%] bg-white rounded-2xl rounded-tl-xs p-2.5 text-slate-800 text-[10px] shadow-sm border border-slate-200/60 leading-snug">
-                  <p className="font-bold text-[#008069] text-[11px]">
+                <div className="max-w-[92%] bg-white rounded-2xl rounded-tl-xs p-2.5 text-slate-800 text-xs shadow-sm border border-slate-200/60 leading-snug">
+                  <p className="font-bold text-[#008069] text-xs">
                     *Assalamu&apos;alaikum Ustadz Ahmad Fauzi.*
                   </p>
                   <p className="text-slate-700 mt-0.5">
                     Mengingatkan jadwal mengajar Anda besok:
                   </p>
-                  <div className="my-1 p-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[9px] text-slate-700 space-y-0.5">
+                  <div className="my-1 p-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 space-y-0.5">
                     <p>📚 <strong>Sesi:</strong> Pengajian Kelas Abu Bakar</p>
                     <p>🕒 <strong>Waktu:</strong> Senin, 16:00 - 17:30 WIB</p>
                     <p>📍 <strong>Tempat:</strong> Masjid Al-Ikhlas</p>
                     <p>👤 <strong>Status:</strong> Pengajar Utama</p>
                   </div>
-                  <div className="text-right text-[8px] text-slate-400">19:30 ✓✓</div>
+                  <div className="text-right text-[8px] text-slate-500">19:30 ✓✓</div>
                 </div>
 
                 {/* Pesan 2: TEACHER_ACTION_LINKS_H1 */}
-                <div className="max-w-[92%] bg-white rounded-2xl p-2.5 text-slate-800 text-[10px] shadow-sm border border-slate-200/60 leading-snug animate-slide-up">
-                  <p className="font-bold text-slate-900 text-[11px]">
+                <div className="max-w-[92%] bg-white rounded-2xl p-2.5 text-slate-800 text-xs shadow-sm border border-slate-200/60 leading-snug animate-slide-up">
+                  <p className="font-bold text-slate-900 text-xs">
                     *Tautan Aksi Pengajar (H-1):*
                   </p>
-                  <p className="text-slate-700 text-[10px] mt-0.5">
+                  <p className="text-slate-700 text-xs mt-0.5">
                     Tentukan target materi prioritas sebelum kelas dimulai:
                   </p>
 
                   {/* Tautan 1: Portal Rencana Ajar */}
                   <div className="mt-1.5 p-2 bg-teal-50 border-2 border-teal-400 rounded-xl flex items-center justify-between hover:bg-teal-100 transition shadow-2xs">
                     <div>
-                      <p className="text-[11px] font-extrabold text-teal-900">
+                      <p className="text-xs font-extrabold text-teal-900">
                         📖 Portal Rencana Materi Sesi
                       </p>
-                      <p className="text-[9px] text-teal-700 font-mono font-medium">
+                      <p className="text-xs text-teal-700 font-mono font-medium">
                         pengajian.app/pengajar/sesi/tkn-781
                       </p>
                     </div>
@@ -2082,16 +2082,16 @@ export default function PengajarProductTour() {
                   {/* Tautan 2: Ajukan Guru Badal */}
                   <div className="mt-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between opacity-80">
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-700">
+                      <p className="text-xs font-semibold text-slate-700">
                         🔄 Ajukan Guru Badal (Jika Berhalangan)
                       </p>
-                      <p className="text-[9px] text-slate-400 font-mono">
+                      <p className="text-xs text-slate-500 font-mono">
                         pengajian.app/badal/ajukan/bdl-102
                       </p>
                     </div>
                     <ExternalLink className="w-3 h-3 text-slate-400" />
                   </div>
-                  <div className="text-right text-[9px] text-slate-400 mt-1">19:30 ✓✓</div>
+                  <div className="text-right text-xs text-slate-500 mt-1">19:30 ✓✓</div>
                 </div>
               </div>
             </div>
@@ -2106,10 +2106,10 @@ export default function PengajarProductTour() {
                 {/* Header Portal Persiapan Sesi */}
                 <div className="bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs mb-2">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200 truncate">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200 truncate">
                       Portal Persiapan Ajar Sesi
                     </span>
-                    <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">
                       <Target className="w-2.5 h-2.5 text-indigo-600" />
                       <span>{selectedCapaian.length} Direncanakan</span>
                     </span>
@@ -2117,12 +2117,12 @@ export default function PengajarProductTour() {
                   <h3 className="text-xs font-extrabold text-slate-900 mt-1 truncate">
                     Kelas Abu Bakar • Masjid Al-Ikhlas
                   </h3>
-                  <p className="text-[9px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Pengajar: <strong>Ahmad Fauzi</strong> (Pengajar Utama)
                   </p>
                 </div>
 
-                <p className="text-[10px] text-slate-600 mb-1.5 font-medium">
+                <p className="text-xs text-slate-600 mb-1.5 font-medium">
                   Klik accordion materi untuk membuka capaian dan tentukan prioritas esok hari:
                 </p>
 
@@ -2150,7 +2150,7 @@ export default function PengajarProductTour() {
                           <p className="text-xs font-bold text-slate-900 truncate">
                             Bab 1: Ilmu Tajwid Praktis & Tahfidz
                           </p>
-                          <p className="text-[9px] text-slate-500">2 Indikator Capaian Materi</p>
+                          <p className="text-xs text-slate-500">2 Indikator Capaian Materi</p>
                         </div>
                       </div>
                       <ChevronDown
@@ -2193,7 +2193,7 @@ export default function PengajarProductTour() {
                                 <div className="flex items-center justify-between gap-1">
                                   <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <div
-                                      className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] shrink-0 transition ${
+                                      className={`w-4 h-4 rounded-md flex items-center justify-center text-[11px] shrink-0 transition ${
                                         isSelected
                                           ? 'bg-amber-500 text-white font-black'
                                           : 'border border-slate-300 bg-white'
@@ -2201,7 +2201,7 @@ export default function PengajarProductTour() {
                                     >
                                       {isSelected && '✓'}
                                     </div>
-                                    <span className="text-[11px] font-semibold text-slate-900 truncate">
+                                    <span className="text-xs font-semibold text-slate-900 truncate">
                                       {item.title}
                                     </span>
                                   </div>
@@ -2247,7 +2247,7 @@ export default function PengajarProductTour() {
                           <p className="text-xs font-bold text-slate-900 truncate">
                             Bab 2: Fiqih Ibadah & Praktik Thaharah
                           </p>
-                          <p className="text-[9px] text-slate-500">1 Indikator Capaian Materi</p>
+                          <p className="text-xs text-slate-500">1 Indikator Capaian Materi</p>
                         </div>
                       </div>
                       <ChevronDown
@@ -2282,7 +2282,7 @@ export default function PengajarProductTour() {
                               <div className="flex items-center justify-between gap-1">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <div
-                                    className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] shrink-0 transition ${
+                                    className={`w-4 h-4 rounded-md flex items-center justify-center text-[11px] shrink-0 transition ${
                                       isSelected
                                         ? 'bg-amber-500 text-white font-black'
                                         : 'border border-slate-300 bg-white'
@@ -2290,7 +2290,7 @@ export default function PengajarProductTour() {
                                   >
                                     {isSelected && '✓'}
                                   </div>
-                                  <span className="text-[11px] font-semibold text-slate-900 truncate">
+                                  <span className="text-xs font-semibold text-slate-900 truncate">
                                     {item.title}
                                   </span>
                                 </div>
@@ -2316,7 +2316,7 @@ export default function PengajarProductTour() {
 
                 {/* Kolom Catatan Siaran Pengajar (teacherBroadcastNote) */}
                 <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs mb-2">
-                  <label className="text-[9px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1 mb-1">
                     <MessageCircle className="w-3 h-3 text-teal-600" />
                     <span>Catatan Siaran untuk Wali Santri (Opsional):</span>
                   </label>
@@ -2324,7 +2324,7 @@ export default function PengajarProductTour() {
                     rows={2}
                     value={teacherBroadcastNoteInput}
                     onChange={(e) => setTeacherBroadcastNoteInput(e.target.value)}
-                    className="w-full text-[9px] p-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:outline-teal-500 leading-snug resize-none"
+                    className="w-full text-xs p-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:outline-teal-500 leading-snug resize-none"
                   />
                 </div>
               </div>
@@ -2340,7 +2340,7 @@ export default function PengajarProductTour() {
                 className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition shrink-0 mt-1 ${
                   selectedCapaian.length >= 1
                     ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-teal-700/20 active:scale-98'
-                    : 'bg-slate-200 text-slate-400'
+                    : 'bg-slate-200 text-slate-600'
                 }`}
               >
                 <FileCheck className="w-4 h-4" />
@@ -2357,7 +2357,7 @@ export default function PengajarProductTour() {
               <div>
                 <div className="text-center mt-3">
                   <h2 className="text-4xl font-extralight tracking-tight text-white/90">14:00</h2>
-                  <p className="text-[11px] text-teal-200 font-medium mt-0.5">Ahad, 24 Oktober (Hari H)</p>
+                  <p className="text-xs text-teal-200 font-medium mt-0.5">Ahad, 24 Oktober (Hari H)</p>
                 </div>
 
                 {/* Animated WhatsApp Banner H-2 Jam */}
@@ -2378,12 +2378,12 @@ export default function PengajarProductTour() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-bold text-[#128C7E] uppercase tracking-wider">
+                      <span className="text-xs font-bold text-[#128C7E] uppercase tracking-wider">
                         WhatsApp • Baru saja
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-900 mt-0.5 truncate">Sistem Pengajian TPQ</h4>
-                    <p className="text-[10px] text-slate-700 leading-snug mt-0.5">
+                    <p className="text-xs text-slate-700 leading-snug mt-0.5">
                       ⏰ <strong>PENGINGAT 2 JAM SESI MENGAJAR!</strong> Sesi Kelas Abu Bakar di Masjid Al-Ikhlas dimulai pukul 16:00. Buka tautan presensi sekarang.
                     </p>
                   </div>
@@ -2391,7 +2391,7 @@ export default function PengajarProductTour() {
               </div>
 
               <div className="text-center pb-3">
-                <span className="text-[9px] text-teal-300/80 uppercase tracking-widest font-semibold">
+                <span className="text-xs text-teal-300/80 uppercase tracking-widest font-semibold">
                   {subStep >= 1 ? 'Sentuh notifikasi untuk membuka pesan' : 'Menunggu pengingat sesi...'}
                 </span>
               </div>
@@ -2414,21 +2414,21 @@ export default function PengajarProductTour() {
                       Sistem Pengajian Bot
                       <ShieldCheck className="w-3 h-3 text-teal-200 fill-teal-200" />
                     </h4>
-                    <p className="text-[9px] text-teal-100">Akun Resmi Sistem</p>
+                    <p className="text-xs text-teal-100">Akun Resmi Sistem</p>
                   </div>
                 </div>
               </div>
 
               {/* Chat Body */}
               <div className="flex-1 p-2.5 flex flex-col justify-start space-y-2 overflow-y-auto">
-                <div className="self-center my-0.5 bg-amber-50 border border-amber-200 text-amber-800 text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5 animate-fade-in">
+                <div className="self-center my-0.5 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1.5 animate-fade-in">
                   <Clock className="w-3 h-3 text-amber-600" />
                   <span>Hari Ini - 2 Jam Sebelum Mengajar (14:00)</span>
                 </div>
 
                 {/* Pesan TEACHER_PRESENSI_LINK_2H */}
-                <div className="max-w-[92%] bg-white rounded-2xl rounded-tl-xs p-2.5 text-slate-800 text-[10px] shadow-sm border border-slate-200/60 animate-slide-up leading-snug">
-                  <p className="font-bold text-amber-700 text-[11px] mb-1">
+                <div className="max-w-[92%] bg-white rounded-2xl rounded-tl-xs p-2.5 text-slate-800 text-xs shadow-sm border border-slate-200/60 animate-slide-up leading-snug">
+                  <p className="font-bold text-amber-700 text-xs mb-1">
                     ⏰ PENGINGAT 2 JAM MENJELANG SESI!
                   </p>
                   <p className="text-slate-700">
@@ -2454,16 +2454,16 @@ export default function PengajarProductTour() {
                     }`}
                   >
                     <div>
-                      <p className="text-[11px] font-extrabold text-teal-900">
+                      <p className="text-xs font-extrabold text-teal-900">
                         🚀 Buka Cockpit Presensi Sesi (1-Klik)
                       </p>
-                      <p className="text-[9px] text-teal-700 font-mono font-medium">
+                      <p className="text-xs text-teal-700 font-mono font-medium">
                         pengajian.app/auth/direct?target=presensi&tkn=auth-991
                       </p>
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                   </div>
-                  <div className="text-right text-[8px] text-slate-400 mt-1">14:00 ✓✓</div>
+                  <div className="text-right text-[8px] text-slate-500 mt-1">14:00 ✓✓</div>
                 </div>
               </div>
             </div>
@@ -2479,22 +2479,22 @@ export default function PengajarProductTour() {
                 {/* Header Info Sesi Cockpit */}
                 <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    <span className="text-[11px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                       Sesi Aktif • Kelas Abu Bakar
                     </span>
-                    <span className="text-[9px] text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
                       16:00 - 17:30 WIB
                     </span>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-900 mt-1 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-900 mt-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
                     <span>Masjid Al-Ikhlas (3 Santri)</span>
                   </p>
                 </div>
 
                 {/* Segmented Control 4 Tab ClassroomCockpit */}
-                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-[10px] font-bold">
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-xs font-bold">
                   <button
                     onClick={() => handleSelectBranch('QR_DINAMIS')}
                     className="py-1 rounded-lg bg-white text-teal-800 shadow-2xs flex items-center justify-center gap-1 border border-teal-100 font-extrabold"
@@ -2534,7 +2534,7 @@ export default function PengajarProductTour() {
                     <h4 className="text-xs font-extrabold text-slate-900">
                       Ruang Kontrol Classroom Cockpit
                     </h4>
-                    <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                    <p className="text-xs text-slate-500 mt-0.5 leading-snug">
                       Pilih salah satu dari 3 mode presensi melalui jendela popup modal atau klik langsung tab menu di atas:
                     </p>
                   </div>
@@ -2565,7 +2565,7 @@ export default function PengajarProductTour() {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <p className="text-center text-[9px] text-slate-500 italic bg-white/70 py-1 rounded-xl border border-slate-200 mt-2 shrink-0">
+                <p className="text-center text-[11px] text-slate-500 italic bg-white/70 py-1 rounded-xl border border-slate-200 mt-2 shrink-0">
                   Pilih minimal 1 mode presensi untuk melanjutkan simulasi
                 </p>
               )}
@@ -2581,22 +2581,22 @@ export default function PengajarProductTour() {
                 {/* Header Info Sesi Cockpit */}
                 <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs mb-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    <span className="text-[11px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                       Sesi Aktif • Kelas Abu Bakar
                     </span>
-                    <span className="text-[9px] text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
                       16:00 - 17:30 WIB
                     </span>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-900 mt-1 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-900 mt-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
                     <span>Masjid Al-Ikhlas (3 Santri)</span>
                   </p>
                 </div>
 
                 {/* Segmented Control 4 Tab ClassroomCockpit */}
-                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-[10px] font-bold mb-2">
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-xs font-bold mb-2">
                   <button
                     onClick={() => handleSelectBranch('QR_DINAMIS')}
                     className="py-1 rounded-lg bg-white text-teal-800 shadow-2xs border border-teal-200 font-extrabold flex items-center justify-center gap-1"
@@ -2646,7 +2646,7 @@ export default function PengajarProductTour() {
                       <div className="absolute inset-0 border-2 border-teal-500 rounded-xl pointer-events-none animate-pulse" />
                     </div>
 
-                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-[10px] font-bold">
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-bold">
                       <Clock className="w-3 h-3 animate-spin text-teal-600" />
                       <span>QR Berubah Dalam: 00:15</span>
                     </div>
@@ -2655,16 +2655,16 @@ export default function PengajarProductTour() {
 
                 {subStep >= 2 && (
                   <div className="mt-2 space-y-1 animate-slide-up">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Log Kehadiran Realtime:
                     </p>
-                    <div className="p-1.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-[11px] shadow-2xs">
+                    <div className="p-1.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-2xs">
                       <span className="font-semibold text-slate-800">1. Ahmad Fauzi</span>
                       <span className="text-[8px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
                         Hadir (via QR)
                       </span>
                     </div>
-                    <div className="p-1.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-[11px] shadow-2xs">
+                    <div className="p-1.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-2xs">
                       <span className="font-semibold text-slate-800">2. Siti Aminah</span>
                       <span className="text-[8px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
                         Hadir (via QR)
@@ -2674,7 +2674,7 @@ export default function PengajarProductTour() {
                 )}
               </div>
 
-              <div className="text-center text-[9px] text-slate-400 font-medium py-1">
+              <div className="text-center text-xs text-slate-500 font-medium py-1">
                 Kembali ke ruang ClassroomCockpit...
               </div>
             </div>
@@ -2689,22 +2689,22 @@ export default function PengajarProductTour() {
                 {/* Header Info Sesi Cockpit */}
                 <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs mb-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    <span className="text-[11px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                       Sesi Aktif • Kelas Abu Bakar
                     </span>
-                    <span className="text-[9px] text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
                       16:00 - 17:30 WIB
                     </span>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-900 mt-1 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-900 mt-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
                     <span>Masjid Al-Ikhlas (3 Santri)</span>
                   </p>
                 </div>
 
                 {/* Segmented Control 4 Tab ClassroomCockpit */}
-                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-[10px] font-bold mb-2">
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-xs font-bold mb-2">
                   <button
                     onClick={() => handleSelectBranch('QR_DINAMIS')}
                     className="py-1 rounded-lg text-slate-600 hover:bg-white/60 flex items-center justify-center gap-1"
@@ -2750,7 +2750,7 @@ export default function PengajarProductTour() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-slate-900 truncate">{st.name}</p>
-                          <p className="text-[9px] text-slate-400">NIS: {st.nis}</p>
+                          <p className="text-xs text-slate-500">NIS: {st.nis}</p>
                         </div>
 
                         {/* Segmented Control 4 Status: Hadir, Izin, Sakit, Alfa */}
@@ -2760,7 +2760,7 @@ export default function PengajarProductTour() {
                               soundFx.playClick();
                               setManualPresence((prev) => ({ ...prev, [st.id]: 'HADIR' }));
                             }}
-                            className={`py-1 text-[9px] font-extrabold rounded text-center transition ${
+                            className={`py-1 text-[11px] font-extrabold rounded text-center transition ${
                               status === 'HADIR'
                                 ? 'bg-emerald-600 text-white shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -2773,7 +2773,7 @@ export default function PengajarProductTour() {
                               soundFx.playClick();
                               setManualPresence((prev) => ({ ...prev, [st.id]: 'IZIN' }));
                             }}
-                            className={`py-1 text-[9px] font-extrabold rounded text-center transition ${
+                            className={`py-1 text-[11px] font-extrabold rounded text-center transition ${
                               status === 'IZIN'
                                 ? 'bg-amber-500 text-white shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -2786,7 +2786,7 @@ export default function PengajarProductTour() {
                               soundFx.playClick();
                               setManualPresence((prev) => ({ ...prev, [st.id]: 'SAKIT' }));
                             }}
-                            className={`py-1 text-[9px] font-extrabold rounded text-center transition ${
+                            className={`py-1 text-[11px] font-extrabold rounded text-center transition ${
                               status === 'SAKIT'
                                 ? 'bg-orange-500 text-white shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -2799,7 +2799,7 @@ export default function PengajarProductTour() {
                               soundFx.playClick();
                               setManualPresence((prev) => ({ ...prev, [st.id]: 'ALFA' }));
                             }}
-                            className={`py-1 text-[9px] font-extrabold rounded text-center transition ${
+                            className={`py-1 text-[11px] font-extrabold rounded text-center transition ${
                               status === 'ALFA'
                                 ? 'bg-rose-500 text-white shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -2814,7 +2814,7 @@ export default function PengajarProductTour() {
                 </div>
               </div>
 
-              <div className="text-center text-[9px] text-slate-400 font-medium py-1">
+              <div className="text-center text-xs text-slate-500 font-medium py-1">
                 Kembali ke ruang ClassroomCockpit...
               </div>
             </div>
@@ -2829,22 +2829,22 @@ export default function PengajarProductTour() {
                 {/* Header Info Sesi Cockpit */}
                 <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-2xs mb-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                    <span className="text-[11px] font-extrabold uppercase text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                       Sesi Aktif • Kelas Abu Bakar
                     </span>
-                    <span className="text-[9px] text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
                       16:00 - 17:30 WIB
                     </span>
                   </div>
-                  <p className="text-[11px] font-bold text-slate-900 mt-1 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-900 mt-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
                     <span>Masjid Al-Ikhlas (3 Santri)</span>
                   </p>
                 </div>
 
                 {/* Segmented Control 4 Tab ClassroomCockpit */}
-                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-[10px] font-bold mb-2">
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/80 rounded-xl text-xs font-bold mb-2">
                   <button
                     onClick={() => handleSelectBranch('QR_DINAMIS')}
                     className="py-1 rounded-lg text-slate-600 hover:bg-white/60 flex items-center justify-center gap-1"
@@ -2895,15 +2895,15 @@ export default function PengajarProductTour() {
                       <div className="w-10 h-10 mx-auto bg-slate-100 p-1 rounded-lg mb-1 border border-slate-200">
                         <QrCode className="w-full h-full text-slate-900" />
                       </div>
-                      <p className="text-[10px] font-bold text-slate-900">KARTU SANTRI TPQ</p>
-                      <p className="text-[9px] font-bold text-teal-700">Muhammad Rizky</p>
-                      <p className="text-[8px] text-slate-400">NIS: 202601</p>
+                      <p className="text-xs font-bold text-slate-900">KARTU SANTRI TPQ</p>
+                      <p className="text-xs font-bold text-teal-700">Muhammad Rizky</p>
+                      <p className="text-[8px] text-slate-500">NIS: 202601</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="text-center text-[9px] text-slate-400 font-medium py-1">
+              <div className="text-center text-xs text-slate-500 font-medium py-1">
                 Kembali ke ruang ClassroomCockpit...
               </div>
             </div>
@@ -2926,14 +2926,14 @@ export default function PengajarProductTour() {
                       16:00 - 17:30 WIB
                     </span>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-900 mt-0.5 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-900 mt-0.5 flex items-center gap-1">
                     <MapPin className="w-2.5 h-2.5 text-teal-600 shrink-0" />
                     <span>Masjid Al-Ikhlas (3 Santri)</span>
                   </p>
                 </div>
 
                 {/* 4 Tabs Segmented Control dengan Tab Jurnal Aktif */}
-                <div className="grid grid-cols-4 gap-1 p-0.5 bg-slate-200/80 rounded-lg text-[9px] font-bold mb-1">
+                <div className="grid grid-cols-4 gap-1 p-0.5 bg-slate-200/80 rounded-lg text-xs font-bold mb-1">
                   <button
                     onClick={() => handleSelectBranch('QR_DINAMIS')}
                     className="py-1 rounded text-slate-600 hover:bg-white/60 flex items-center justify-center gap-0.5"
@@ -2965,7 +2965,7 @@ export default function PengajarProductTour() {
                 </div>
 
                 {/* Info Filter Santri Hadir Saja */}
-                <div className="bg-teal-50 border border-teal-200 p-1 rounded-lg mb-1 flex items-center justify-between text-[9px] text-teal-900 font-medium">
+                <div className="bg-teal-50 border border-teal-200 p-1 rounded-lg mb-1 flex items-center justify-between text-xs text-teal-900 font-medium">
                   <span className="truncate">✓ 2 Santri Hadir Siap Dinilai</span>
                   <span className="text-[8px] text-teal-700 shrink-0">(Izin/Sakit Disaring)</span>
                 </div>
@@ -2990,7 +2990,7 @@ export default function PengajarProductTour() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1">
-                          <p className="text-[11px] font-bold text-slate-900 truncate">
+                          <p className="text-xs font-bold text-slate-900 truncate">
                             Materi: Bab 1 Tajwid & Tahfidz
                           </p>
                           <span className="text-[7px] font-extrabold uppercase px-1 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300 shrink-0 whitespace-nowrap">
@@ -3020,7 +3020,7 @@ export default function PengajarProductTour() {
                         <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5 transition-all">
                           <div className="flex items-center justify-between gap-1">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-bold text-slate-900 truncate">
+                              <p className="text-xs font-bold text-slate-900 truncate">
                                 Tajwid: Hukum Nun Mati (Idgham & Ikhfa)
                               </p>
                               <p className="text-[8px] text-slate-500">
@@ -3030,7 +3030,7 @@ export default function PengajarProductTour() {
                             <button
                               type="button"
                               onClick={() => handleCycleCapaianStatus(1)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
                                 journalCapaianStatus[1] === 'COMPLETED'
                                   ? 'bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700'
                                   : journalCapaianStatus[1] === 'IN_PROGRESS'
@@ -3134,7 +3134,7 @@ export default function PengajarProductTour() {
                         <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5 transition-all">
                           <div className="flex items-center justify-between gap-1">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-bold text-slate-900 truncate">
+                              <p className="text-xs font-bold text-slate-900 truncate">
                                 Tahfidz: Hafalan Surat An-Naba 1-10
                               </p>
                               <p className="text-[8px] text-slate-500">
@@ -3144,7 +3144,7 @@ export default function PengajarProductTour() {
                             <button
                               type="button"
                               onClick={() => handleCycleCapaianStatus(2)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 ${
                                 journalCapaianStatus[2] === 'COMPLETED'
                                   ? 'bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700'
                                   : journalCapaianStatus[2] === 'IN_PROGRESS'
@@ -3272,7 +3272,7 @@ export default function PengajarProductTour() {
                   soundFx.playFanfare();
                   triggerCelebrationConfetti(canvasRef.current);
                 }}
-                className="w-full py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-md shadow-teal-700/20 shrink-0 mt-1 active:scale-98"
+                className="w-full py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-teal-700/20 shrink-0 mt-1 active:scale-98"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Simpan Jurnal & Selesai Mengajar</span>
@@ -3290,7 +3290,7 @@ export default function PengajarProductTour() {
                   <Award className="w-6 h-6" />
                 </div>
 
-                <div className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
+                <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
                   <Check className="w-3 h-3 text-teal-600" />
                   <span>Sesi Mengajar COMPLETED</span>
                 </div>
@@ -3299,7 +3299,7 @@ export default function PengajarProductTour() {
                   Alhamdulillah! Anda Siap Mengajar 🎉
                 </h3>
 
-                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug px-1">
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug px-1">
                   Anda telah menguasai alur sistem mengajar resmi secara end-to-end:
                 </p>
 
@@ -3307,25 +3307,25 @@ export default function PengajarProductTour() {
                 <div className="mt-2 space-y-1 text-left text-xs">
                   <div className="p-1.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-1.5 text-slate-700 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    <span className="text-[9px]">
+                    <span className="text-xs">
                       <strong>1. H-1 Persiapan Ajar:</strong> Tentukan materi prioritas & catatan siaran.
                     </span>
                   </div>
                   <div className="p-1.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-1.5 text-slate-700 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    <span className="text-[9px]">
+                    <span className="text-xs">
                       <strong>2. H-2 Jam Magic Link:</strong> Masuk ClassroomCockpit 1-klik tanpa password.
                     </span>
                   </div>
                   <div className="p-1.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-1.5 text-slate-700 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    <span className="text-[9px]">
+                    <span className="text-xs">
                       <strong>3. Presensi Multi-Mode:</strong> Dynamic QR, Manual, atau Scan Kartu.
                     </span>
                   </div>
                   <div className="p-1.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-1.5 text-slate-700 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    <span className="text-[9px]">
+                    <span className="text-xs">
                       <strong>4. Jurnal Nilai:</strong> Prioritas di atas, skor & teachingSummaryNotes.
                     </span>
                   </div>
@@ -3420,12 +3420,12 @@ export default function PengajarProductTour() {
               className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition ${
                 voiceOverEnabled
                   ? 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100'
-                  : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
               }`}
             >
               {voiceOverEnabled ? <Mic className="w-3.5 h-3.5 text-teal-600" /> : <MicOff className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline font-bold">VO</span>
-              <span className="text-[10px]">{voiceOverEnabled ? 'ON' : 'OFF'}</span>
+              <span className="text-xs">{voiceOverEnabled ? 'ON' : 'OFF'}</span>
             </button>
 
             {/* Toggle Sound FX */}
@@ -3439,12 +3439,12 @@ export default function PengajarProductTour() {
               className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition ${
                 soundEnabled
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
               }`}
             >
               {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" /> : <VolumeX className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline font-bold">SFX</span>
-              <span className="text-[10px]">{soundEnabled ? 'ON' : 'OFF'}</span>
+              <span className="text-xs">{soundEnabled ? 'ON' : 'OFF'}</span>
             </button>
 
 

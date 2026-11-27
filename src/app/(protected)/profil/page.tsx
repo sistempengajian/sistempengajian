@@ -1,9 +1,10 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import prisma from '@/lib/prisma';
+import { requireProtectedAuth } from '@/lib/auth';
 import ProfileClientView, { UserProfileData } from '@/components/profil/ProfileClientView';
+import { getUiTelemetrySummary } from '@/lib/telemetry';
 
 export const metadata: Metadata = {
   title: 'Profil Pengguna | Sistem Pengajian',
@@ -11,22 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfilPage() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { effectiveUserId } = await requireProtectedAuth();
 
-  if (!authUser) {
-    redirect('/login');
-  }
-
-  const dbUser = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { id: authUser.id },
-        ...(authUser.email ? [{ email: authUser.email }, { username: authUser.email.split('@')[0] }] : []),
-      ],
-    },
+  const dbUser = await prisma.user.findUnique({
+    where: { id: effectiveUserId },
     include: {
       generation: {
         select: {
@@ -167,5 +156,8 @@ export default async function ProfilPage() {
     })),
   };
 
-  return <ProfileClientView user={profileData} />;
+  const isAdminMaster = dbUser.roles.some((r) => r.role === 'ADMIN_MASTER');
+  const telemetrySummary = isAdminMaster ? await getUiTelemetrySummary(30) : null;
+
+  return <ProfileClientView user={profileData} telemetrySummary={telemetrySummary} />;
 }

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { TaskType } from '@prisma/client';
 import { verifySubmissionByParent } from '@/app/(protected)/tugas/actions';
+import { triggerMicroCsatPrompt } from '@/lib/telemetry-client';
 import LazyAudioSection from '@/components/tugas/LazyAudioSection';
 import LazyPhotoSection from '@/components/tugas/LazyPhotoSection';
 import QuizSubmissionReview from '@/components/tugas/QuizSubmissionReview';
@@ -94,6 +95,7 @@ export default function ParentMagicVerifyForm({
       } else {
         setIsVerified(true);
         setVerifiedAt(new Date().toISOString());
+        triggerMicroCsatPrompt('parent_paraf_magic_link');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Terjadi kesalahan sistem saat memproses paraf.');
@@ -152,7 +154,7 @@ export default function ParentMagicVerifyForm({
 
                   {/* Amalan yang sudah dikerjakan */}
                   <div className="space-y-1 pt-1">
-                    <span className="text-[11px] font-semibold text-emerald-800 block">
+                    <span className="text-xs font-semibold text-emerald-800 block">
                       Sudah Dikerjakan ({progress.completed.length}):
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -171,14 +173,14 @@ export default function ParentMagicVerifyForm({
                   {/* Amalan yang belum dikerjakan */}
                   {progress.uncompleted.length > 0 && (
                     <div className="space-y-1 pt-1">
-                      <span className="text-[11px] font-semibold text-slate-500 block">
+                      <span className="text-xs font-semibold text-slate-500 block">
                         Belum Dikerjakan ({progress.uncompleted.length}):
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {progress.uncompleted.map((item, idx) => (
                           <div
                             key={idx}
-                            className="flex items-center gap-2 p-2 rounded-xl bg-slate-50/80 border border-dashed border-slate-200 text-xs text-slate-400 font-normal"
+                            className="flex items-center gap-2 p-2 rounded-xl bg-slate-50/80 border border-dashed border-slate-200 text-xs text-slate-600 font-normal"
                           >
                             <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 shrink-0" />
                             <span>{item}</span>
@@ -274,14 +276,14 @@ export default function ParentMagicVerifyForm({
 
           {/* Quick Tags */}
           <div className="space-y-1.5">
-            <div className="text-[11px] font-semibold text-slate-500">Pilih Cepat Catatan Paraf:</div>
+            <div className="text-xs font-semibold text-slate-500">Pilih Cepat Catatan Paraf:</div>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_FEEDBACK_TAGS.map((tag) => (
                 <button
                   key={tag}
                   type="button"
                   onClick={() => handleQuickTagClick(tag)}
-                  className="text-[11px] text-left px-2.5 py-1 rounded-lg bg-white border border-indigo-200/80 text-indigo-800 hover:bg-indigo-50 transition-all cursor-pointer shadow-2xs font-medium active:scale-95"
+                  className="text-xs text-left px-2.5 py-1 rounded-lg bg-white border border-indigo-200/80 text-indigo-800 hover:bg-indigo-50 transition-all cursor-pointer shadow-2xs font-medium active:scale-95"
                 >
                   + {tag}
                 </button>

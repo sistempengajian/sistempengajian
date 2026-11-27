@@ -223,7 +223,7 @@ export default function SubstituteConfirmClientView({
               <h1 className="text-sm font-bold text-slate-900 leading-tight">
                 Konfirmasi Guru Badal
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 {request.schedule.organization.name}
               </p>
             </div>
@@ -231,7 +231,7 @@ export default function SubstituteConfirmClientView({
 
           <div className="text-right">
             <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
                 isSubstituteReviewer
                   ? 'bg-blue-50 text-blue-700 border-blue-200/70'
                   : 'bg-purple-50 text-purple-700 border-purple-200/70'
@@ -309,7 +309,7 @@ export default function SubstituteConfirmClientView({
         <section className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-start justify-between border-b border-slate-100 pb-3">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                 Jadwal Pengajian
               </span>
               <h2 className="text-base font-bold text-slate-900 mt-1 leading-snug">
@@ -322,7 +322,7 @@ export default function SubstituteConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Hari & Tanggal</p>
+                <p className="text-xs text-slate-500 font-medium">Hari & Tanggal</p>
                 <p className="font-semibold">{dayDateFormatted}</p>
               </div>
             </div>
@@ -330,7 +330,7 @@ export default function SubstituteConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Waktu Sesi</p>
+                <p className="text-xs text-slate-500 font-medium">Waktu Sesi</p>
                 <p className="font-semibold">{timeFormatted}</p>
               </div>
             </div>
@@ -338,7 +338,7 @@ export default function SubstituteConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Lokasi / Tempat</p>
+                <p className="text-xs text-slate-500 font-medium">Lokasi / Tempat</p>
                 <p className="font-semibold truncate max-w-[180px]">
                   {request.schedule.venuePlaceName}
                 </p>
@@ -348,7 +348,7 @@ export default function SubstituteConfirmClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Users className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Target Santri</p>
+                <p className="text-xs text-slate-500 font-medium">Target Santri</p>
                 <p className="font-semibold truncate max-w-[180px]">{classNames}</p>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function SubstituteConfirmClientView({
           <div className="flex items-start space-x-2.5 text-xs text-slate-700 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/70">
             <BookOpen className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
             <div>
-              <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+              <p className="text-xs text-emerald-800 font-bold uppercase tracking-wider">
                 Materi Ajar
               </p>
               <p className="font-medium text-slate-800 mt-0.5">{materialNames}</p>
@@ -373,19 +373,19 @@ export default function SubstituteConfirmClientView({
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-semibold text-slate-400 block">
+              <span className="text-xs font-semibold text-slate-500 block">
                 Ustadz Pengampu (Pemohon)
               </span>
               <p className="font-bold text-slate-900 mt-1">{request.requesterTeacher.fullName}</p>
-              <p className="text-[11px] text-slate-500">Berhalangan hadir</p>
+              <p className="text-xs text-slate-500">Berhalangan hadir</p>
             </div>
 
             <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100">
-              <span className="text-[10px] font-semibold text-emerald-700 block">
+              <span className="text-xs font-semibold text-emerald-700 block">
                 Calon Ustadz Badal
               </span>
               <p className="font-bold text-emerald-950 mt-1">{request.substituteTeacher.fullName}</p>
-              <p className="text-[11px] text-emerald-700">Diajukan menggantikan</p>
+              <p className="text-xs text-emerald-700">Diajukan menggantikan</p>
             </div>
           </div>
 
@@ -482,7 +482,7 @@ export default function SubstituteConfirmClientView({
                 <h3 className="text-sm font-bold text-slate-900">
                   Tolak Permohonan Badal
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Pengajar pemohon akan menerima info ini
                 </p>
               </div>

@@ -154,25 +154,25 @@ export default async function ParentMagicLinkPage({
             <div className="pt-3 border-t border-indigo-100 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 {submission.assignment.taskType === TaskType.AUDIO_MEMORIZATION && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-white border border-indigo-200 px-2.5 py-0.5 rounded-md shadow-2xs">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-white border border-indigo-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                     <Mic className="w-3 h-3" />
                     Tugas Audio Hafalan
                   </span>
                 )}
                 {submission.assignment.taskType === TaskType.DAILY_HABIT && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2.5 py-0.5 rounded-md shadow-2xs">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                     <CheckSquare className="w-3 h-3" />
                     Tugas Checklist Ibadah
                   </span>
                 )}
                 {submission.assignment.taskType === TaskType.WRITTEN_SUBMISSION && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-white border border-sky-200 px-2.5 py-0.5 rounded-md shadow-2xs">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-white border border-sky-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                     <FileText className="w-3 h-3" />
                     Tugas Foto / Lembar Kerja
                   </span>
                 )}
                 {submission.assignment.taskType === TaskType.QUIZ_ONLINE && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-white border border-amber-200 px-2.5 py-0.5 rounded-md shadow-2xs">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-white border border-amber-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                     <DicesIcon className="w-3 h-3" />
                     Kuis Online
                   </span>
@@ -232,7 +232,7 @@ export default async function ParentMagicLinkPage({
         </div>
 
         {/* Secure Footer Note */}
-        <div className="text-center text-xs text-slate-400 space-y-1">
+        <div className="text-center text-xs text-slate-500 space-y-1">
           <div className="flex items-center justify-center gap-1.5 font-medium text-slate-500">
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
             <span>Terverifikasi dengan Tanda Tangan Digital Kriptografi HMAC SHA-256</span>

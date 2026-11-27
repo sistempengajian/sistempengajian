@@ -105,7 +105,7 @@ export default function MagicLoginVerificationPage({ params }: MagicLoginPagePro
             Mohon tunggu sebentar, sistem sedang mengamankan sesi otentikasi WhatsApp Anda...
           </p>
 
-          <div className="mt-6 flex items-center gap-1.5 text-[11px] text-slate-400 font-medium bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200/60">
+          <div className="mt-6 flex items-center gap-1.5 text-[11px] text-slate-600 font-medium bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200/60">
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
             <span>Single-Use Magic Link Protection</span>
           </div>
@@ -135,7 +135,7 @@ export default function MagicLoginVerificationPage({ params }: MagicLoginPagePro
               <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Sudah Memasang Aplikasi SiPanji di HP?</span>
             </div>
-            <p className="text-[11px] text-emerald-800/90 leading-relaxed">
+            <p className="text-xs text-emerald-800/90 leading-relaxed">
               Anda bisa langsung kembali membuka ikon <strong>SiPanji</strong> di Layar Utama HP Anda. Aplikasi telah otomatis masuk tanpa perlu login ulang!
             </p>
           </div>

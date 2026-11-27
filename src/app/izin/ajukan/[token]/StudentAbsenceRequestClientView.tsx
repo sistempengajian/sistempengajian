@@ -287,14 +287,14 @@ export default function StudentAbsenceRequestClientView({
               <h1 className="text-sm font-bold text-slate-900 leading-tight">
                 Permohonan Izin Santri
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 {schedule.organization.name}
               </p>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
               {submitterRole === 'PARENT' ? 'Wali Santri' : 'Santri'}
             </span>
             <p className="text-xs font-semibold text-slate-700 mt-0.5 truncate max-w-[130px]">
@@ -327,7 +327,7 @@ export default function StudentAbsenceRequestClientView({
         <section className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-start justify-between border-b border-slate-100 pb-3">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
                 Jadwal Pengajian Terkait
               </span>
               <h2 className="text-base font-bold text-slate-900 mt-1.5 leading-snug">
@@ -340,7 +340,7 @@ export default function StudentAbsenceRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Hari & Tanggal</p>
+                <p className="text-xs text-slate-500 font-medium">Hari & Tanggal</p>
                 <p className="font-semibold">{dayDateFormatted}</p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function StudentAbsenceRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <Clock className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Waktu Sesi</p>
+                <p className="text-xs text-slate-500 font-medium">Waktu Sesi</p>
                 <p className="font-semibold">{timeFormatted}</p>
               </div>
             </div>
@@ -356,7 +356,7 @@ export default function StudentAbsenceRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Lokasi / Tempat</p>
+                <p className="text-xs text-slate-500 font-medium">Lokasi / Tempat</p>
                 <p className="font-semibold truncate max-w-[180px]">{schedule.venuePlaceName}</p>
               </div>
             </div>
@@ -364,7 +364,7 @@ export default function StudentAbsenceRequestClientView({
             <div className="flex items-center space-x-2.5 text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
               <User className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-medium">Santri Pemohon</p>
+                <p className="text-xs text-slate-500 font-medium">Santri Pemohon</p>
                 <p className="font-semibold truncate max-w-[180px]">{student.fullName}</p>
               </div>
             </div>
@@ -373,7 +373,7 @@ export default function StudentAbsenceRequestClientView({
           <div className="flex items-start space-x-2.5 text-xs text-slate-700 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100/70">
             <BookOpen className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
             <div>
-              <p className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
+              <p className="text-xs text-amber-800 font-bold uppercase tracking-wider">
                 Materi Ajar
               </p>
               <p className="font-medium text-slate-800 mt-0.5">{materialNames}</p>
@@ -426,7 +426,7 @@ export default function StudentAbsenceRequestClientView({
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Izin</p>
-                  <p className="text-[11px] text-slate-500">Acara / Keperluan</p>
+                  <p className="text-xs text-slate-500">Acara / Keperluan</p>
                 </div>
               </label>
 
@@ -447,7 +447,7 @@ export default function StudentAbsenceRequestClientView({
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Sakit</p>
-                  <p className="text-[11px] text-slate-500">Kondisi Medis</p>
+                  <p className="text-xs text-slate-500">Kondisi Medis</p>
                 </div>
               </label>
             </div>
@@ -493,7 +493,7 @@ export default function StudentAbsenceRequestClientView({
                     />
                     <div className="text-left text-xs">
                       <p className="font-bold text-emerald-700">Foto Terlampir</p>
-                      <p className="text-[11px] text-slate-500">Klik untuk mengganti foto</p>
+                      <p className="text-xs text-slate-500">Klik untuk mengganti foto</p>
                     </div>
                   </div>
                 ) : (
@@ -502,7 +502,7 @@ export default function StudentAbsenceRequestClientView({
                     <p className="text-xs font-medium text-slate-700">
                       Unggah Foto Surat Dokter / Bukti Kegiatan
                     </p>
-                    <p className="text-[11px] text-slate-400">JPG, PNG (Maks. 4MB)</p>
+                    <p className="text-xs text-slate-500">JPG, PNG (Maks. 4MB)</p>
                   </div>
                 )}
               </div>
@@ -563,12 +563,12 @@ export default function StudentAbsenceRequestClientView({
               <p className="text-amber-900 leading-relaxed font-medium">
                 Permohonan <strong>{currentRequest.absenceType === 'SAKIT' ? 'Sakit' : 'Izin'}</strong> telah dikirim ke WhatsApp Orang Tua, Wali Kelas, dan PJ Wilayah.
               </p>
-              <p className="text-[11px] text-amber-800">
+              <p className="text-xs text-amber-800">
                 <em>Jika telah disetujui minimal 2 pihak, status absensi pada sesi pengajian akan otomatis tercatat menjadi {currentRequest.absenceType}.</em>
               </p>
 
               <div className="pt-2 border-t border-amber-200/60 space-y-1.5">
-                <p className="text-[11px] text-amber-700/80 font-bold uppercase tracking-wider">
+                <p className="text-xs text-amber-700/80 font-bold uppercase tracking-wider">
                   Keterangan Alasan:
                 </p>
                 <p className="italic bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
@@ -578,24 +578,24 @@ export default function StudentAbsenceRequestClientView({
 
               {/* Riwayat Persetujuan */}
               <div className="pt-2 border-t border-amber-200/60">
-                <p className="text-[11px] font-bold text-amber-900 mb-1">
+                <p className="text-xs font-bold text-amber-900 mb-1">
                   Riwayat Konfirmasi:
                 </p>
                 {currentRequest.approvals.length === 0 ? (
-                  <p className="text-[11px] text-amber-700 italic">Belum ada konfirmasi masuk.</p>
+                  <p className="text-xs text-amber-700 italic">Belum ada konfirmasi masuk.</p>
                 ) : (
                   <div className="space-y-1">
                     {currentRequest.approvals.map((app) => (
                       <div
                         key={app.id}
-                        className="flex items-center justify-between bg-white/90 p-2 rounded-xl border border-amber-200/60 text-[11px]"
+                        className="flex items-center justify-between bg-white/90 p-2 rounded-xl border border-amber-200/60 text-xs"
                       >
                         <div className="flex items-center space-x-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                           <span className="font-semibold text-slate-800">
                             {app.approverUser.fullName}
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-xs text-slate-500">
                             ({app.approverRole === 'PARENT' ? 'Ortu' : app.approverRole === 'HOMEROOM_TEACHER' ? 'Wali Kelas' : 'PJ'})
                           </span>
                         </div>
@@ -608,7 +608,7 @@ export default function StudentAbsenceRequestClientView({
             </div>
 
             {/* Indikator Auto-Refresh 10 Detik */}
-            <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+            <div className="flex items-center justify-between text-xs text-slate-500 px-1">
               <div className="flex items-center space-x-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Auto-refresh real-time aktif (setiap 10 detik)</span>
@@ -633,7 +633,7 @@ export default function StudentAbsenceRequestClientView({
             </div>
 
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 Permohonan Terverifikasi
               </span>
               <h3 className="text-base font-bold text-slate-900 mt-2">
@@ -645,19 +645,19 @@ export default function StudentAbsenceRequestClientView({
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-4 text-xs text-left border border-slate-100 space-y-2">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Daftar Pihak yang Menyetujui:
               </p>
               {currentRequest.approvals.map((app) => (
                 <div key={app.id} className="border-b border-slate-200/50 pb-1.5 last:border-none">
                   <div className="flex justify-between font-semibold text-slate-800">
                     <span>{app.approverUser.fullName}</span>
-                    <span className="text-emerald-700 text-[11px]">
+                    <span className="text-emerald-700 text-xs">
                       {app.approverRole === 'PARENT' ? 'Orang Tua' : app.approverRole === 'HOMEROOM_TEACHER' ? 'Wali Kelas' : 'PJ Wilayah'}
                     </span>
                   </div>
                   {app.notes && (
-                    <p className="text-[11px] text-slate-600 italic mt-0.5">
+                    <p className="text-xs text-slate-600 italic mt-0.5">
                       &quot;{app.notes}&quot;
                     </p>
                   )}

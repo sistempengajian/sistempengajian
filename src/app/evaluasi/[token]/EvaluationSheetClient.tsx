@@ -106,11 +106,11 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
               <div>
                 <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                   <span>Lembar Evaluasi Santri</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70">
                     Resmi
                   </span>
                 </h1>
-                <p className="text-[11px] text-slate-500 font-medium">
+                <p className="text-xs text-slate-500 font-medium">
                   {period.monthName} • Sistem Pengajian SiPanji
                 </p>
               </div>
@@ -130,7 +130,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
           {/* Switcher Multi-Anak (Jika > 1 Anak) */}
           {studentsData.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto p-1 bg-slate-100 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] font-bold text-slate-400 px-2 uppercase tracking-wider shrink-0 hidden md:inline">
+              <span className="text-xs font-bold text-slate-500 px-2 uppercase tracking-wider shrink-0 hidden md:inline">
                 Pilih Ananda:
               </span>
               {studentsData.map((data, idx) => {
@@ -149,7 +149,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                     <User className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-600' : 'text-slate-400'}`} />
                     <span>{data.student.fullName.split(' ')[0]}</span>
                     {data.student.className && (
-                      <span className="text-[10px] text-slate-400 font-normal">
+                      <span className="text-xs text-slate-500 font-normal">
                         ({data.student.className})
                       </span>
                     )}
@@ -216,7 +216,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
                       {student.organizationName}
                     </span>
                     
@@ -233,13 +233,13 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
 
               {/* Status Periode & Tanggal Terbit */}
               <div className="sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
                   Periode Evaluasi Bulanan
                 </span>
                 <span className="text-sm font-black text-slate-900 block mt-0.5">
                   {period.monthName}
                 </span>
-                <span className="text-[11px] text-slate-500 block">
+                <span className="text-xs text-slate-500 block">
                   Rentang: {period.formattedRangeDate}
                 </span>
               </div>
@@ -271,12 +271,12 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                       <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                         Disiplin Presensi Pengajian
                       </h3>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {attendance.totalSessions} sesi terlaksana pada {period.monthName}
                       </p>
                     </div>
                     {attendance.streakDays > 0 && (
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                         <Sparkles className="w-3 h-3 text-amber-600" />
                         <span>Streak {attendance.streakDays} Sesi</span>
                       </span>
@@ -286,25 +286,25 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                   {/* Rincian Status Hadir, Izin, Sakit, Alpa */}
                   <div className="grid grid-cols-4 gap-1.5 text-center">
                     <div className="p-1.5 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Tepat</span>
+                      <span className="block text-xs font-bold text-slate-500">Tepat</span>
                       <span className="block text-xs sm:text-sm font-black text-emerald-700">
                         {attendance.onTime}
                       </span>
                     </div>
                     <div className="p-1.5 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Lambat</span>
+                      <span className="block text-xs font-bold text-slate-500">Lambat</span>
                       <span className="block text-xs sm:text-sm font-black text-amber-700">
                         {attendance.late}
                       </span>
                     </div>
                     <div className="p-1.5 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Izin/Sakit</span>
+                      <span className="block text-xs font-bold text-slate-500">Izin/Sakit</span>
                       <span className="block text-xs sm:text-sm font-black text-slate-700">
                         {attendance.permission + attendance.sick}
                       </span>
                     </div>
                     <div className="p-1.5 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Alpa</span>
+                      <span className="block text-xs font-bold text-slate-500">Alpa</span>
                       <span className="block text-xs sm:text-sm font-black text-rose-700">
                         {attendance.absent}
                       </span>
@@ -328,11 +328,11 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                       <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                         Target Kurikulum Bulan Ini
                       </h3>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {curriculum.totalTargetMaterials} Materi Pokok Silabus
                       </p>
                     </div>
-                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
                       <Award className="w-3 h-3 text-teal-600" />
                       <span>{curriculum.predicate}</span>
                     </span>
@@ -341,13 +341,13 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                   {/* Ringkasan Rasio Ketuntasan */}
                   <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="p-2 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Materi Tuntas</span>
+                      <span className="block text-xs font-bold text-slate-500">Materi Tuntas</span>
                       <span className="block text-xs sm:text-sm font-black text-teal-800">
                         {curriculum.completedTargetMaterials} dari {curriculum.totalTargetMaterials}
                       </span>
                     </div>
                     <div className="p-2 rounded-xl bg-white border border-slate-200/70">
-                      <span className="block text-[10px] font-bold text-slate-400">Sub-Target Tercapai</span>
+                      <span className="block text-xs font-bold text-slate-500">Sub-Target Tercapai</span>
                       <span className="block text-xs sm:text-sm font-black text-slate-800">
                         {curriculum.completedChecklistItems} dari {curriculum.totalChecklistItems}
                       </span>
@@ -371,7 +371,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                     </h3>
                   </div>
                   {/* Legend */}
-                  <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
+                  <div className="flex items-center gap-3 text-xs font-medium text-slate-500">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                       <span>Kehadiran</span>
@@ -386,7 +386,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                 {/* Canvas Native SVG Line Chart */}
                 <NativeWeeklyLineChart trendData={attendance.weeklyTrend} />
 
-                <p className="text-[10px] text-slate-400 italic">
+                <p className="text-xs text-slate-500 italic">
                   * Garis menunjukkan kestabilan kehadiran dan evaluasi adab santri pada setiap pekan di bulan {period.monthName}.
                 </p>
               </div>
@@ -402,7 +402,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                       Evaluasi 6 Thobiat Luhur
                     </h3>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">
                     Predikat {character.predicate}
                   </span>
                 </div>
@@ -413,7 +413,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                   ))}
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                   <span>Rata-rata Skor Karakter:</span>
                   <span className="font-bold text-slate-800 text-xs">
                     {character.compositeScore} / 100
@@ -433,7 +433,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                       Rincian Materi Silabus {period.monthName}
                     </h3>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       Capaian pembelajaran ananda sesuai kurikulum baku jenjang {student.generationName}
                     </p>
                   </div>
@@ -457,7 +457,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                             {mat.category}
                           </span>
                           <span className="text-xs sm:text-sm font-bold text-slate-900">
@@ -470,7 +470,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                             {mat.checklistItems.map((chk) => (
                               <span
                                 key={chk.id}
-                                className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
                                   chk.isCompleted
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                     : 'bg-slate-50 text-slate-500 border-slate-200'
@@ -541,7 +541,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
               {/* Tanda Tangan Digital & Cap Lembaga (4 Kolom) */}
               <div className="md:col-span-4 p-4 rounded-2xl bg-white border border-slate-200/80 flex flex-col items-center justify-between text-center space-y-2">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     Diterbitkan Pada
                   </span>
                   <span className="text-xs font-bold text-slate-800 block">
@@ -551,7 +551,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
 
                 {/* Stempel & Garis Tanda Tangan Institusional */}
                 <div className="py-2 flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-emerald-300 text-emerald-700 flex flex-col items-center justify-center p-1 font-bold text-[9px] uppercase tracking-tighter opacity-80 select-none">
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-emerald-300 text-emerald-700 flex flex-col items-center justify-center p-1 font-bold text-xs uppercase tracking-tighter opacity-80 select-none">
                     <CheckCircle2 className="w-4 h-4 mb-0.5 text-emerald-600" />
                     <span>Terverifikasi</span>
                     <span className="text-[7px] text-slate-500 font-normal">SiPanji Sistem</span>
@@ -562,7 +562,7 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
                   <span className="text-xs font-black text-slate-900 block truncate">
                     {student.homeroomTeacher?.fullName || 'Wali Kelas / Pembina'}
                   </span>
-                  <span className="text-[10px] text-slate-500 block">
+                  <span className="text-xs text-slate-500 block">
                     Wali Kelas {student.className || student.generationName}
                   </span>
                 </div>
@@ -571,11 +571,11 @@ export default function EvaluationSheetClient({ studentsData }: EvaluationSheetC
           </div>
 
           {/* C. FOOTER DOKUMEN RESMI */}
-          <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-1.5 text-center sm:text-left">
+          <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-1.5 text-center sm:text-left">
             <span>
               Dokumen ini dihasilkan secara otomatis oleh <strong>Sistem Pengajian Terpadu SiPanji</strong>.
             </span>
-            <span className="text-[10px] font-semibold text-slate-500">
+            <span className="text-xs font-semibold text-slate-500">
               No. Dokumen: EVAL-{period.year}{String(period.month).padStart(2, '0')}-{student.id.slice(0, 6).toUpperCase()}
             </span>
           </div>
@@ -637,9 +637,9 @@ function CircularGauge({
         <span className="text-xl sm:text-2xl font-black text-slate-900 leading-none">
           {safePercentage}%
         </span>
-        <span className="text-[10px] font-bold text-slate-400 mt-0.5">{label}</span>
+        <span className="text-xs font-bold text-slate-500 mt-0.5">{label}</span>
       </div>
-      <span className="text-[10px] font-medium text-slate-500 mt-1">{sublabel}</span>
+      <span className="text-xs font-medium text-slate-500 mt-1">{sublabel}</span>
     </div>
   );
 }
@@ -717,7 +717,7 @@ function NativeWeeklyLineChart({ trendData }: { trendData: WeeklyTrendItem[] }) 
                 x={paddingLeft - 8}
                 y={y + 3}
                 textAnchor="end"
-                className="text-[9px] fill-slate-400 font-mono font-medium"
+                className="text-[11px] fill-slate-600 font-mono font-medium"
               >
                 {level}
               </text>
@@ -745,7 +745,7 @@ function NativeWeeklyLineChart({ trendData }: { trendData: WeeklyTrendItem[] }) 
                 x={x}
                 y={height - 8}
                 textAnchor="middle"
-                className="text-[10px] font-bold fill-slate-500"
+                className="text-[11px] font-bold fill-slate-500"
               >
                 {d.weekLabel}
               </text>
@@ -756,7 +756,7 @@ function NativeWeeklyLineChart({ trendData }: { trendData: WeeklyTrendItem[] }) 
                 x={x}
                 y={yAtt - 7}
                 textAnchor="middle"
-                className="text-[9px] font-black fill-emerald-800"
+                className="text-[11px] font-black fill-emerald-800"
               >
                 {d.attendanceRate}%
               </text>
@@ -779,7 +779,7 @@ function ThobiatProgressBar({ item }: { item: ThobiatLuhurItem }) {
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold text-slate-800">{item.label}</span>
-        <span className="font-semibold text-slate-500 text-[11px]">{item.score}%</span>
+        <span className="font-semibold text-slate-500 text-xs">{item.score}%</span>
       </div>
       <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
         <div
@@ -787,7 +787,7 @@ function ThobiatProgressBar({ item }: { item: ThobiatLuhurItem }) {
           style={{ width: `${item.score}%` }}
         />
       </div>
-      <span className="text-[10px] text-slate-400 block truncate">{item.description}</span>
+      <span className="text-xs text-slate-500 block truncate">{item.description}</span>
     </div>
   );
 }
