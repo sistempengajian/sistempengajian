@@ -139,7 +139,8 @@ prisma/client/
 .claude/config.toml
 
 # Scripts
-/scripts
+/scripts/*
+!/scripts/check-ui-guardrails.mjs
 
 #planing
 /planing

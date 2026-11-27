@@ -9,24 +9,27 @@ export interface RoleTheme {
   roleTitle: string;
   bgGradient: string;
   heroGradient: string;
+  heroNameColor: string;
+  mandalaColor: string;
   badgeClass: string;
   accentColor: string;
   accentBg: string;
   accentBorder: string;
   accentLine: string;
   hoverBorder: string;
+  primaryButtonClass: string;
   menuIconClass: string;
   cardClass: string;
 }
 
 export const COMMON_THEME = {
-  cardClass: 'bg-white/30 backdrop-blur-md border border-slate-200/50 rounded-2xl shadow-2xs',
-  cardClassPadded: 'bg-white/30 backdrop-blur-md border border-slate-200/50 rounded-2xl shadow-2xs p-4 sm:p-5',
-  cardClassHero: 'bg-white/30 backdrop-blur-md border border-slate-200/50 shadow-2xs rounded-2xl p-5 sm:p-6',
-  statCardClass: 'p-3 rounded-xl bg-white/40 border border-slate-200/50 flex items-center gap-3 transition-colors hover:bg-white/60',
+  cardClass: 'bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)]',
+  cardClassPadded: 'bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] p-4 sm:p-5',
+  cardClassHero: 'bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] p-4 sm:p-5',
+  statCardClass: 'p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 flex items-center gap-3 transition-colors hover:bg-slate-100/70',
   titleClass: 'text-lg sm:text-xl font-bold text-slate-900 tracking-tight',
   sectionTitleClass: 'text-base sm:text-lg font-bold text-slate-900 tracking-tight',
-  labelClass: 'text-xs font-semibold text-slate-400 uppercase tracking-wider',
+  labelClass: 'text-xs font-semibold text-slate-600 uppercase tracking-wider',
 };
 
 export function getRoleTheme(roleCodes: string[] = []): RoleTheme {
@@ -44,13 +47,16 @@ export function getRoleTheme(roleCodes: string[] = []): RoleTheme {
       roleTitle: 'Admin Master Sistem',
       bgGradient: 'bg-role-admin',
       heroGradient: 'from-purple-200/60 via-purple-50/30 to-transparent',
-      badgeClass: 'bg-purple-100/90 text-purple-800 border-purple-200',
+      heroNameColor: 'text-purple-800',
+      mandalaColor: '#7c3aed',
+      badgeClass: 'bg-purple-100/85 text-purple-800 border-purple-200/90',
       accentColor: 'text-purple-700',
       accentBg: 'bg-purple-50',
       accentBorder: 'border-purple-200',
       accentLine: 'border-l-purple-600',
       hoverBorder: 'hover:border-purple-300',
-      menuIconClass: 'bg-purple-50/90 text-purple-700 border border-purple-200/80 group-hover:bg-purple-100 group-hover:border-purple-300',
+      primaryButtonClass: 'bg-purple-600 hover:bg-purple-700 text-white border-transparent',
+      menuIconClass: 'bg-purple-50 text-purple-700 border border-purple-200/80 group-hover:bg-purple-100 group-hover:border-purple-300',
       cardClass: COMMON_THEME.cardClass,
     };
   }
@@ -66,13 +72,16 @@ export function getRoleTheme(roleCodes: string[] = []): RoleTheme {
       roleTitle: label,
       bgGradient: 'bg-role-pj',
       heroGradient: 'from-sky-200/60 via-sky-50/30 to-transparent',
-      badgeClass: 'bg-blue-100/90 text-blue-800 border-blue-200',
+      heroNameColor: 'text-blue-800',
+      mandalaColor: '#2563eb',
+      badgeClass: 'bg-blue-100/85 text-blue-800 border-blue-200/90',
       accentColor: 'text-blue-700',
       accentBg: 'bg-blue-50',
       accentBorder: 'border-blue-200',
       accentLine: 'border-l-blue-600',
       hoverBorder: 'hover:border-blue-300',
-      menuIconClass: 'bg-blue-50/90 text-blue-700 border border-blue-200/80 group-hover:bg-blue-100 group-hover:border-blue-300',
+      primaryButtonClass: 'bg-blue-600 hover:bg-blue-700 text-white border-transparent',
+      menuIconClass: 'bg-blue-50 text-blue-700 border border-blue-200/80 group-hover:bg-blue-100 group-hover:border-blue-300',
       cardClass: COMMON_THEME.cardClass,
     };
   }
@@ -84,13 +93,16 @@ export function getRoleTheme(roleCodes: string[] = []): RoleTheme {
       roleTitle: isWali ? 'Wali Kelas & Pengajar' : 'Pengajar / Ustadz',
       bgGradient: 'bg-role-pengajar',
       heroGradient: 'from-teal-200/60 via-teal-50/30 to-transparent',
-      badgeClass: 'bg-teal-100/90 text-teal-800 border-teal-200',
+      heroNameColor: 'text-teal-800',
+      mandalaColor: '#0d9488',
+      badgeClass: 'bg-teal-100/85 text-teal-800 border-teal-200/90',
       accentColor: 'text-teal-700',
       accentBg: 'bg-teal-50',
       accentBorder: 'border-teal-200',
       accentLine: 'border-l-teal-600',
       hoverBorder: 'hover:border-teal-300',
-      menuIconClass: 'bg-teal-50/90 text-teal-700 border border-teal-200/80 group-hover:bg-teal-100 group-hover:border-teal-300',
+      primaryButtonClass: 'bg-teal-600 hover:bg-teal-700 text-white border-transparent',
+      menuIconClass: 'bg-teal-50 text-teal-700 border border-teal-200/80 group-hover:bg-teal-100 group-hover:border-teal-300',
       cardClass: COMMON_THEME.cardClass,
     };
   }
@@ -101,30 +113,36 @@ export function getRoleTheme(roleCodes: string[] = []): RoleTheme {
       roleTitle: 'Orang Tua / Wali Santri',
       bgGradient: 'bg-role-orang-tua',
       heroGradient: 'from-indigo-200/60 via-indigo-50/30 to-transparent',
-      badgeClass: 'bg-indigo-100/90 text-indigo-800 border-indigo-200',
+      heroNameColor: 'text-indigo-800',
+      mandalaColor: '#4f46e5',
+      badgeClass: 'bg-indigo-100/85 text-indigo-800 border-indigo-200/90',
       accentColor: 'text-indigo-700',
       accentBg: 'bg-indigo-50',
       accentBorder: 'border-indigo-200',
       accentLine: 'border-l-indigo-600',
       hoverBorder: 'hover:border-indigo-300',
-      menuIconClass: 'bg-indigo-50/90 text-indigo-700 border border-indigo-200/80 group-hover:bg-indigo-100 group-hover:border-indigo-300',
+      primaryButtonClass: 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent',
+      menuIconClass: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 group-hover:bg-indigo-100 group-hover:border-indigo-300',
       cardClass: COMMON_THEME.cardClass,
     };
   }
 
-  // Default: Siswa / Santri (Campuran hijau pastel di atas dan putih di bagian bawah)
+  // Default: Siswa / Santri
   return {
     roleKey: 'SANTRI',
     roleTitle: 'Santri / Siswa',
     bgGradient: 'bg-role-santri',
     heroGradient: 'from-emerald-200/60 via-emerald-50/30 to-transparent',
-    badgeClass: 'bg-emerald-100/90 text-emerald-800 border-emerald-200',
+    heroNameColor: 'text-emerald-800',
+    mandalaColor: '#059669',
+    badgeClass: 'bg-emerald-100/85 text-emerald-800 border-emerald-200/90',
     accentColor: 'text-emerald-700',
     accentBg: 'bg-emerald-50',
     accentBorder: 'border-emerald-200',
     accentLine: 'border-l-emerald-600',
     hoverBorder: 'hover:border-emerald-300',
-    menuIconClass: 'bg-emerald-50/90 text-emerald-700 border border-emerald-200/80 group-hover:bg-emerald-100 group-hover:border-emerald-300',
+    primaryButtonClass: 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent',
+    menuIconClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 group-hover:bg-emerald-100 group-hover:border-emerald-300',
     cardClass: COMMON_THEME.cardClass,
   };
 }

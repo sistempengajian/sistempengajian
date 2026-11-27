@@ -36,8 +36,8 @@ export const viewport: Viewport = {
   themeColor: "#1773ba",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: "cover",
 };
 
@@ -47,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={`${plusJakartaSans.variable}`}>
+    <html lang="id" data-scroll-behavior="smooth" className={`${plusJakartaSans.variable}`}>
       <head>
         {process.env.NODE_ENV === "development" && (
           <script
@@ -80,7 +80,6 @@ export default function RootLayout({
           }}
         />
         <link rel="apple-touch-startup-image" href="/splash-screen.png" />
-        <link rel="preload" as="image" href="/splash-screen.png" fetchPriority="high" />
       </head>
       <body className="antialiased min-h-screen bg-white text-slate-700 flex flex-col selection:bg-emerald-100 selection:text-emerald-900">
         <ToastProvider>

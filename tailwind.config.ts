@@ -85,12 +85,27 @@ const config: Config = {
         arabic: ["var(--font-arabic)", "Traditional Arabic", "serif"],
       },
       boxShadow: {
+        "2xs": "0 1px 1px 0 rgba(15, 23, 42, 0.03)",
+        xs: "0 1px 2px 0 rgba(15, 23, 42, 0.05)",
         pastel: "0 4px 20px -2px rgba(16, 185, 129, 0.08)",
         "pastel-lg": "0 10px 25px -3px rgba(16, 185, 129, 0.12)",
         "card-soft": "0 2px 12px rgba(0, 0, 0, 0.04)",
         toast: "0 8px 30px -4px rgba(0, 0, 0, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.06)",
         modal: "0 25px 50px -12px rgba(0, 0, 0, 0.2), 0 4px 16px -4px rgba(0, 0, 0, 0.08)",
         dropdown: "0 12px 28px -4px rgba(0, 0, 0, 0.1), 0 2px 6px -1px rgba(0, 0, 0, 0.05)",
+      },
+      backdropBlur: {
+        xs: "2px",
+      },
+      spacing: {
+        "4.5": "1.125rem",
+        "13": "3.25rem",
+      },
+      scale: {
+        "98": "0.98",
+      },
+      ringWidth: {
+        "1.5": "1.5px",
       },
       borderRadius: {
         "2xl": "1rem",
@@ -102,6 +117,7 @@ const config: Config = {
         "slide-up": "slideUp 0.3s ease-out",
         "toast-in": "toastIn 0.35s cubic-bezier(0.21, 1.02, 0.73, 1)",
         "bottom-sheet-in": "bottomSheetIn 0.3s ease-out",
+        shimmer: "shimmer 1.8s infinite",
       },
       keyframes: {
         fadeIn: {
